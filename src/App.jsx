@@ -580,8 +580,9 @@ export default function App() {
         </div>
       )}
 
-      {/* カスタムCSS（Tailwindの標準以外のもの） */}
+      {/* カスタムCSS（Tailwindの強制読み込みを含む） */}
       <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
         body { margin: 0; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
