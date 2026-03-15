@@ -1,121 +1,149 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { 
+  LayoutDashboard, Send, Map, Database, Loader2, 
+  Clock, Activity, CheckCircle, UserCircle 
+} from 'lucide-react';
 
-function App() {
-  const [count, setCount] = useState(0)
+// --- API層（GASとの通信窓口） ---
+const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
+
+const api = {
+  fetchEmployees: async () => {
+    if (isGAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees());
+    // PCでのテスト用ダミーデータ
+    await new Promise(r => setTimeout(r, 1000));
+    return Array.from({ length: 15 }, (_, i) => ({
+      id: `emp_${i}`,
+      name: `従業員 ${String.fromCharCode(65 + i)}`,
+      role: i % 2 === 0 ? 'イース' : 'ベス',
+      area: `第${(i % 3) + 1}エリア`
+    }));
+  },
+  createTask: async (data) => {
+    if (isGAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej).createNewTask(data));
+    await new Promise(r => setTimeout(r, 1500));
+    return { ...data, id: Date.now() };
+  }
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('request');
+  const [employees, setEmployees] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.fetchEmployees().then(data => {
+      setEmployees(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleTaskSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const assigneeId = formData.get('assignee');
+    const assignee = employees.find(emp => emp.id === assigneeId);
+    
+    const taskData = {
+      title: formData.get('title'),
+      assigneeName: assignee.name,
+      area: assignee.area,
+      status: 'todo'
+    };
+
+    setLoading(true);
+    await api.createTask(taskData);
+    setTasks(prev => [taskData, ...prev]);
+    setLoading(false);
+    setActiveTab('board');
+  };
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4">
+      <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
+      <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Synchronizing Data...</p>
+    </div>
+  );
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden">
+      {/* サイドバー */}
+      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl">
+        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+            <LayoutDashboard className="w-6 h-6 text-white" />
+          </div>
+          <span className="font-black text-white text-lg tracking-tighter uppercase">TASKMASTER</span>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        <nav className="p-4 space-y-2 mt-4">
+          <button onClick={() => setActiveTab('request')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'request' ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}>
+            <Send className="w-5 h-5" /> <span className="font-bold">タスク申請</span>
+          </button>
+          <button onClick={() => setActiveTab('board')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'board' ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}>
+            <Map className="w-5 h-5" /> <span className="font-bold">エリア別ボード</span>
+          </button>
+        </nav>
+      </aside>
 
-      <div className="ticks"></div>
+      {/* メイン画面 */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+          <h2 className="font-black text-slate-800 uppercase tracking-tight">
+            {activeTab === 'request' ? 'Request Task' : 'Operations Board'}
+          </h2>
+          <div className="flex items-center gap-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 uppercase tracking-widest">
+            <Database className="w-3 h-3" /> GAS Live Connected
+          </div>
+        </header>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        <div className="flex-1 overflow-auto p-8">
+          {activeTab === 'request' ? (
+            <div className="max-w-2xl mx-auto bg-white p-10 rounded-3xl border border-slate-200 shadow-xl">
+              <h3 className="text-2xl font-black text-slate-800 mb-6 uppercase">New Task Request</h3>
+              <form onSubmit={handleTaskSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assignee</label>
+                  <select name="assignee" required className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold">
+                    <option value="">担当者を選択...</option>
+                    {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.area} / {e.role})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Task Title</label>
+                  <input name="title" required type="text" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 font-bold" placeholder="例: 月次レポート提出" />
+                </div>
+                <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black hover:bg-indigo-600 transition-all shadow-xl">
+                  SUBMIT TO SPREADSHEET
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-6 h-full">
+              {['TODO', 'IN PROGRESS', 'DONE'].map(status => (
+                <div key={status} className="bg-slate-200/50 rounded-3xl border border-slate-200 p-5 flex flex-col">
+                  <h4 className="font-black text-[11px] text-slate-400 mb-4 px-2 tracking-widest uppercase">{status}</h4>
+                  <div className="space-y-4">
+                    {tasks.map((t, i) => (
+                      <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p className="font-black text-slate-800 mb-2">{t.title}</p>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
+                          <UserCircle className="w-3 h-3" /> {t.assigneeName} ({t.area})
+                        </div>
+                      </div>
+                    ))}
+                    {tasks.length === 0 && <div className="p-8 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-300 rounded-2xl uppercase">No tasks found</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      </main>
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
+        body { margin: 0; }
+      `}} />
+    </div>
+  );
 }
-
-export default App
