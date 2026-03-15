@@ -30,7 +30,6 @@ const isGAS = typeof google !== 'undefined' && google.script && google.script.ru
 const api = {
   fetchEmployees: async () => {
     if (isGAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees());
-    // Canvasプレビュー用のモック
     await new Promise(r => setTimeout(r, 600));
     return [
       { name: '日下リュタ', email: 'r-kusaka@okamoto-group.co.jp', team: 'DX', brand: '両方', role: 'TMG', area: '第7エリア', territory: '1', stores: ['経堂', '草加'] },
@@ -42,7 +41,7 @@ const api = {
   fetchTasksForUser: async (userEmail) => {
     if (isGAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej).getTasksForUser(userEmail));
     await new Promise(r => setTimeout(r, 1000));
-    return []; // モック時は空
+    return [];
   },
   createTask: async (taskData) => {
     if (isGAS) return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej).createNewTask(taskData));
@@ -75,11 +74,18 @@ export default function App() {
   const [taskTab, setTaskTab] = useState('active');
   const [completingIds, setCompletingIds] = useState([]); 
 
-  // 新規投稿用
   const [selectedTags, setSelectedTags] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // --- 【修正ポイント】ここで最新のTailwindを動的に読み込みます！ ---
+    if (!document.getElementById('tailwindcss-cdn')) {
+      const script = document.createElement('script');
+      script.id = 'tailwindcss-cdn';
+      script.src = 'https://cdn.tailwindcss.com';
+      document.head.appendChild(script);
+    }
+
     api.fetchEmployees().then(employees => {
       setAllEmployees(employees);
       const savedEmail = localStorage.getItem('taskmaster_user_email');
@@ -98,21 +104,18 @@ export default function App() {
     });
   }, []);
 
-  // タスクの取得とダッシュボードの計算
   const refreshTasks = () => {
     if (currentUser) {
       setTasksLoading(true);
       api.fetchTasksForUser(currentUser.email).then(data => {
         setTasks(data);
-        
-        // ダッシュボード用の数値を計算
         const active = data.filter(t => !t.completed).length;
         const total = data.length;
         const progress = total === 0 ? 0 : Math.round(((total - active) / total) * 100);
         
         setDashboardData({
           myActiveTasks: active,
-          teamActiveTasks: active, // 現状は自分のタスクを表示
+          teamActiveTasks: active, 
           requestedTasksProgress: progress
         });
         
@@ -159,7 +162,6 @@ export default function App() {
     }
   };
 
-  // --- タスクの完了処理（本番用） ---
   const handleCompleteTask = async (taskId) => {
     if (!window.confirm('このタスクを完了にしますか？')) return;
     setCompletingIds(prev => [...prev, taskId]);
@@ -169,7 +171,7 @@ export default function App() {
       setTimeout(() => {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: true } : t));
         setCompletingIds(prev => prev.filter(id => id !== taskId));
-        refreshTasks(); // ダッシュボードの進捗を更新
+        refreshTasks(); 
       }, 400); 
     } catch (e) {
       alert('エラーが発生しました。もう一度お試しください。');
@@ -177,7 +179,6 @@ export default function App() {
     }
   };
 
-  // --- 新規投稿の送信処理（本番用） ---
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (selectedTags.length === 0) {
@@ -188,7 +189,6 @@ export default function App() {
     setIsSubmitting(true);
     const formData = new FormData(e.target);
     
-    // 選ばれたタグに該当する社員のメールアドレスを抽出
     const targetEmails = new Set();
     allEmployees.forEach(emp => {
       if (selectedTags.includes(emp.area) || 
@@ -238,7 +238,6 @@ export default function App() {
     return true;
   });
 
-  // 全体をラップしてカスタムCSSを適用するコンポーネント
   return (
     <Fragment>
       {authStep === 'loading' && (
@@ -580,9 +579,8 @@ export default function App() {
         </div>
       )}
 
-      {/* カスタムCSS（Tailwindの強制読み込みを含む） */}
+      {/* カスタムCSS */}
       <style dangerouslySetInnerHTML={{__html: `
-        @import url('https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css');
         body { margin: 0; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
