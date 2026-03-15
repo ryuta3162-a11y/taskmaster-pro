@@ -18,7 +18,7 @@ const Icon = ({ name }) => {
     clock: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
     send: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
     check: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-    alertTriangle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>,
+    refresh: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>,
     logout: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
   };
   return icons[name] || null;
@@ -29,19 +29,16 @@ const isGAS = typeof google !== 'undefined' && google.script && google.script.ru
 
 const api = {
   fetchEmployees: () => new Promise((res, rej) => {
-    if (!isGAS) {
-      // ローカルテスト用モックデータ (10人分)
-      return setTimeout(() => res([
-        { name: '日下リュタ', email: 'r-kusaka@okamoto-group.co.jp', team: 'DX', brand: '両方', role: 'TMG', area: '第7エリア', stores: ['経堂', '草加'] },
-        { name: '店長 A子', email: 'r-kusaka+smg1@okamoto-group.co.jp', team: '店舗運営', brand: 'JoyFit', role: 'SMG', area: '第1エリア', stores: ['経堂'] },
-        { name: '役員 H', email: 'r-kusaka+ir@okamoto-group.co.jp', team: '経営陣', brand: '両方', role: 'IR', area: '全エリア', stores: ['全店'] }
-      ]), 600);
-    }
+    if (!isGAS) return setTimeout(() => res([]), 600);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees();
   }),
   fetchTasksForUser: (email) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getTasksForUser(email);
+  }),
+  syncGoogleTasks: (email) => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).syncTasksToGoogleTasks(email);
   }),
   createTask: (data) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
@@ -67,6 +64,7 @@ export default function App() {
 
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [taskFilter, setTaskFilter] = useState('ALL');
   const [taskTab, setTaskTab] = useState('active');
   const [completingIds, setCompletingIds] = useState([]); 
@@ -97,13 +95,16 @@ export default function App() {
     }).catch(() => setAuthStep('login'));
   }, []);
 
-  // 2. データ更新
-  const refreshTasks = () => {
+  // 2. データ取得 & Google ToDo同期
+  const refreshTasks = (shouldSync = false) => {
     if (!currentUser) return;
     setTasksLoading(true);
+    
+    // スプレッドシートからタスク取得
     api.fetchTasksForUser(currentUser.email).then(data => {
       const taskList = Array.isArray(data) ? data : [];
       setTasks(taskList);
+      
       const active = taskList.filter(t => !t.completed).length;
       const total = taskList.length;
       setDashboardData({
@@ -112,17 +113,27 @@ export default function App() {
         requestedTasksProgress: total === 0 ? 0 : Math.round(((total - active) / total) * 100)
       });
       setTasksLoading(false);
-    }).catch(() => {
-      setTasks([]);
-      setTasksLoading(false);
-    });
+
+      // 同期が必要な場合
+      if (shouldSync && active > 0) {
+        setIsSyncing(true);
+        api.syncGoogleTasks(currentUser.email).then(() => {
+          setIsSyncing(false);
+        }).catch(() => setIsSyncing(false));
+      }
+    }).catch(() => setTasksLoading(false));
   };
 
+  // 初回表示時とタブ切り替え時に更新
   useEffect(() => {
-    if (authStep === 'ready') refreshTasks();
+    if (authStep === 'ready') {
+      // リストチェック画面に入った時だけ同期も行う
+      const needSync = (activeTab === 'checklist');
+      refreshTasks(needSync);
+    }
   }, [authStep, currentUser, activeTab]);
 
-  // 3. メインタブの絞り込み
+  // --- ヘルパー ---
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
       const storeMatch = taskFilter === 'ALL' || t.store === taskFilter;
@@ -137,7 +148,7 @@ export default function App() {
     )).sort();
   }, [allEmployees]);
 
-  // --- ハンドラー系 ---
+  // --- ハンドラー ---
   const handleLoginSearch = (e) => {
     e.preventDefault();
     const user = allEmployees.find(emp => emp.email === inputEmail.trim());
@@ -159,7 +170,7 @@ export default function App() {
   };
 
   const handleCompleteTask = async (taskId) => {
-    if (!window.confirm('完了にしますか？')) return;
+    if (!window.confirm('このタスクを完了にしますか？')) return;
     setCompletingIds(prev => [...prev, taskId]);
     try {
       await api.completeTask(taskId, currentUser.email);
@@ -172,7 +183,7 @@ export default function App() {
 
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedTags.length) return alert('配信先を選んでください。');
+    if (!selectedTags.length) return alert('配信先を選択してください。');
     setIsSubmitting(true);
     const formData = new FormData(e.target);
     const targetEmails = new Set();
@@ -194,7 +205,6 @@ export default function App() {
       alert('配信しました！');
       setSelectedTags([]);
       setActiveTab('home');
-      refreshTasks();
     } catch (error) { alert('送信失敗'); } 
     finally { setIsSubmitting(false); }
   };
@@ -202,7 +212,7 @@ export default function App() {
   if (authStep === 'loading') return (
     <div className="h-screen flex items-center justify-center bg-slate-900 flex-col gap-4 text-white">
       <div className="text-blue-500"><Icon name="loader" /></div>
-      <p className="font-bold tracking-widest text-sm">LOADING SYSTEM...</p>
+      <p className="font-black tracking-widest text-xs uppercase animate-pulse">Initializing System...</p>
     </div>
   );
 
@@ -210,14 +220,15 @@ export default function App() {
     <Fragment>
       {authStep === 'login' && (
         <div className="h-screen bg-slate-900 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] p-10 max-w-md w-full shadow-2xl">
+          <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none rotate-12 scale-150"><Icon name="list" /></div>
             <div className="w-16 h-16 bg-slate-900 rounded-2xl mx-auto flex items-center justify-center text-white mb-6 shadow-lg"><Icon name="list" /></div>
-            <h2 className="text-2xl font-black text-slate-800 mb-2 text-center tracking-tight">TODOリスト</h2>
-            <p className="text-slate-500 text-sm font-bold mb-8 text-center">メールアドレスを入力してください。</p>
+            <h2 className="text-3xl font-black text-slate-800 mb-2 text-center tracking-tighter">TODOマスター</h2>
+            <p className="text-slate-400 text-sm font-bold mb-8 text-center leading-relaxed">業務タスクを一元管理。ログインして<br/>最新の状況を確認しましょう。</p>
             <form onSubmit={handleLoginSearch} className="space-y-6">
-              <input type="email" required value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" placeholder="xxx@okamoto-group.co.jp" />
-              {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
-              <button type="submit" className="w-full bg-slate-900 text-white font-black py-4 rounded-xl hover:bg-blue-600 transition-all shadow-xl">次へ</button>
+              <input type="email" required value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-800 transition-all" placeholder="xxx@okamoto-group.co.jp" />
+              {loginError && <p className="text-red-500 text-xs font-black text-center animate-bounce">{loginError}</p>}
+              <button type="submit" className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl hover:bg-blue-600 transition-all shadow-xl hover:-translate-y-1">ログイン</button>
             </form>
           </div>
         </div>
@@ -225,13 +236,13 @@ export default function App() {
 
       {authStep === 'confirm' && (
         <div className="h-screen bg-slate-900 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] p-10 max-w-md w-full text-center">
-            <div className="w-20 h-20 bg-blue-600 rounded-full mx-auto flex items-center justify-center text-white mb-4 shadow-lg"><Icon name="user" /></div>
-            <p className="text-blue-600 font-black text-xs uppercase mb-1">{tempUser?.role}</p>
-            <h2 className="text-2xl font-black text-slate-800 mb-6 tracking-tight">{tempUser?.name}</h2>
+          <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full text-center shadow-2xl">
+            <div className="w-24 h-24 bg-blue-600 rounded-full mx-auto flex items-center justify-center text-white mb-6 shadow-xl"><Icon name="user" /></div>
+            <p className="text-blue-600 font-black text-xs uppercase tracking-widest mb-1">{tempUser?.role}</p>
+            <h2 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter">{tempUser?.name}</h2>
             <div className="space-y-3">
-              <button onClick={handleConfirmLogin} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl hover:bg-blue-600 transition-all shadow-xl">ログインする</button>
-              <button onClick={() => setAuthStep('login')} className="w-full text-slate-400 font-bold text-sm">戻る</button>
+              <button onClick={handleConfirmLogin} className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl hover:bg-blue-600 transition-all shadow-xl">このアカウントで開始</button>
+              <button onClick={() => setAuthStep('login')} className="w-full text-slate-400 font-black text-sm uppercase tracking-widest pt-2">戻る</button>
             </div>
           </div>
         </div>
@@ -242,135 +253,174 @@ export default function App() {
           {/* サイドバー */}
           <aside className={`bg-slate-900 text-slate-300 flex flex-col shadow-2xl transition-all duration-300 overflow-hidden z-50 absolute lg:relative h-full ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
             <div className="h-16 border-b border-slate-800 flex items-center justify-between px-6">
-              <span className="font-black text-white tracking-tighter">Account</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 p-1"><Icon name="x" /></button>
+              <span className="font-black text-white tracking-tighter uppercase text-[10px]">Account Profile</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 p-2 hover:text-white transition-colors"><Icon name="x" /></button>
             </div>
-            <div className="flex flex-col items-center p-6 flex-1 overflow-y-auto">
-              <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-white mb-4 shadow-inner"><Icon name="user" /></div>
-              <p className="text-white font-black text-lg">{currentUser?.name}</p>
-              <div className="mt-6 w-full space-y-3">
-                <div className="bg-slate-800 rounded-xl p-3 text-center border border-slate-700">
-                  <p className="text-[10px] text-slate-400 font-black uppercase mb-1">エリア / ブランド</p>
-                  <p className="text-sm font-bold text-white">{currentUser?.area} / {currentUser?.brand}</p>
+            <div className="flex flex-col items-center p-8 flex-1 overflow-y-auto">
+              <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-white mb-4 shadow-inner ring-4 ring-slate-800/50"><Icon name="user" /></div>
+              <p className="text-white font-black text-lg tracking-tight">{currentUser?.name}</p>
+              <div className="mt-8 w-full space-y-3">
+                <div className="bg-slate-800/50 rounded-2xl p-4 text-center border border-slate-700/50">
+                  <p className="text-[10px] text-slate-500 font-black uppercase mb-1 tracking-widest">Area / Brand</p>
+                  <p className="text-sm font-bold text-slate-200">{currentUser?.area} / {currentUser?.brand}</p>
                 </div>
               </div>
             </div>
             <div className="p-4 border-t border-slate-800">
-              <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-red-600 hover:text-white text-slate-400 rounded-xl transition-colors font-bold text-sm">
-                <Icon name="logout" /> ログアウト
+              <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-slate-800 hover:bg-red-600 hover:text-white text-slate-400 rounded-2xl transition-all font-black text-xs uppercase tracking-widest">
+                <Icon name="logout" /> Sign Out
               </button>
             </div>
           </aside>
 
           <main className="flex-1 flex flex-col overflow-hidden relative">
-            <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center px-6 absolute top-0 w-full z-10 gap-4">
-              <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-slate-100"><Icon name="menu" /></button>
+            <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center px-6 absolute top-0 w-full z-10 gap-4">
+              <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:text-blue-600 transition-colors p-2 rounded-xl hover:bg-slate-50"><Icon name="menu" /></button>
               {activeTab !== 'home' && (
-                 <button onClick={() => setActiveTab('home')} className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-blue-600 py-2 px-3 rounded-lg hover:bg-slate-100 -ml-2"><Icon name="chevronLeft" /> 戻る</button>
+                 <button onClick={() => setActiveTab('home')} className="flex items-center gap-1 text-xs font-black text-slate-400 hover:text-blue-600 transition-all py-2 px-3 rounded-xl hover:bg-slate-50 -ml-2"><Icon name="chevronLeft" /> BACK</button>
               )}
-              <h2 className="font-black text-slate-800 tracking-tight flex-1">
-                {activeTab === 'home' ? 'TODOリスト' : activeTab === 'request' ? '新規投稿' : activeTab === 'checklist' ? 'リストチェック' : '開発中'}
+              <h2 className="font-black text-slate-800 tracking-tighter flex-1">
+                {activeTab === 'home' ? 'DASHBOARD' : activeTab === 'request' ? 'NEW REQUEST' : activeTab === 'checklist' ? 'TASK CHECK' : 'SETTING'}
               </h2>
+              {/* 同期ステータス表示 */}
+              {isSyncing && (
+                <div className="flex items-center gap-2 text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 animate-pulse">
+                  <Icon name="refresh" /> <span className="hidden md:inline">GOOGLE TODO 同期中</span>
+                </div>
+              )}
             </header>
 
-            <div className="flex-1 overflow-auto p-4 md:p-8 pt-20">
+            <div className="flex-1 overflow-auto p-4 md:p-10 pt-20">
               {activeTab === 'home' ? (
-                <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
+                <div className="max-w-5xl mx-auto animate-fade-in space-y-8">
                   {/* ダッシュボード */}
-                  <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6 items-center">
-                    <div className="flex-1 w-full text-center md:text-left">
-                       <h3 className="text-xl font-black text-slate-800">お疲れ様です、{currentUser?.name}さん。</h3>
-                       <p className="text-slate-500 text-sm font-bold mt-2">未完了タスク: <span className="text-red-500 font-black">{dashboardData.myActiveTasks}件</span></p>
+                  <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8 items-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                    <div className="flex-1 w-full text-center md:text-left z-10">
+                       <h3 className="text-2xl font-black text-slate-800 tracking-tighter">お疲れ様です、{currentUser?.name}さん。</h3>
+                       <p className="text-slate-400 text-sm font-bold mt-2">現在、対応を待っているタスクが <span className="text-red-500 font-black">{dashboardData.myActiveTasks}件</span> あります。</p>
                     </div>
-                    <div className="flex gap-4 w-full md:w-auto">
-                       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-1 md:w-44 text-center md:text-left">
-                         <p className="text-[10px] font-black text-slate-400 uppercase mb-2">完了率</p>
-                         <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-slate-200 rounded-full h-2"><div className="bg-emerald-500 h-2 rounded-full transition-all duration-1000" style={{ width: `${dashboardData.requestedTasksProgress}%` }}></div></div>
-                            <span className="text-sm font-black text-slate-800">{dashboardData.requestedTasksProgress}%</span>
+                    <div className="flex gap-4 w-full md:w-auto z-10">
+                       <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 flex-1 md:w-48 text-center md:text-left shadow-inner">
+                         <p className="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Your Progress</p>
+                         <div className="flex items-center gap-4">
+                            <div className="flex-1 bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                              <div className="bg-emerald-500 h-full transition-all duration-1000 ease-out" style={{ width: `${dashboardData.requestedTasksProgress}%` }}></div>
+                            </div>
+                            <span className="text-lg font-black text-slate-800">{dashboardData.requestedTasksProgress}%</span>
                          </div>
                        </div>
                     </div>
                   </div>
+
                   {/* メインメニュー */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <button onClick={() => setActiveTab('request')} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-2xl hover:border-blue-200 transition-all group text-left">
-                      <div className="w-12 h-12 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><Icon name="plus" /></div>
-                      <h4 className="text-lg md:text-xl font-black text-slate-800 mb-2">新規投稿</h4>
-                      <p className="text-slate-500 text-xs font-bold leading-relaxed">新しくタスクを作成し配信します。</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <button onClick={() => setActiveTab('request')} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all group text-left">
+                      <div className="w-14 h-14 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner"><Icon name="plus" /></div>
+                      <h4 className="text-xl font-black text-slate-800 mb-2 tracking-tighter">新規投稿</h4>
+                      <p className="text-slate-400 text-sm font-bold leading-relaxed">タスクを配信し、関係者のGoogle ToDoへ通知を送ります。</p>
                     </button>
-                    <button onClick={() => setActiveTab('repost')} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:opacity-75 transition-all text-left">
-                      <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4"><Icon name="copy" /></div>
-                      <h4 className="text-lg md:text-xl font-black text-slate-400 mb-2">再投稿</h4>
-                      <p className="text-slate-300 text-xs font-bold leading-relaxed">過去タスクの複製。</p>
+                    <button className="bg-white p-8 rounded-[2.5rem] border border-slate-50 opacity-50 grayscale cursor-not-allowed transition-all text-left">
+                      <div className="w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mb-6"><Icon name="copy" /></div>
+                      <h4 className="text-xl font-black text-slate-300 mb-2 tracking-tighter">再投稿 (準備中)</h4>
+                      <p className="text-slate-200 text-sm font-bold leading-relaxed">過去タスクの複製機能。</p>
                     </button>
-                    <button onClick={() => setActiveTab('scheduled')} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:opacity-75 transition-all text-left">
-                      <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4"><Icon name="calendar" /></div>
-                      <h4 className="text-lg md:text-xl font-black text-slate-400 mb-2">定期配信</h4>
-                      <p className="text-slate-300 text-xs font-bold leading-relaxed">ルーチン管理。</p>
+                    <button className="bg-white p-8 rounded-[2.5rem] border border-slate-50 opacity-50 grayscale cursor-not-allowed transition-all text-left">
+                      <div className="w-14 h-14 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mb-6"><Icon name="calendar" /></div>
+                      <h4 className="text-xl font-black text-slate-300 mb-2 tracking-tighter">定期配信 (準備中)</h4>
+                      <p className="text-slate-200 text-sm font-bold leading-relaxed">ルーチンタスクの自動管理機能。</p>
                     </button>
-                    <button onClick={() => setActiveTab('checklist')} className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-2xl hover:border-blue-200 transition-all group text-left relative overflow-hidden">
-                      <div className="w-12 h-12 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><Icon name="list" /></div>
-                      <h4 className="text-lg md:text-xl font-black text-slate-800 mb-2">リストチェック</h4>
-                      <p className="text-slate-500 text-xs font-bold leading-relaxed">割り当てられたタスクの確認。</p>
-                      {dashboardData.myActiveTasks > 0 && <div className="absolute top-6 right-6 bg-red-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg">未完了 {dashboardData.myActiveTasks}</div>}
+                    <button onClick={() => setActiveTab('checklist')} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all group text-left relative overflow-hidden">
+                      <div className="w-14 h-14 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner"><Icon name="list" /></div>
+                      <h4 className="text-xl font-black text-slate-800 mb-2 tracking-tighter">リストチェック</h4>
+                      <p className="text-slate-400 text-sm font-bold leading-relaxed">自分宛タスクの確認、資料閲覧、完了報告を行います。</p>
+                      {dashboardData.myActiveTasks > 0 && <div className="absolute top-8 right-8 bg-red-500 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg animate-pulse tracking-widest uppercase">Unfinished {dashboardData.myActiveTasks}</div>}
                     </button>
                   </div>
                 </div>
               ) : activeTab === 'request' ? (
-                <div className="max-w-3xl mx-auto bg-white p-6 md:p-10 rounded-[2rem] border border-slate-200 shadow-xl animate-fade-in">
-                  <h3 className="text-2xl font-black text-slate-800 mb-8 tracking-tighter">タスクの配信</h3>
-                  <form onSubmit={handleTaskSubmit} className="space-y-6">
+                <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-100 shadow-xl animate-fade-in">
+                  <h3 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter uppercase">Task Broadcast</h3>
+                  <form onSubmit={handleTaskSubmit} className="space-y-8">
                     <div>
-                      <label className="text-xs font-black text-slate-400 uppercase mb-2 block">依頼内容</label>
-                      <textarea name="content" required rows="4" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold" placeholder="内容を入力してください"></textarea>
+                      <label className="text-[10px] font-black text-slate-400 uppercase mb-3 block tracking-[0.2em]">Instruction / 依頼内容</label>
+                      <textarea name="content" required rows="4" className="w-full p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] outline-none focus:border-blue-500 font-bold text-slate-800 transition-all shadow-inner" placeholder="具体的な指示内容を入力してください"></textarea>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <input name="deadline" type="date" required className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none" />
-                      <input name="url1" type="url" className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none" placeholder="添付URL (任意)" />
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase mb-3 block tracking-[0.2em]">Deadline / 期限</label>
+                        <input name="deadline" type="date" required className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-800 shadow-inner" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase mb-3 block tracking-[0.2em]">Material Link / 資料URL</label>
+                        <input name="url1" type="url" className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-800 shadow-inner" placeholder="https://..." />
+                      </div>
                     </div>
-                    <div className="bg-slate-50 p-6 rounded-2xl border-2 border-slate-100">
-                      <p className="text-xs font-bold text-slate-500 mb-4">対象エリア・店舗を選択（タグ）</p>
+                    <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-slate-100 shadow-inner">
+                      <p className="text-[10px] font-black text-slate-400 uppercase mb-5 tracking-[0.2em]">Assign Targets / 配信先のタグ</p>
                       <div className="flex flex-wrap gap-2">
                         {availableTags.map(tag => (
-                          <button key={tag} type="button" onClick={() => setSelectedTags(p => p.includes(tag) ? p.filter(t=>t!==tag) : [...p, tag])} className={`px-4 py-2 rounded-full font-black text-sm border-2 transition-all ${selectedTags.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}># {tag}</button>
+                          <button key={tag} type="button" onClick={() => setSelectedTags(p => p.includes(tag) ? p.filter(t=>t!==tag) : [...p, tag])} className={`px-5 py-2.5 rounded-full font-black text-xs border-2 transition-all ${selectedTags.includes(tag) ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-105' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-600'}`}># {tag}</button>
                         ))}
                       </div>
                     </div>
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 text-white font-black py-5 rounded-2xl hover:bg-blue-600 transition-all shadow-xl">
-                      {isSubmitting ? '送信中...' : 'この内容で配信する'}
+                    <button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 text-white font-black py-6 rounded-3xl hover:bg-blue-600 transition-all shadow-2xl flex items-center justify-center gap-4 group">
+                      {isSubmitting ? <span className="animate-spin text-2xl"><Icon name="loader" /></span> : <Icon name="send" />}
+                      <span className="tracking-widest uppercase text-sm">{isSubmitting ? 'Processing...' : 'Broadcast Task'}</span>
                     </button>
                   </form>
                 </div>
               ) : activeTab === 'checklist' ? (
-                <div className="max-w-4xl mx-auto h-full flex flex-col animate-fade-in">
-                  <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
-                    <button onClick={() => setTaskFilter('ALL')} className={`px-4 py-2 rounded-full text-xs font-black border-2 transition-all ${taskFilter === 'ALL' ? 'bg-slate-800 text-white' : 'bg-white text-slate-400 border-slate-200'}`}>すべて</button>
-                    {currentUser?.stores?.map(s => <button key={s} onClick={() => setTaskFilter(s)} className={`px-4 py-2 rounded-full text-xs font-black border-2 transition-all ${taskFilter === s ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border-slate-200'}`}>{s}</button>)}
+                <div className="max-w-5xl mx-auto h-full flex flex-col animate-fade-in">
+                  {/* 店舗フィルタ */}
+                  <div className="flex gap-2 overflow-x-auto pb-6 mb-4 no-scrollbar">
+                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-xs font-black border-2 transition-all ${taskFilter === 'ALL' ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-100'}`}>ALL STORES</button>
+                    {currentUser?.stores?.map(s => <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-xs font-black border-2 transition-all ${taskFilter === s ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-100'}`}>{s.toUpperCase()}</button>)}
                   </div>
-                  <div className="flex bg-slate-200 p-1 rounded-xl mb-6 w-max">
-                    <button onClick={() => setTaskTab('active')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${taskTab === 'active' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>未完了</button>
-                    <button onClick={() => setTaskTab('completed')} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${taskTab === 'completed' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>完了済み</button>
+
+                  {/* 未完了/完了切り替え */}
+                  <div className="flex bg-slate-200/50 p-1.5 rounded-2xl mb-8 w-max shadow-inner">
+                    <button onClick={() => setTaskTab('active')} className={`px-10 py-3 rounded-xl text-xs font-black transition-all ${taskTab === 'active' ? 'bg-white shadow-md text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>ACTIVE</button>
+                    <button onClick={() => setTaskTab('completed')} className={`px-10 py-3 rounded-xl text-xs font-black transition-all ${taskTab === 'completed' ? 'bg-white shadow-md text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>COMPLETED</button>
                   </div>
-                  <div className="space-y-4">
+
+                  {/* タスクリスト */}
+                  <div className="space-y-6 pb-20">
                     {tasksLoading ? (
-                      <div className="space-y-4 animate-pulse"><div className="h-24 bg-slate-200 rounded-3xl"></div><div className="h-24 bg-slate-200 rounded-3xl"></div></div>
+                      <div className="space-y-6 animate-pulse">
+                        {[1,2,3].map(n => <div key={n} className="h-32 bg-white border border-slate-100 rounded-[2rem]"></div>)}
+                      </div>
                     ) : filteredTasks.length === 0 ? (
-                      <div className="py-20 text-center text-slate-300 font-bold tracking-tighter uppercase"><Icon name="check" /><p className="mt-2">No Tasks Found</p></div>
+                      <div className="py-32 text-center flex flex-col items-center gap-6 opacity-20 font-black uppercase tracking-[0.3em]">
+                        <div className="w-24 h-24 border-8 border-slate-300 rounded-full flex items-center justify-center text-4xl"><Icon name="check" /></div>
+                        <p>No Records</p>
+                      </div>
                     ) : filteredTasks.map(task => (
-                      <div key={task.id} className={`bg-white border rounded-3xl p-6 flex gap-4 transition-all duration-500 ${completingIds.includes(task.id) ? 'opacity-0 translate-x-12 scale-90' : 'shadow-sm border-slate-100 hover:shadow-md'}`}>
+                      <div key={task.id} className={`bg-white border rounded-[2.5rem] p-8 md:p-10 flex flex-col md:flex-row gap-8 transition-all duration-700 ${completingIds.includes(task.id) ? 'opacity-0 translate-x-32 rotate-2 scale-90' : 'shadow-sm border-slate-50 hover:shadow-xl hover:border-blue-50'}`}>
                         <div className="flex-1">
-                          <p className="text-[10px] font-black text-blue-500 uppercase mb-2 tracking-widest">{task.sender} からの依頼</p>
-                          <h3 className={`font-bold text-slate-800 leading-relaxed ${task.completed ? 'line-through opacity-50' : ''}`}>{task.content}</h3>
+                          <div className="flex items-center gap-3 mb-4">
+                            <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-lg tracking-widest uppercase">{task.sender}</span>
+                            <span className="text-[10px] text-slate-300 font-black tracking-widest uppercase">Request</span>
+                          </div>
+                          <h3 className={`text-lg font-bold text-slate-800 leading-relaxed ${task.completed ? 'line-through opacity-40' : ''}`}>{task.content}</h3>
                           {!task.completed && (
-                            <div className="flex gap-4 mt-4 items-center">
-                              <span className="text-xs font-black bg-slate-100 text-slate-500 px-3 py-1 rounded-lg">DL: {task.deadline}</span>
-                              {task.url && <a href={task.url} target="_blank" className="text-xs font-black text-blue-600 flex items-center gap-1"><Icon name="link" /> 資料を開く</a>}
+                            <div className="flex flex-wrap gap-4 mt-6 items-center">
+                              <div className={`flex flex-col px-4 py-2 rounded-2xl border-2 ${task.daysRemaining <= 0 ? 'bg-red-50 border-red-100 text-red-500' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                <span className="text-[8px] font-black uppercase tracking-widest mb-1">Due Date</span>
+                                <span className="text-sm font-black tracking-tight">{task.deadline}</span>
+                              </div>
+                              {task.url && (
+                                <a href={task.url} target="_blank" className="bg-slate-900 text-white text-[10px] font-black px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/10">
+                                  <Icon name="link" /> VIEW DOCUMENT
+                                </a>
+                              )}
                             </div>
                           )}
                         </div>
                         {!task.completed && (
-                          <button onClick={() => handleCompleteTask(task.id)} className="w-14 h-14 rounded-full border-2 border-slate-200 text-slate-200 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white transition-all flex items-center justify-center shadow-inner"><Icon name="check" /></button>
+                          <button onClick={() => handleCompleteTask(task.id)} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-slate-50 text-slate-100 hover:bg-emerald-500 hover:border-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-inner group">
+                            <span className="group-hover:scale-125 transition-transform"><Icon name="check" /></span>
+                          </button>
                         )}
                       </div>
                     ))}
@@ -383,12 +433,12 @@ export default function App() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
-        body { margin: 0; background: #f8fafc; font-family: 'Inter', sans-serif; }
+        body { margin: 0; background: #f8fafc; font-family: 'Inter', 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .animate-spin { animation: spin 1s linear infinite; }
+        .animate-spin { animation: spin 1.5s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}} />
     </Fragment>
   );
