@@ -30,14 +30,21 @@ const Icon = ({ name }) => {
 };
 
 // --- 入力規則データ ---
-const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
-const BRANDS = ['JoyFit', 'FIT365', '両方'];
+const TEAMS = [
+  'QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 
+  'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 
+  'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'
+];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
 
-// ★修正：第7エリアも「テリトリー3」まで表示されるように対応
+// 第7エリアも「テリトリー3」まで表示されるように対応
 const getTerritories = (area) => {
-  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
-  if (['第1エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
+  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) {
+    return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
+  }
+  if (['第1エリア'].includes(area)) {
+    return ['テリトリー1', 'テリトリー2'];
+  }
   return ['テリトリー1', 'テリトリー2']; 
 };
 
@@ -66,10 +73,6 @@ const api = {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getTasksForUser(email);
   }),
-  syncGoogleTasks: (email) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).syncTasksToGoogleTasks(email);
-  }),
   createTask: (data) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).createNewTask(data);
@@ -90,8 +93,8 @@ export default function App() {
   const [allEmployees, setAllEmployees] = useState([]);
   const [allStores, setAllStores] = useState([]);
 
-  // 新規登録用ステート
-  const [regData, setRegData] = useState({ name: '', team: [], brand: '', area: [], territory: {}, stores: [] });
+  // 新規登録用ステート（ブランド項目は削除済み）
+  const [regData, setRegData] = useState({ name: '', team: [], area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -99,7 +102,6 @@ export default function App() {
 
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [taskFilter, setTaskFilter] = useState('ALL');
   const [taskTab, setTaskTab] = useState('active');
 
@@ -108,6 +110,16 @@ export default function App() {
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
 
+  // URLからタブパラメータを取得して初期表示を切り替える（Chat・メール連携用）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['home', 'request', 'repost', 'scheduled', 'checklist'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
+  // 初期データの取得
   useEffect(() => {
     if (!document.getElementById('tailwindcss-cdn')) {
       const script = document.createElement('script');
@@ -124,6 +136,7 @@ export default function App() {
         
         const savedEmail = localStorage.getItem('taskmaster_user_email');
         const user = emps.find(e => e.email === savedEmail);
+        
         if (user) {
           setCurrentUser(user);
           setAuthStep('ready');
@@ -134,7 +147,8 @@ export default function App() {
       .catch(() => setAuthStep('login'));
   }, []);
 
-  const refreshTasks = (shouldSync = false) => {
+  // タスクの再取得
+  const refreshTasks = () => {
     if (!currentUser) return;
     setTasksLoading(true);
     api.fetchTasksForUser(currentUser.email).then(data => {
@@ -148,17 +162,12 @@ export default function App() {
         requestedTasksProgress: total === 0 ? 0 : Math.round(((total - active) / total) * 100)
       });
       setTasksLoading(false);
-
-      if (shouldSync && active > 0) {
-        setIsSyncing(true);
-        api.syncGoogleTasks(currentUser.email).then(() => setIsSyncing(false)).catch(() => setIsSyncing(false));
-      }
     }).catch(() => setTasksLoading(false));
   };
 
   useEffect(() => {
-    if (authStep === 'ready') refreshTasks(activeTab === 'checklist');
-  }, [authStep, currentUser, activeTab]);
+    if (authStep === 'ready') refreshTasks();
+  }, [authStep, currentUser]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
@@ -196,6 +205,7 @@ export default function App() {
     setAuthStep('ready');
   };
 
+  // --- フォームのトグル操作 ---
   const toggleTeam = (teamName) => {
     setRegData(prev => ({
       ...prev,
@@ -236,10 +246,11 @@ export default function App() {
     });
   };
 
+  // 新規登録の実行
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (regData.team.length === 0 || !regData.brand || regData.area.length === 0) {
-      return alert('チーム名、管轄店舗業態、エリアは少なくとも1つ以上選択してください。');
+    if (regData.team.length === 0 || regData.area.length === 0) {
+      return alert('チーム名、エリアは少なくとも1つ以上選択してください。');
     }
     setIsSubmitting(true);
 
@@ -279,18 +290,6 @@ export default function App() {
     }
   };
 
-  const handleStoreChange = (index, value) => {
-    const newStores = [...regData.stores];
-    newStores[index] = value;
-    setRegData({ ...regData, stores: newStores });
-  };
-  const addStoreField = () => setRegData({ ...regData, stores: [...regData.stores, ''] });
-  const removeStoreField = (index) => {
-    if (regData.stores.length > 1) {
-      setRegData({ ...regData, stores: regData.stores.filter((_, i) => i !== index) });
-    }
-  };
-
   const handleLogout = () => {
     if (window.confirm('ログアウトしますか？')) {
       localStorage.removeItem('taskmaster_user_email');
@@ -299,16 +298,18 @@ export default function App() {
     }
   };
 
+  // タスク配信の実行
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTags.length) return alert('配信先を選択してください。');
     setIsSubmitting(true);
     const formData = new FormData(e.target);
     const targetEmails = new Set();
+    
     allEmployees.forEach(emp => {
       const empAreas = emp.area ? emp.area.split(', ') : [];
       if (empAreas.some(a => selectedTags.includes(a)) || emp.stores?.some(s => selectedTags.includes(s))) {
-        targetEmails.add(emp.email);
+        targetEmails.add(emp.email); // 以前圧縮時に紛れていたバグ（email変数の未定義）を修正
       }
     });
 
@@ -319,20 +320,25 @@ export default function App() {
         deadline: formData.get('deadline'),
         url1: formData.get('url1'),
         sender: currentUser ? currentUser.name : "管理者",
-        targets: Array.from(targetEmails)
+        targets: Array.from(targetEmails),
+        targetTags: selectedTags.join(', ')
       });
-      alert('タスクを配信しました！対象者のGoogle ToDoにも同期されます。');
+      alert('タスクを配信しました！対象者に通知されます。');
       setSelectedTags([]);
       setActiveTab('home');
       refreshTasks();
-    } catch (error) { alert('送信失敗'); } 
-    finally { setIsSubmitting(false); }
+    } catch (error) { 
+      alert('送信に失敗しました。'); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const openConfirmModal = (task) => {
     setConfirmModal({ isOpen: true, task: task, step: 'confirm', rank: null });
   };
 
+  // タスク完了の実行
   const executeCompleteTask = async () => {
     setConfirmModal(prev => ({ ...prev, step: 'loading' }));
     try {
@@ -350,6 +356,7 @@ export default function App() {
     }
   };
 
+  // ローディング画面
   if (authStep === 'loading') return (
     <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4 text-slate-800">
       <div className="text-indigo-600"><Icon name="loader" /></div>
@@ -359,7 +366,9 @@ export default function App() {
 
   return (
     <Fragment>
-      {/* --- 完了確認・ランキング表示用モーダル --- */}
+      {/* =========================================
+          完了確認・ランキング表示用モーダル
+      ========================================= */}
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })}></div>
@@ -381,8 +390,12 @@ export default function App() {
                   <p className="text-xs font-black text-rose-500 tracking-tight">※一度完了にすると元に戻せません。この操作は取り消しできません。</p>
                 </div>
                 <div className="flex gap-4">
-                  <button onClick={() => setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })} className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-500 font-black rounded-2xl hover:bg-slate-50 transition-all">キャンセル</button>
-                  <button onClick={executeCompleteTask} className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/30">完了して順位を見る</button>
+                  <button onClick={() => setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })} className="flex-1 py-4 bg-white border-2 border-slate-200 text-slate-500 font-black rounded-2xl hover:bg-slate-50 transition-all">
+                    キャンセル
+                  </button>
+                  <button onClick={executeCompleteTask} className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/30">
+                    完了して順位を見る
+                  </button>
                 </div>
               </div>
             )}
@@ -403,7 +416,6 @@ export default function App() {
                 </div>
                 <h3 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter relative z-10">完了しました！</h3>
                 <p className="text-sm font-bold text-slate-500 mb-8 relative z-10">このタスクを全社で <span className="text-slate-800 font-black">{confirmModal.rank}番目</span> にクリアしました！</p>
-                
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-4 relative z-10">
                   <div className="bg-emerald-400 h-full w-full animate-[progress_3.5s_ease-in-out]"></div>
                 </div>
@@ -414,42 +426,52 @@ export default function App() {
         </div>
       )}
 
-      {/* --- ログイン画面 --- */}
+      {/* =========================================
+          ログイン画面
+      ========================================= */}
       {authStep === 'login' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 max-w-md w-full shadow-xl relative z-10">
-            <div className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white mb-6 shadow-lg shadow-indigo-600/30"><Icon name="list" /></div>
+            <div className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white mb-6 shadow-lg shadow-indigo-600/30">
+              <Icon name="list" />
+            </div>
             <h2 className="text-3xl font-black text-slate-800 mb-2 text-center tracking-tighter">TODOマスター</h2>
             <p className="text-slate-500 text-sm font-bold mb-8 text-center leading-relaxed">業務タスクを一元管理。</p>
             <form onSubmit={handleLoginSearch} className="space-y-6">
               <input type="email" required value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-800 placeholder-slate-400 transition-all text-center" placeholder="メールアドレスを入力" />
               {loginError && <p className="text-rose-500 text-xs font-black text-center animate-bounce">{loginError}</p>}
-              <button type="submit" className="w-full bg-slate-800 text-white font-black py-5 rounded-2xl hover:bg-slate-900 transition-all shadow-lg hover:-translate-y-1">ログイン / 新規登録</button>
+              <button type="submit" className="w-full bg-slate-800 text-white font-black py-5 rounded-2xl hover:bg-slate-900 transition-all shadow-lg hover:-translate-y-1">
+                ログイン / 新規登録
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* --- 新規登録画面 (ホワイト基調・中央揃え・立体UI) --- */}
+      {/* =========================================
+          新規登録画面
+      ========================================= */}
       {authStep === 'register' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-y-auto py-12">
-          
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-12 max-w-xl w-full shadow-xl relative z-10 my-auto animate-fade-in">
             <h2 className="text-3xl font-black text-slate-800 mb-2 text-center tracking-tighter">アカウント作成</h2>
             <p className="text-slate-500 text-sm font-bold mb-8 text-center leading-relaxed">初めてのログインですね。<br/>プロフィールを登録して開始してください。</p>
             
             <form onSubmit={handleRegisterSubmit} className="space-y-8">
+              
+              {/* メールアドレス（固定表示） */}
               <div>
                 <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">メールアドレス (固定)</label>
                 <input type="email" value={tempUser?.email || ''} disabled className="w-full px-5 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-slate-500 font-bold cursor-not-allowed text-center" />
               </div>
               
+              {/* お名前 */}
               <div>
                 <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">お名前 <span className="text-rose-500">*</span></label>
                 <input type="text" required value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-800 transition-all shadow-inner text-center" placeholder="例: 岡本太郎 (空欄なし)" />
               </div>
 
-              {/* チーム名 */}
+              {/* チーム名（タグ風複数選択） */}
               <div>
                 <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
                 <div className="flex flex-wrap justify-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-inner">
@@ -468,19 +490,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 管轄店舗業態 */}
-              <div>
-                <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">管轄店舗業態 <span className="text-rose-500">*</span></label>
-                <div className="relative">
-                  <select required value={regData.brand} onChange={e => setRegData({...regData, brand: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold text-slate-800 appearance-none shadow-inner text-center text-center-last">
-                    <option value="" disabled>選択してください</option>
-                    {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
-                </div>
-              </div>
-
-              {/* エリア */}
+              {/* エリア（タグ風複数選択） */}
               <div>
                 <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">エリア（複数選択可） <span className="text-rose-500">*</span></label>
                 <div className="flex flex-wrap justify-center gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-inner">
@@ -499,7 +509,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* テリトリー */}
+              {/* テリトリーの表示（エリアが選択されたら連動） */}
               {regData.area.length > 0 && (
                 <div>
                   <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
@@ -532,7 +542,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* 管轄店舗の選択（チェックボックス化） */}
+              {/* 店舗の表示（エリア・テリトリーが選択されたら連動） */}
               {regData.area.length > 0 && (
                 <div>
                   <label className="text-xs font-black text-slate-500 uppercase mb-2 block text-center">管轄店舗を選択</label>
@@ -581,8 +591,11 @@ export default function App() {
                 </div>
               )}
 
+              {/* ボタン類 */}
               <div className="pt-4 flex gap-4">
-                <button type="button" onClick={() => {setAuthStep('login'); setInputEmail('');}} className="w-1/3 bg-white border-2 border-slate-200 text-slate-500 font-black py-5 rounded-2xl hover:bg-slate-50 transition-all">戻る</button>
+                <button type="button" onClick={() => {setAuthStep('login'); setInputEmail('');}} className="w-1/3 bg-white border-2 border-slate-200 text-slate-500 font-black py-5 rounded-2xl hover:bg-slate-50 transition-all">
+                  戻る
+                </button>
                 <button type="submit" disabled={isSubmitting} className="w-2/3 bg-indigo-600 text-white font-black py-5 rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
                   {isSubmitting ? <span className="animate-spin"><Icon name="loader" /></span> : '登録して開始'}
                 </button>
@@ -592,40 +605,70 @@ export default function App() {
         </div>
       )}
 
-      {/* --- ログイン確認画面 --- */}
+      {/* =========================================
+          ログイン確認画面（アカウントの最終確認）
+      ========================================= */}
       {authStep === 'confirm' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 max-w-md w-full text-center shadow-2xl relative z-10">
-            <div className="w-24 h-24 bg-indigo-600 rounded-full mx-auto flex items-center justify-center text-white mb-6 shadow-xl shadow-indigo-600/30"><Icon name="user" /></div>
-            <p className="text-indigo-600 font-black text-xs uppercase tracking-widest mb-1">{tempUser?.team} / {tempUser?.brand}</p>
+            <div className="w-24 h-24 bg-indigo-50 rounded-full mx-auto flex items-center justify-center text-indigo-600 mb-6 shadow-inner ring-4 ring-indigo-100">
+              <Icon name="user" />
+            </div>
+            <p className="text-indigo-600 font-black text-xs uppercase tracking-widest mb-1">{tempUser?.team}</p>
             <h2 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter">{tempUser?.name}</h2>
             <div className="space-y-4">
-              <button onClick={handleConfirmLogin} className="w-full bg-slate-800 text-white font-black py-5 rounded-2xl hover:bg-slate-900 transition-all shadow-xl hover:-translate-y-1">このアカウントで開始</button>
-              <button onClick={() => setAuthStep('login')} className="w-full text-slate-500 font-black text-sm uppercase tracking-widest pt-2 hover:text-slate-700 transition-colors">別のアカウントにする</button>
+              <button onClick={handleConfirmLogin} className="w-full bg-slate-800 text-white font-black py-5 rounded-2xl hover:bg-slate-900 transition-all shadow-xl hover:-translate-y-1">
+                このアカウントで開始
+              </button>
+              <button onClick={() => setAuthStep('login')} className="w-full text-slate-500 font-black text-sm uppercase tracking-widest pt-2 hover:text-slate-700 transition-colors">
+                別のアカウントにする
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- メインダッシュボード --- */}
+      {/* =========================================
+          メインダッシュボード画面
+      ========================================= */}
       {authStep === 'ready' && (
         <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
           
+          {/* 左側サイドバー */}
           <aside className={`bg-white border-r border-slate-200 flex flex-col shadow-2xl transition-all duration-300 overflow-hidden z-50 absolute lg:relative h-full ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
             <div className="h-16 border-b border-slate-100 flex items-center justify-between px-6">
               <span className="font-black text-slate-800 tracking-tighter uppercase text-[10px] text-indigo-600">TaskMaster Pro</span>
               <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 p-2 hover:text-slate-600 transition-colors"><Icon name="x" /></button>
             </div>
+            
             <div className="flex flex-col items-center p-8 flex-1 overflow-y-auto">
               <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-4 shadow-inner ring-2 ring-indigo-100"><Icon name="user" /></div>
-              <p className="text-slate-800 font-black text-lg tracking-tight">{currentUser?.name}</p>
-              <div className="mt-8 w-full space-y-3">
+              <p className="text-slate-800 font-black text-lg tracking-tight text-center">{currentUser?.name}</p>
+              
+              <div className="mt-8 w-full space-y-4">
+                {/* エリア・テリトリー表示 */}
                 <div className="bg-slate-50 rounded-2xl p-4 text-center border border-slate-100">
-                  <p className="text-[10px] text-slate-400 font-black uppercase mb-1 tracking-widest">所属エリア / ブランド</p>
-                  <p className="text-sm font-bold text-slate-700">{currentUser?.area} / {currentUser?.brand}</p>
+                  <p className="text-[10px] text-slate-400 font-black uppercase mb-1 tracking-widest">所属エリア</p>
+                  <p className="text-sm font-bold text-slate-700">{currentUser?.area}</p>
+                  {currentUser?.territory && <p className="text-[10px] font-bold text-slate-500 mt-1">{currentUser.territory}</p>}
+                </div>
+
+                {/* 担当店舗タグ表示 */}
+                <div className="bg-slate-50 rounded-2xl p-4 text-center border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-black uppercase mb-3 tracking-widest">担当店舗</p>
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {currentUser?.stores?.length > 0 ? (
+                      currentUser.stores.map((s, i) => (
+                        <span key={i} className="bg-white border border-slate-200 text-slate-600 text-[10px] px-2.5 py-1.5 rounded-md font-bold shadow-sm">{s}</span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 font-bold">店舗なし</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+
             <div className="p-4 border-t border-slate-100">
               <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-2xl transition-all font-black text-xs uppercase tracking-widest border-2 border-slate-100 hover:border-rose-200">
                 <Icon name="logout" /> ログアウト
@@ -633,6 +676,7 @@ export default function App() {
             </div>
           </aside>
 
+          {/* 右側メインコンテンツ */}
           <main className="flex-1 flex flex-col overflow-hidden relative bg-slate-50">
             <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center px-6 absolute top-0 w-full z-10 gap-4">
               <button onClick={() => setIsSidebarOpen(true)} className="text-slate-500 hover:text-indigo-600 transition-colors p-2 rounded-xl hover:bg-slate-100"><Icon name="menu" /></button>
@@ -642,14 +686,11 @@ export default function App() {
               <h2 className="font-black text-slate-800 tracking-tighter flex-1 uppercase">
                 {activeTab === 'home' ? 'ダッシュボード' : activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
               </h2>
-              {isSyncing && (
-                <div className="flex items-center gap-2 text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 animate-pulse">
-                  <Icon name="refresh" /> <span className="hidden md:inline uppercase">Google ToDo 同期中</span>
-                </div>
-              )}
             </header>
 
             <div className="flex-1 overflow-auto p-4 md:p-10 pt-24 relative z-0">
+              
+              {/* === HOME (ダッシュボード) === */}
               {activeTab === 'home' ? (
                 <div className="max-w-5xl mx-auto animate-fade-in space-y-8">
                   <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-xl flex flex-col md:flex-row gap-8 items-center relative overflow-hidden">
@@ -694,6 +735,8 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              
+              // === タスク配信画面 ===
               ) : activeTab === 'request' ? (
                 <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 shadow-xl animate-fade-in">
                   <h3 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter uppercase text-center">タスクの配信</h3>
@@ -726,6 +769,8 @@ export default function App() {
                     </button>
                   </form>
                 </div>
+              
+              // === 再投稿モック画面 ===
               ) : activeTab === 'repost' ? (
                 <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 shadow-xl animate-fade-in text-center">
                   <h3 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter uppercase">再投稿</h3>
@@ -748,6 +793,8 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+              
+              // === 定期配信モック画面 ===
               ) : activeTab === 'scheduled' ? (
                 <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 shadow-xl animate-fade-in">
                   <h3 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter uppercase text-center">定期配信</h3>
@@ -786,16 +833,27 @@ export default function App() {
                     </button>
                   </form>
                 </div>
+              
+              // === リストチェック画面 ===
               ) : activeTab === 'checklist' ? (
                 <div className="max-w-5xl mx-auto h-full flex flex-col animate-fade-in">
+                  
+                  {/* タグフィルター */}
                   <div className="flex gap-2 overflow-x-auto pb-6 mb-4 no-scrollbar justify-center md:justify-start">
                     <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-xs font-black border-2 transition-all ${taskFilter === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>すべて</button>
-                    {currentUser?.stores?.map(s => <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-xs font-black border-2 transition-all ${taskFilter === s ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{s}</button>)}
+                    {currentUser?.stores?.map(s => (
+                      <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-6 py-3 rounded-2xl text-xs font-black border-2 transition-all ${taskFilter === s ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+                        {s}
+                      </button>
+                    ))}
                   </div>
+                  
+                  {/* ステータスフィルター */}
                   <div className="flex bg-slate-100 border border-slate-200 p-1.5 rounded-2xl mb-8 w-max shadow-inner mx-auto md:mx-0">
                     <button onClick={() => setTaskTab('active')} className={`px-10 py-3 rounded-xl text-xs font-black transition-all ${taskTab === 'active' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}>未完了</button>
                     <button onClick={() => setTaskTab('completed')} className={`px-10 py-3 rounded-xl text-xs font-black transition-all ${taskTab === 'completed' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}>完了済み</button>
                   </div>
+                  
                   <div className="space-y-6 pb-20">
                     {tasksLoading ? (
                       <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border border-slate-200 rounded-[2.5rem]"></div></div>
@@ -805,22 +863,28 @@ export default function App() {
                         <p>タスクはありません</p>
                       </div>
                     ) : filteredTasks.map(task => (
-                      <div key={task.id} className={`bg-white border rounded-[2.5rem] p-8 md:p-10 flex flex-col md:flex-row gap-8 transition-all duration-700 ${completingIds.includes(task.id) ? 'opacity-0 translate-x-32 rotate-2 scale-90' : 'shadow-sm border-slate-200 hover:shadow-lg'}`}>
+                      <div key={task.id} className="bg-white border rounded-[2.5rem] p-8 md:p-10 flex flex-col md:flex-row gap-8 transition-all duration-700 shadow-sm border-slate-200 hover:shadow-lg animate-fade-in">
                         <div className="flex-1 text-center md:text-left">
                           <div className="flex items-center justify-center md:justify-start gap-3 mb-4 uppercase">
                             <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black px-3 py-1 rounded-lg tracking-widest">{task.sender}からの依頼</span>
                           </div>
                           <h3 className={`text-lg font-bold text-slate-800 leading-relaxed ${task.completed ? 'line-through opacity-40' : ''}`}>{task.content}</h3>
+                          
                           {!task.completed && (
                             <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-6 items-center">
                               <div className={`flex flex-col px-4 py-2 rounded-2xl border-2 ${task.daysRemaining <= 0 ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                                 <span className="text-[8px] font-black uppercase tracking-widest mb-1">期限</span>
                                 <span className="text-sm font-black tracking-tight">{task.deadline}</span>
                               </div>
-                              {task.url && <a href={task.url} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-[10px] font-black px-6 py-3 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2"><Icon name="link" /> 資料を確認</a>}
+                              {task.url && (
+                                <a href={task.url} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-[10px] font-black px-6 py-3 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
+                                  <Icon name="link" /> 資料を確認
+                                </a>
+                              )}
                             </div>
                           )}
                         </div>
+                        
                         {!task.completed && (
                           <button onClick={() => openConfirmModal(task)} className="mx-auto md:mx-0 w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-slate-100 text-slate-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center shadow-inner group flex-shrink-0">
                             <span className="group-hover:scale-125 transition-transform"><Icon name="check" /></span>
