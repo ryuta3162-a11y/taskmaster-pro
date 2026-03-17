@@ -24,7 +24,8 @@ const Icon = ({ name }) => {
     history: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
     repeat: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>,
     plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
-    trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+    trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+    store: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>
   };
   return icons[name] || null;
 };
@@ -32,12 +33,13 @@ const Icon = ({ name }) => {
 // --- 入力規則データ ---
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const BRANDS = ['JoyFit', 'FIT365', '両方'];
-const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア', '全エリア'];
+const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
 
+// ★修正：スプレッドシートの記載に合わせて「テリトリー1」という文字に変更
 const getTerritories = (area) => {
-  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア'].includes(area)) return ['1', '2', '3'];
-  if (['第1エリア', '第7エリア'].includes(area)) return ['1', '2'];
-  return ['-', '1', '2', '3']; 
+  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
+  if (['第1エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
+  return ['テリトリー1', 'テリトリー2']; 
 };
 
 // --- API層 ---
@@ -47,6 +49,14 @@ const api = {
   fetchEmployees: () => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 600);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees();
+  }),
+  fetchStoreData: () => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res([
+      { area: '第1エリア', territory: 'テリトリー1', storeName: '仙台泉' },
+      { area: '第1エリア', territory: 'テリトリー1', storeName: '仙台東口' },
+      { area: '第1エリア', territory: 'テリトリー2', storeName: '南浦和' },
+    ]), 600);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).getStoreData();
   }),
   registerEmployee: (data) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
@@ -71,15 +81,17 @@ const api = {
 };
 
 export default function App() {
-  const [authStep, setAuthStep] = useState('loading'); // loading | login | confirm | register | ready
+  const [authStep, setAuthStep] = useState('loading'); 
   const [inputEmail, setInputEmail] = useState('');
   const [loginError, setLoginError] = useState('');
   const [tempUser, setTempUser] = useState(null); 
   const [currentUser, setCurrentUser] = useState(null);
+  
   const [allEmployees, setAllEmployees] = useState([]);
+  const [allStores, setAllStores] = useState([]);
 
   // 新規登録用ステート
-  const [regData, setRegData] = useState({ name: '', team: '', brand: '', area: '', territory: '', stores: [''] });
+  const [regData, setRegData] = useState({ name: '', team: [], brand: '', area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -104,18 +116,22 @@ export default function App() {
       document.head.appendChild(script);
     }
 
-    api.fetchEmployees().then(employees => {
-      const emps = Array.isArray(employees) ? employees : [];
-      setAllEmployees(emps);
-      const savedEmail = localStorage.getItem('taskmaster_user_email');
-      const user = emps.find(e => e.email === savedEmail);
-      if (user) {
-        setCurrentUser(user);
-        setAuthStep('ready');
-      } else {
-        setAuthStep('login');
-      }
-    }).catch(() => setAuthStep('login'));
+    Promise.all([api.fetchEmployees(), api.fetchStoreData()])
+      .then(([employees, stores]) => {
+        const emps = Array.isArray(employees) ? employees : [];
+        setAllEmployees(emps);
+        setAllStores(Array.isArray(stores) ? stores : []);
+        
+        const savedEmail = localStorage.getItem('taskmaster_user_email');
+        const user = emps.find(e => e.email === savedEmail);
+        if (user) {
+          setCurrentUser(user);
+          setAuthStep('ready');
+        } else {
+          setAuthStep('login');
+        }
+      })
+      .catch(() => setAuthStep('login'));
   }, []);
 
   const refreshTasks = (shouldSync = false) => {
@@ -154,7 +170,10 @@ export default function App() {
 
   const availableTags = useMemo(() => {
     return Array.from(new Set(
-      allEmployees.flatMap(emp => [emp.area, ...(emp.stores || [])]).filter(Boolean)
+      allEmployees.flatMap(emp => {
+        const areas = emp.area ? emp.area.split(', ') : [];
+        return [...areas, ...(emp.stores || [])];
+      }).filter(Boolean)
     )).sort();
   }, [allEmployees]);
 
@@ -166,7 +185,6 @@ export default function App() {
       setTempUser(user); 
       setAuthStep('confirm'); 
     } else { 
-      // ユーザーが見つからない場合は「新規登録画面」へ誘導
       setTempUser({ email: inputEmail.trim() });
       setAuthStep('register');
     }
@@ -178,17 +196,73 @@ export default function App() {
     setAuthStep('ready');
   };
 
-  // ★ 新規登録の処理
+  const toggleTeam = (teamName) => {
+    setRegData(prev => ({
+      ...prev,
+      team: prev.team.includes(teamName) 
+        ? prev.team.filter(t => t !== teamName)
+        : [...prev.team, teamName]
+    }));
+  };
+
+  const toggleArea = (areaName) => {
+    setRegData(prev => {
+      const isSelected = prev.area.includes(areaName);
+      const newArea = isSelected 
+        ? prev.area.filter(a => a !== areaName)
+        : [...prev.area, areaName];
+      
+      const newTerritory = { ...prev.territory };
+      if (isSelected) {
+        delete newTerritory[areaName];
+      } else {
+        newTerritory[areaName] = getTerritories(areaName);
+      }
+
+      return { ...prev, area: newArea, territory: newTerritory };
+    });
+  };
+
+  const toggleTerritory = (areaName, terrName) => {
+    setRegData(prev => {
+      const terrs = prev.territory[areaName] || [];
+      const newTerrs = terrs.includes(terrName)
+        ? terrs.filter(t => t !== terrName)
+        : [...terrs, terrName].sort();
+      return {
+        ...prev,
+        territory: { ...prev.territory, [areaName]: newTerrs }
+      };
+    });
+  };
+
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (!regData.team || !regData.brand || !regData.area || !regData.territory) {
-      return alert('すべての選択項目を入力してください。');
+    if (regData.team.length === 0 || !regData.brand || regData.area.length === 0) {
+      return alert('チーム名、管轄店舗業態、エリアは少なくとも1つ以上選択してください。');
     }
     setIsSubmitting(true);
+
+    const formattedTeam = regData.team.join(', ');
+    const formattedArea = regData.area.join(', ');
+    const formattedTerritory = Object.entries(regData.territory)
+      .filter(([_, terrs]) => terrs.length > 0)
+      .map(([a, terrs]) => `${a}: ${terrs.join(',')}`)
+      .join(' / ');
+
+    const validStoreNames = allStores
+      .filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory))
+      .map(s => s.storeName);
+
+    const finalStores = regData.stores.filter(s => validStoreNames.includes(s));
+
     const newEmployee = {
       ...regData,
+      team: formattedTeam,
+      area: formattedArea,
+      territory: formattedTerritory,
       email: tempUser.email,
-      stores: regData.stores.filter(s => s.trim() !== '') // 空の店舗は除外
+      stores: finalStores
     };
 
     try {
@@ -202,24 +276,6 @@ export default function App() {
       alert('登録に失敗しました。');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // エリアが変わったらテリトリーをリセット
-  useEffect(() => {
-    setRegData(prev => ({ ...prev, territory: '' }));
-  }, [regData.area]);
-
-  // 店舗の入力欄を動的に増やす処理
-  const handleStoreChange = (index, value) => {
-    const newStores = [...regData.stores];
-    newStores[index] = value;
-    setRegData({ ...regData, stores: newStores });
-  };
-  const addStoreField = () => setRegData({ ...regData, stores: [...regData.stores, ''] });
-  const removeStoreField = (index) => {
-    if (regData.stores.length > 1) {
-      setRegData({ ...regData, stores: regData.stores.filter((_, i) => i !== index) });
     }
   };
 
@@ -238,7 +294,8 @@ export default function App() {
     const formData = new FormData(e.target);
     const targetEmails = new Set();
     allEmployees.forEach(emp => {
-      if (selectedTags.includes(emp.area) || emp.stores?.some(s => selectedTags.includes(s))) {
+      const empAreas = emp.area ? emp.area.split(', ') : [];
+      if (empAreas.some(a => selectedTags.includes(a)) || emp.stores?.some(s => selectedTags.includes(s))) {
         targetEmails.add(emp.email);
       }
     });
@@ -365,7 +422,7 @@ export default function App() {
         </div>
       )}
 
-      {/* --- 新規登録画面 (入力規則・プルダウン完備) --- */}
+      {/* --- 新規登録画面 (入力規則・店舗チェックボックス完備) --- */}
       {authStep === 'register' && (
         <div className="h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-y-auto py-12">
           <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none fixed"></div>
@@ -374,7 +431,7 @@ export default function App() {
             <h2 className="text-3xl font-black text-white mb-2 text-center tracking-tighter">アカウント作成</h2>
             <p className="text-slate-400 text-sm font-bold mb-8 text-center leading-relaxed">初めてのログインですね。<br/>プロフィールを登録して開始してください。</p>
             
-            <form onSubmit={handleRegisterSubmit} className="space-y-6">
+            <form onSubmit={handleRegisterSubmit} className="space-y-8">
               <div>
                 <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">メールアドレス (固定)</label>
                 <input type="email" value={tempUser?.email || ''} disabled className="w-full px-5 py-4 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-500 font-bold cursor-not-allowed" />
@@ -382,73 +439,142 @@ export default function App() {
               
               <div>
                 <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">お名前 <span className="text-rose-500">*</span></label>
-                <input type="text" required value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white transition-all shadow-inner" placeholder="例: 岡本 太郎" />
+                <input type="text" required value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white transition-all shadow-inner" placeholder="例: 岡本太郎" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">チーム名 <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <select required value={regData.team} onChange={e => setRegData({...regData, team: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white appearance-none shadow-inner">
-                      <option value="" disabled>選択してください</option>
-                      {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">ブランド <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <select required value={regData.brand} onChange={e => setRegData({...regData, brand: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white appearance-none shadow-inner">
-                      <option value="" disabled>選択してください</option>
-                      {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">エリア <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <select required value={regData.area} onChange={e => setRegData({...regData, area: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white appearance-none shadow-inner">
-                      <option value="" disabled>選択してください</option>
-                      {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">テリトリー <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <select required disabled={!regData.area} value={regData.territory} onChange={e => setRegData({...regData, territory: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white appearance-none shadow-inner disabled:opacity-50">
-                      <option value="" disabled>選択してください</option>
-                      {getTerritories(regData.area).map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
-                  </div>
-                </div>
-              </div>
-
+              {/* チーム名 */}
               <div>
-                <label className="text-xs font-black text-indigo-400 uppercase mb-2 block flex items-center justify-between">
-                  <span>管轄店舗名</span>
-                  <button type="button" onClick={addStoreField} className="flex items-center gap-1 text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded hover:bg-indigo-500/40 transition-colors"><Icon name="plusCircle" /> 追加</button>
-                </label>
-                <div className="space-y-3">
-                  {regData.stores.map((store, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input type="text" value={store} onChange={e => handleStoreChange(index, e.target.value)} className="flex-1 px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white transition-all shadow-inner" placeholder="例: 経堂店" />
-                      {regData.stores.length > 1 && (
-                        <button type="button" onClick={() => removeStoreField(index)} className="w-14 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors">
-                          <Icon name="trash" />
-                        </button>
-                      )}
-                    </div>
+                <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
+                <div className="flex flex-wrap gap-2 p-4 bg-slate-950/50 border border-slate-800 rounded-2xl shadow-inner">
+                  {TEAMS.map(t => (
+                    <button 
+                      key={t} type="button" 
+                      onClick={() => toggleTeam(t)} 
+                      className={`px-4 py-2 rounded-xl font-black text-xs border transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/50 shadow-lg' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800 hover:text-slate-300'}`}
+                    >
+                      <div className={`w-3 h-3 rounded flex items-center justify-center border ${regData.team.includes(t) ? 'bg-indigo-500 border-indigo-500 text-slate-900' : 'border-slate-600'}`}>
+                        {regData.team.includes(t) && <svg viewBox="0 0 14 14" fill="none" className="w-2 h-2"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      {t}
+                    </button>
                   ))}
                 </div>
               </div>
+
+              {/* 管轄店舗業態 */}
+              <div>
+                <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">管轄店舗業態 <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <select required value={regData.brand} onChange={e => setRegData({...regData, brand: e.target.value})} className="w-full px-5 py-4 bg-slate-950 border border-slate-700 rounded-2xl outline-none focus:border-indigo-500 font-bold text-white appearance-none shadow-inner">
+                    <option value="" disabled>選択してください</option>
+                    {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
+                </div>
+              </div>
+
+              {/* エリア */}
+              <div>
+                <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">エリア（複数選択可） <span className="text-rose-500">*</span></label>
+                <div className="flex flex-wrap gap-2 p-4 bg-slate-950/50 border border-slate-800 rounded-2xl shadow-inner">
+                  {AREAS.map(a => (
+                    <button 
+                      key={a} type="button" 
+                      onClick={() => toggleArea(a)} 
+                      className={`px-4 py-2 rounded-xl font-black text-xs border transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/50 shadow-lg' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800 hover:text-slate-300'}`}
+                    >
+                      <div className={`w-3 h-3 rounded flex items-center justify-center border ${regData.area.includes(a) ? 'bg-indigo-500 border-indigo-500 text-slate-900' : 'border-slate-600'}`}>
+                        {regData.area.includes(a) && <svg viewBox="0 0 14 14" fill="none" className="w-2 h-2"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      {a}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* テリトリー */}
+              {regData.area.length > 0 && (
+                <div>
+                  <label className="text-xs font-black text-indigo-400 uppercase mb-2 block">テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
+                  <div className="p-5 bg-slate-950/50 border border-slate-800 rounded-2xl shadow-inner space-y-4">
+                    {regData.area.map(areaName => (
+                      <div key={areaName} className="border-b border-slate-800/50 pb-4 last:border-0 last:pb-0">
+                        <p className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500"></span>{areaName}
+                        </p>
+                        <div className="flex flex-wrap gap-2 pl-4">
+                          {getTerritories(areaName).map(terr => {
+                             const isSelected = regData.territory[areaName]?.includes(terr);
+                             return (
+                              <button 
+                                key={terr} type="button" 
+                                onClick={() => toggleTerritory(areaName, terr)} 
+                                className={`px-4 py-2 rounded-xl font-black text-xs border transition-all flex items-center gap-2 ${isSelected ? 'bg-teal-600/20 text-teal-400 border-teal-500/50 shadow-lg' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800 hover:text-slate-300'}`}
+                              >
+                                <div className={`w-3 h-3 rounded flex items-center justify-center border ${isSelected ? 'bg-teal-500 border-teal-500 text-slate-900' : 'border-slate-600'}`}>
+                                  {isSelected && <svg viewBox="0 0 14 14" fill="none" className="w-2 h-2"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                </div>
+                                {/* ★修正：テリトリーの表示をスプレッドシートに合わせました */}
+                                {terr}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 管轄店舗の選択（チェックボックス化） */}
+              {regData.area.length > 0 && (
+                <div>
+                  <label className="text-xs font-black text-indigo-400 uppercase mb-2 block flex items-center gap-2"><Icon name="store" /> 管轄店舗を選択</label>
+                  <div className="p-5 bg-slate-950/50 border border-slate-800 rounded-2xl shadow-inner space-y-6">
+                    {regData.area.map(areaName => {
+                      const selectedTerrs = regData.territory[areaName] || [];
+                      const storesInArea = allStores.filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
+                      
+                      if (storesInArea.length === 0) return null;
+
+                      return (
+                        <div key={areaName} className="border-b border-slate-800/50 pb-4 last:border-0 last:pb-0">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{areaName} の店舗</p>
+                           <div className="flex flex-wrap gap-2">
+                             {storesInArea.map(store => {
+                                const isSelected = regData.stores.includes(store.storeName);
+                                return (
+                                  <button 
+                                    key={store.storeName} 
+                                    type="button" 
+                                    onClick={() => {
+                                      setRegData(prev => ({
+                                        ...prev,
+                                        stores: isSelected 
+                                          ? prev.stores.filter(s => s !== store.storeName) 
+                                          : [...prev.stores, store.storeName]
+                                      }))
+                                    }}
+                                    className={`px-4 py-2 rounded-xl font-black text-xs border transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/50 shadow-lg' : 'bg-slate-900 text-slate-500 border-slate-800 hover:bg-slate-800 hover:text-slate-300'}`}
+                                  >
+                                    <div className={`w-3 h-3 rounded flex items-center justify-center border ${isSelected ? 'bg-indigo-500 border-indigo-500 text-slate-900' : 'border-slate-600'}`}>
+                                      {isSelected && <svg viewBox="0 0 14 14" fill="none" className="w-2 h-2"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                    </div>
+                                    {store.storeName}
+                                  </button>
+                                )
+                             })}
+                           </div>
+                        </div>
+                      )
+                    })}
+                    {/* 店舗がない場合のメッセージ */}
+                    {allStores.filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory)).length === 0 && (
+                      <p className="text-xs font-bold text-slate-500">※ 選択したエリア・テリトリーに該当する店舗データがスプレッドシートにありません。</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4 flex gap-4">
                 <button type="button" onClick={() => {setAuthStep('login'); setInputEmail('');}} className="w-1/3 bg-slate-800 text-slate-300 font-black py-5 rounded-2xl hover:bg-slate-700 transition-all">戻る</button>
