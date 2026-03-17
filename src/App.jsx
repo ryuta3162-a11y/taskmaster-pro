@@ -33,6 +33,7 @@ const Icon = ({ name }) => {
 // --- 入力規則データ ---
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
+
 const getTerritories = (area) => {
   if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
   if (['第1エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
@@ -41,6 +42,7 @@ const getTerritories = (area) => {
 
 // --- API層 ---
 const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
+
 const api = {
   fetchEmployees: () => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 600);
@@ -649,7 +651,7 @@ export default function App() {
         </div>
       )}
 
-      {/* --- メイン画面（PC版 フル横幅最適化・サイドバー廃止） --- */}
+      {/* --- メイン画面（PC版 フル横幅最適化・サイドバー完全廃止） --- */}
       {authStep === 'ready' && (
         <div className="flex flex-col h-screen bg-[#f0f0f0] font-sans text-black overflow-hidden">
           
@@ -661,7 +663,7 @@ export default function App() {
                     <Icon name="check" />
                  </div>
                  <div className="flex flex-col">
-                    <h1 className="text-xl font-black italic tracking-tighter leading-none hidden md:block">ToDo LIST</h1>
+                    <h1 className="text-xl font-black italic tracking-tighter leading-none hidden md:block">ToDo List</h1>
                     <span className="text-[10px] font-bold text-gray-500 tracking-widest hidden md:block">TEAM TASK MANAGER</span>
                  </div>
                </div>
@@ -753,9 +755,8 @@ export default function App() {
               
               {/* === タスク配信 === */}
               {activeTab === 'request' && (
-                <div className={`${brutalCard} animate-fade-in`}>
+                <div className={`${brutalCard} animate-fade-in max-w-6xl mx-auto`}>
                   <form onSubmit={handleTaskSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                    {/* 左カラム：入力欄 */}
                     <div className="space-y-8">
                       <div>
                         <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">依頼内容 <span className="text-rose-500">*</span></label>
@@ -813,7 +814,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* 右カラム：ターゲット選択 */}
                     <div className="flex flex-col">
                       <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">配信先を選択 <span className="text-rose-500">*</span></label>
                       <p className="text-xs font-bold text-gray-500 mb-4">デフォルトで全店舗が選択されています。不要な店舗のチェックを外して絞り込んでください。</p>
@@ -833,7 +833,7 @@ export default function App() {
               
               {/* === 再投稿 (履歴) === */}
               {activeTab === 'repost' && (
-                <div className={`${brutalCard} animate-fade-in`}>
+                <div className={`${brutalCard} animate-fade-in max-w-5xl mx-auto`}>
                   <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-4 border-black pb-8">過去に送信したタスクの情報を引き継いで、新しく作成します。</p>
                   
                   <div className="space-y-6">
@@ -860,7 +860,7 @@ export default function App() {
               
               {/* === 定期配信 === */}
               {activeTab === 'scheduled' && (
-                <div className="space-y-12 animate-fade-in">
+                <div className="max-w-6xl mx-auto space-y-12 animate-fade-in">
                   <div className={brutalCard}>
                     <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-4 border-black pb-8">毎月の決まった日に、システムが自動でタスクを配信します。</p>
                     
@@ -994,7 +994,7 @@ export default function App() {
               
               {/* === リストチェック画面 === */}
               {activeTab === 'checklist' && (
-                <div className="animate-fade-in">
+                <div className="animate-fade-in max-w-6xl mx-auto">
                   
                   {/* 上部：タグフィルター */}
                   <div className="flex gap-4 overflow-x-auto pb-4 mb-8 no-scrollbar px-2">
@@ -1036,20 +1036,17 @@ export default function App() {
                       <div key={task.id} className={`${brutalCard} flex flex-col md:flex-row gap-6 items-center animate-fade-in !p-6`}>
                         <div className="flex-1 w-full min-w-0">
                           
-                          {/* 以前のシステムのUI：バッジ類 */}
                           <div className="flex flex-wrap gap-2 mb-4 items-center">
                             {task.targetTags && <span className="bg-rose-500 text-white border-2 border-black text-xs font-black px-3 py-1 rounded-md tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
                             <span className="bg-white text-black border-2 border-black text-[10px] font-black px-2 py-1 rounded-md tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
                             <span className="text-xs font-bold text-gray-500 ml-2">from {task.sender}</span>
                           </div>
                           
-                          {/* タイトル */}
                           <h3 className={`text-xl md:text-2xl font-black text-black leading-relaxed mb-6 break-words ${task.completed ? 'line-through opacity-40' : ''}`}>{task.content}</h3>
                           
                           {!task.completed && (
                             <div className="flex flex-col gap-4 border-t-4 border-gray-100 pt-5">
                               
-                              {/* 以前のシステムのUI：日付バッジ（DL・超過など） */}
                               <div className="flex flex-wrap gap-3 items-center">
                                 <div className="flex items-center gap-2 bg-white border-2 border-rose-500 rounded-lg px-3 py-1 shadow-[2px_2px_0_0_#e11d48]">
                                   <span className="text-[10px] font-black text-rose-600 uppercase">DL</span>
@@ -1082,7 +1079,6 @@ export default function App() {
                                 )}
                               </div>
 
-                              {/* 以前のシステムのUI：全幅のリンクボタン群 */}
                               <div className="flex flex-col gap-3 w-full mt-2">
                                 {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
                                   <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-2 border-black text-black text-sm font-black px-4 py-3 rounded-lg hover:bg-gray-50 transition-all shadow-[2px_2px_0_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0_0_#000] flex items-center justify-center gap-2">
@@ -1102,7 +1098,7 @@ export default function App() {
                         {/* 右側：完了ボタン */}
                         <div className="flex-shrink-0 border-t-4 md:border-t-0 border-l-0 md:border-l-4 border-gray-100 pt-6 md:pt-0 md:pl-8 flex items-center justify-center w-full md:w-auto">
                           {!task.completed ? (
-                            <button onClick={() => openConfirmModal(task)} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-black bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-[4px_4px_0_0_#000] group active:translate-x-1 active:translate-y-1 active:shadow-none">
+                            <button onClick={() => openConfirmModal(task)} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-black bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-[6px_6px_0_0_#000] group active:translate-x-1 active:translate-y-1 active:shadow-none">
                               <span className="group-hover:scale-125 transition-transform scale-150"><Icon name="check" /></span>
                             </button>
                           ) : (
@@ -1122,7 +1118,16 @@ export default function App() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
-        body { margin: 0; background: #f0f0f0; font-family: 'Inter', 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
+        /* ViteのデフォルトCSS（#rootの幅制限など）を強制リセット */
+        html, body, #root { 
+          margin: 0 !important; 
+          padding: 0 !important; 
+          max-width: 100% !important; 
+          width: 100% !important; 
+          height: 100% !important; 
+          text-align: left !important; 
+        }
+        body { background: #f0f0f0; font-family: 'Inter', 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
