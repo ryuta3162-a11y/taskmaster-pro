@@ -19,7 +19,9 @@ const Icon = ({ name }) => {
     alertTriangle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>,
     history: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
     repeat: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>,
-    trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+    plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
+    trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+    image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
   };
   return icons[name] || null;
 };
@@ -44,13 +46,7 @@ const api = {
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees();
   }),
   fetchStoreData: () => new Promise((res, rej) => {
-    // ★ここです！テスト環境用のダミーデータを復活させました！
-    if (!isGAS) return setTimeout(() => res([
-      { area: '第1エリア', territory: 'テリトリー1', storeName: '仙台泉' },
-      { area: '第1エリア', territory: 'テリトリー1', storeName: '仙台東口' },
-      { area: '第1エリア', territory: 'テリトリー2', storeName: '南浦和' },
-      { area: '第7エリア', territory: 'テリトリー3', storeName: 'テスト店舗' },
-    ]), 600);
+    if (!isGAS) return setTimeout(() => res([]), 600); // ※テスト環境のダミーデータは削除済
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getStoreData();
   }),
   registerEmployee: (data) => new Promise((res, rej) => {
@@ -69,8 +65,6 @@ const api = {
     if (!isGAS) return setTimeout(() => res({status:'success', rank: 1}), 1500); 
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email);
   }),
-  
-  // 追加 API
   getSentTasks: (name) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getSentTasks(name);
@@ -113,14 +107,15 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 新規投稿フォーム用の状態管理
-  const [requestForm, setRequestForm] = useState({ content: '', deadline: '', url1: '' });
+  // ★ URLと画像アップロード用の状態管理
+  const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
+  const [requestImages, setRequestImages] = useState([]); 
   const [selectedTags, setSelectedTags] = useState([]);
 
-  // 履歴・スケジュール用の状態
   const [sentTasks, setSentTasks] = useState([]);
   const [scheduledTasks, setScheduledTasks] = useState([]);
-  const [scheduleForm, setScheduleForm] = useState({ cycle: '毎日 AM 9:00', deadlineOffset: '当日中', content: '', url1: '' });
+  const [scheduleForm, setScheduleForm] = useState({ cycle: '毎日 AM 9:00', deadlineOffset: '当日中', content: '', urls: [''] });
+  const [scheduleImages, setScheduleImages] = useState([]); 
   const [scheduleTags, setScheduleTags] = useState([]);
 
   useEffect(() => {
@@ -158,7 +153,6 @@ export default function App() {
       .catch(() => setAuthStep('login'));
   }, []);
 
-  // タスク・履歴の取得
   const refreshTasks = () => {
     if (!currentUser) return;
     setTasksLoading(true);
@@ -174,7 +168,6 @@ export default function App() {
       setTasksLoading(false);
     }).catch(() => setTasksLoading(false));
 
-    // 自分の送信履歴と定期スケジュールも取得
     api.getSentTasks(currentUser.name).then(res => setSentTasks(res || []));
     api.getScheduledTasks(currentUser.name).then(res => setScheduledTasks(res || []));
   };
@@ -273,6 +266,48 @@ export default function App() {
     }
   };
 
+  // --- URL追加処理 ---
+  const handleRequestUrlChange = (index, value) => {
+    const newUrls = [...requestForm.urls];
+    newUrls[index] = value;
+    setRequestForm({ ...requestForm, urls: newUrls });
+  };
+  const handleScheduleUrlChange = (index, value) => {
+    const newUrls = [...scheduleForm.urls];
+    newUrls[index] = value;
+    setScheduleForm({ ...scheduleForm, urls: newUrls });
+  };
+
+  // --- ★ 画像読み込み・Base64変換ロジック ---
+  const handleImageChange = (e, formType) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const imageData = {
+           name: file.name,
+           type: file.type,
+           base64: reader.result.split(',')[1], // GASへ送るためのデータ
+           preview: reader.result // 画面表示用
+        };
+        if (formType === 'request') {
+          setRequestImages(prev => [...prev, imageData]);
+        } else {
+          setScheduleImages(prev => [...prev, imageData]);
+        }
+      };
+      if (file) reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index, formType) => {
+    if (formType === 'request') {
+      setRequestImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setScheduleImages(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
   // --- タスク配信（新規投稿） ---
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
@@ -287,18 +322,23 @@ export default function App() {
       }
     });
 
+    const validUrls = requestForm.urls.filter(u => u.trim() !== '').join('\n');
+
     try {
       await api.createTask({
         type: '新規投稿',
         content: requestForm.content,
         deadline: requestForm.deadline,
-        url1: requestForm.url1,
+        url1: validUrls, 
         sender: currentUser ? currentUser.name : "管理者",
         targets: Array.from(targetEmails),
-        targetTags: selectedTags.join(', ')
+        targetTags: selectedTags.join(', '),
+        // ★Base64変換した画像データを送る（プレビューデータは除外）
+        images: requestImages.map(img => ({ name: img.name, type: img.type, base64: img.base64 }))
       });
-      alert('タスクを配信しました！');
-      setRequestForm({ content: '', deadline: '', url1: '' });
+      alert('タスクを配信しました！対象者に通知されます。');
+      setRequestForm({ content: '', deadline: '', urls: [''] });
+      setRequestImages([]);
       setSelectedTags([]);
       setActiveTab('home');
       refreshTasks();
@@ -307,11 +347,13 @@ export default function App() {
 
   // --- 再利用して作成 ---
   const handleRepostClick = (task) => {
+    const storedUrls = task.url ? task.url.split('\n') : [''];
     setRequestForm({
       content: task.content,
       deadline: '', 
-      url1: task.url
+      urls: storedUrls.length > 0 ? storedUrls : ['']
     });
+    setRequestImages([]); // 履歴から画像までは復元しない
     setSelectedTags(task.targetTags ? task.targetTags.split(', ') : []);
     setActiveTab('request');
   };
@@ -329,18 +371,22 @@ export default function App() {
       }
     });
 
+    const validUrls = scheduleForm.urls.filter(u => u.trim() !== '').join('\n');
+
     try {
       await api.registerScheduledTask({
         sender: currentUser.name,
         cycle: scheduleForm.cycle,
         deadlineOffset: scheduleForm.deadlineOffset,
         content: scheduleForm.content,
-        url1: scheduleForm.url1,
+        url1: validUrls,
         targetTags: scheduleTags.join(', '),
-        targets: Array.from(targetEmails)
+        targets: Array.from(targetEmails),
+        images: scheduleImages.map(img => ({ name: img.name, type: img.type, base64: img.base64 }))
       });
       alert('スケジュールを登録しました！');
-      setScheduleForm({ cycle: '毎日 AM 9:00', deadlineOffset: '当日中', content: '', url1: '' });
+      setScheduleForm({ cycle: '毎日 AM 9:00', deadlineOffset: '当日中', content: '', urls: [''] });
+      setScheduleImages([]);
       setScheduleTags([]);
       refreshTasks(); 
     } catch (error) { alert('登録失敗'); } finally { setIsSubmitting(false); }
@@ -665,16 +711,56 @@ export default function App() {
                       <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">依頼内容</label>
                       <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="4" className="w-full p-6 bg-slate-50 border-2 border-slate-200 rounded-[2rem] outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-base font-bold text-slate-800 transition-all shadow-inner text-center" placeholder="具体的な指示内容を入力してください"></textarea>
                     </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">期限 (DL)</label>
                         <input type="date" value={requestForm.deadline} onChange={e => setRequestForm({...requestForm, deadline: e.target.value})} required className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-base font-bold text-slate-800 shadow-inner text-center" />
                       </div>
+                      
                       <div>
-                        <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">資料URL (任意)</label>
-                        <input type="url" value={requestForm.url1} onChange={e => setRequestForm({...requestForm, url1: e.target.value})} className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-base font-bold text-slate-800 placeholder-slate-400 shadow-inner text-center" placeholder="https://..." />
+                        <label className="text-xs font-black text-indigo-600 uppercase mb-1 block tracking-[0.2em] text-center">URL (任意)</label>
+                        <div className="space-y-3 mt-3">
+                          {requestForm.urls.map((url, i) => (
+                            <div key={i} className="flex gap-2">
+                              <input type="url" value={url} onChange={e => handleRequestUrlChange(i, e.target.value)} className="flex-1 p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-base font-bold text-slate-800 placeholder-slate-400 shadow-inner text-center" placeholder="https://..." />
+                              {requestForm.urls.length > 1 && (
+                                <button type="button" onClick={() => {
+                                  const newUrls = requestForm.urls.filter((_, index) => index !== i);
+                                  setRequestForm({ ...requestForm, urls: newUrls });
+                                }} className="w-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-100 transition-colors"><Icon name="trash" /></button>
+                              )}
+                            </div>
+                          ))}
+                          <button type="button" onClick={() => setRequestForm({ ...requestForm, urls: [...requestForm.urls, ''] })} className="w-full py-3 bg-indigo-50 text-indigo-600 font-black rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-2">
+                            <Icon name="plusCircle" /> URLを追加
+                          </button>
+                        </div>
                       </div>
                     </div>
+
+                    {/* ★追加: 参考画像のアップロードUI */}
+                    <div>
+                      <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意)</label>
+                      <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
+                        <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                        <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                          <Icon name="image" />
+                          <span className="text-sm font-bold">タップして画像を選択（自動でDriveに保存されます）</span>
+                        </div>
+                      </div>
+                      {requestImages.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-4 mt-4">
+                          {requestImages.map((img, i) => (
+                            <div key={i} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-slate-200">
+                              <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
+                              <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-1 right-1 bg-slate-900/60 text-white p-1.5 rounded-full hover:bg-rose-500 transition-colors backdrop-blur-sm z-20"><Icon name="x" /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 shadow-inner text-center">
                       <p className="text-xs font-black text-indigo-600 uppercase mb-5 tracking-[0.2em]">配信先を選択</p>
                       <div className="flex flex-wrap justify-center gap-3">
@@ -692,8 +778,8 @@ export default function App() {
               
               // === 再投稿 (履歴) ===
               ) : activeTab === 'repost' ? (
-                <div className="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 shadow-xl animate-fade-in">
-                  <h3 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter uppercase text-center">再投稿（履歴）</h3>
+                <div className="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 shadow-xl animate-fade-in text-center">
+                  <h3 className="text-3xl font-black text-slate-800 mb-2 tracking-tighter uppercase">再投稿（履歴）</h3>
                   <p className="text-base font-bold text-slate-500 mb-8 text-center">過去に送信したタスクの情報を引き継いで、新しく作成します。</p>
                   
                   <div className="space-y-4">
@@ -744,10 +830,56 @@ export default function App() {
                           </select>
                         </div>
                       </div>
-                      <div>
-                        <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">依頼内容</label>
-                        <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="3" className="w-full bg-slate-50 border-2 border-slate-200 rounded-[2rem] p-6 text-slate-800 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold placeholder-slate-400 shadow-inner text-center" placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">依頼内容</label>
+                          <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="4" className="w-full h-full min-h-[120px] bg-slate-50 border-2 border-slate-200 rounded-[2rem] p-6 text-slate-800 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold placeholder-slate-400 shadow-inner text-center" placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-black text-indigo-600 uppercase mb-1 block tracking-[0.2em] text-center">URL (任意)</label>
+                          <div className="space-y-3 mt-3">
+                            {scheduleForm.urls.map((url, i) => (
+                              <div key={i} className="flex gap-2">
+                                <input type="url" value={url} onChange={e => handleScheduleUrlChange(i, e.target.value)} className="flex-1 p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-base font-bold text-slate-800 placeholder-slate-400 shadow-inner text-center" placeholder="https://..." />
+                                {scheduleForm.urls.length > 1 && (
+                                  <button type="button" onClick={() => {
+                                    const newUrls = scheduleForm.urls.filter((_, index) => index !== i);
+                                    setScheduleForm({ ...scheduleForm, urls: newUrls });
+                                  }} className="w-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-100 transition-colors"><Icon name="trash" /></button>
+                                )}
+                              </div>
+                            ))}
+                            <button type="button" onClick={() => setScheduleForm({ ...scheduleForm, urls: [...scheduleForm.urls, ''] })} className="w-full py-3 bg-indigo-50 text-indigo-600 font-black rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-2">
+                              <Icon name="plusCircle" /> URLを追加
+                            </button>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* ★追加: 定期配信の画像アップロードUI */}
+                      <div>
+                        <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意)</label>
+                        <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
+                          <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                          <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                            <Icon name="image" />
+                            <span className="text-sm font-bold">タップして画像を選択（自動でDriveに保存されます）</span>
+                          </div>
+                        </div>
+                        {scheduleImages.length > 0 && (
+                          <div className="flex flex-wrap justify-center gap-4 mt-4">
+                            {scheduleImages.map((img, i) => (
+                              <div key={i} className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-slate-200">
+                                <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
+                                <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-1 right-1 bg-slate-900/60 text-white p-1.5 rounded-full hover:bg-rose-500 transition-colors backdrop-blur-sm z-20"><Icon name="x" /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 shadow-inner text-center">
                         <p className="text-xs font-black text-indigo-600 uppercase mb-5 tracking-[0.2em]">配信先</p>
                         <div className="flex flex-wrap justify-center gap-3">
@@ -828,11 +960,12 @@ export default function App() {
                                 <span className="text-[10px] font-black uppercase tracking-widest mb-1">期限</span>
                                 <span className="text-base font-black tracking-tight">{task.deadline}</span>
                               </div>
-                              {task.url && (
-                                <a href={task.url} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
-                                  <Icon name="link" /> 資料を確認
+                              {/* 複数のURLがある場合は、複数ボタンを表示 */}
+                              {task.url && task.url.split('\n').map((u, i) => u.trim() && (
+                                <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
+                                  <Icon name="link" /> {task.url.split('\n').filter(x => x.trim()).length > 1 ? `リンク ${i + 1} を開く` : 'リンクを開く'}
                                 </a>
-                              )}
+                              ))}
                             </div>
                           )}
                         </div>
