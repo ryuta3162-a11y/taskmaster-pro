@@ -103,7 +103,6 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ★ URLも最大3つまでの配列で管理
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]); 
   const [selectedTags, setSelectedTags] = useState([]);
@@ -156,8 +155,14 @@ export default function App() {
 
   useEffect(() => { if (authStep === 'ready') refreshTasks(); }, [authStep, currentUser, activeTab]);
 
+  // ★ 修正箇所1: 絞り込み機能（フィルター）のバグを修正
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => (taskFilter === 'ALL' || t.store === taskFilter) && (taskTab === 'active' ? !t.completed : t.completed));
+    return tasks.filter(t => {
+      // 以前は `t.store === taskFilter` になっていたため、H列以降の店舗等を選ぶと消えてしまっていました
+      const storeMatch = taskFilter === 'ALL' || (t.targetTags && t.targetTags.includes(taskFilter));
+      const statusMatch = taskTab === 'active' ? !t.completed : t.completed;
+      return storeMatch && statusMatch;
+    });
   }, [tasks, taskFilter, taskTab]);
 
   const availableTags = useMemo(() => {
@@ -231,7 +236,6 @@ export default function App() {
     setScheduleForm({ ...scheduleForm, urls: newUrls });
   };
 
-  // 画像アップロード（最大3枚まで）
   const handleImageChange = (e, formType) => {
     const files = Array.from(e.target.files);
     files.forEach(file => {
@@ -278,7 +282,6 @@ export default function App() {
     else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- 新規投稿 ---
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTags.length) return alert('配信先を選択してください。');
@@ -289,7 +292,6 @@ export default function App() {
       if (empAreas.some(a => selectedTags.includes(a)) || emp.stores?.some(s => selectedTags.includes(s))) targetEmails.add(emp.email); 
     });
 
-    // フィルタリングした配列のままGASへ送信
     const validUrls = requestForm.urls.filter(u => u.trim() !== '');
 
     try {
@@ -312,7 +314,6 @@ export default function App() {
     } catch (error) { alert('送信失敗'); } finally { setIsSubmitting(false); }
   };
 
-  // --- 再投稿 ---
   const handleRepostClick = (task) => {
     setRequestForm({ content: task.content, deadline: '', urls: task.urls && task.urls.length > 0 ? task.urls : [''] });
     setRequestImages([]); 
@@ -320,7 +321,6 @@ export default function App() {
     setActiveTab('request');
   };
 
-  // --- 定期配信 ---
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!scheduleTags.length) return alert('配信先を選択してください。');
@@ -905,6 +905,7 @@ export default function App() {
                           </div>
                           <h3 className={`text-xl font-bold text-slate-800 leading-relaxed ${task.completed ? 'line-through opacity-40' : ''}`}>{task.content}</h3>
                           
+                          {/* 未完了時の詳細情報・リンク */}
                           {!task.completed && (
                             <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-6 items-center">
                               <div className={`flex flex-col px-5 py-2.5 rounded-2xl border-2 ${task.daysRemaining <= 0 ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-slate-50 border-slate-100 text-slate-600'}`}>
@@ -912,14 +913,14 @@ export default function App() {
                                 <span className="text-base font-black tracking-tight">{task.deadline}</span>
                               </div>
 
-                              {/* ★ リンクの表示（GHI列） */}
+                              {/* ★ リンクの表示 */}
                               {task.urls && task.urls.map((u, i) => u.trim() && (
                                 <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 w-max">
                                   <Icon name="link" /> リンク {i + 1} を開く
                                 </a>
                               ))}
 
-                              {/* ★ 画像の表示（JKL列） */}
+                              {/* ★ 画像の表示 */}
                               {task.images && task.images.map((imgUrl, i) => imgUrl.trim() && (
                                 <a key={i} href={imgUrl} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm hover:shadow-md transition-all h-20 w-20">
                                   <img src={imgUrl} alt="添付画像" className="w-full h-full object-cover" />
@@ -929,10 +930,15 @@ export default function App() {
                           )}
                         </div>
                         
-                        {!task.completed && (
+                        {/* 完了ボタン または 完了済みマーク */}
+                        {!task.completed ? (
                           <button onClick={() => openConfirmModal(task)} className="mx-auto md:mx-0 w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-slate-100 text-slate-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center shadow-inner group flex-shrink-0">
                             <span className="group-hover:scale-125 transition-transform scale-110"><Icon name="check" /></span>
                           </button>
+                        ) : (
+                          <div className="mx-auto md:mx-0 w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-emerald-100 bg-emerald-50 text-emerald-500 transition-all flex items-center justify-center shadow-inner flex-shrink-0 opacity-60">
+                            <span className="scale-110"><Icon name="check" /></span>
+                          </div>
                         )}
                       </div>
                     ))}
