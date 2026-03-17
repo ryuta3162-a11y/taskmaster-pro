@@ -44,7 +44,13 @@ const api = {
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees();
   }),
   fetchStoreData: () => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res([]), 600);
+    // ★ここです！テスト環境用のダミーデータを復活させました！
+    if (!isGAS) return setTimeout(() => res([
+      { area: '第1エリア', territory: 'テリトリー1', storeName: '仙台泉' },
+      { area: '第1エリア', territory: 'テリトリー1', storeName: '仙台東口' },
+      { area: '第1エリア', territory: 'テリトリー2', storeName: '南浦和' },
+      { area: '第7エリア', territory: 'テリトリー3', storeName: 'テスト店舗' },
+    ]), 600);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getStoreData();
   }),
   registerEmployee: (data) => new Promise((res, rej) => {
@@ -64,7 +70,7 @@ const api = {
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email);
   }),
   
-  // ★追加 API
+  // 追加 API
   getSentTasks: (name) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getSentTasks(name);
@@ -107,11 +113,11 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ★ 新規投稿フォーム用の状態管理
+  // 新規投稿フォーム用の状態管理
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', url1: '' });
   const [selectedTags, setSelectedTags] = useState([]);
 
-  // ★ 履歴・スケジュール用の状態
+  // 履歴・スケジュール用の状態
   const [sentTasks, setSentTasks] = useState([]);
   const [scheduledTasks, setScheduledTasks] = useState([]);
   const [scheduleForm, setScheduleForm] = useState({ cycle: '毎日 AM 9:00', deadlineOffset: '当日中', content: '', url1: '' });
@@ -303,7 +309,7 @@ export default function App() {
   const handleRepostClick = (task) => {
     setRequestForm({
       content: task.content,
-      deadline: '', // 期限は空にする
+      deadline: '', 
       url1: task.url
     });
     setSelectedTags(task.targetTags ? task.targetTags.split(', ') : []);
@@ -336,7 +342,7 @@ export default function App() {
       alert('スケジュールを登録しました！');
       setScheduleForm({ cycle: '毎日 AM 9:00', deadlineOffset: '当日中', content: '', url1: '' });
       setScheduleTags([]);
-      refreshTasks(); // 一覧を更新
+      refreshTasks(); 
     } catch (error) { alert('登録失敗'); } finally { setIsSubmitting(false); }
   };
 
@@ -488,6 +494,36 @@ export default function App() {
                   </div>
                 </div>
               )}
+              {regData.area.length > 0 && (
+                <div>
+                  <label className="text-sm font-black text-slate-500 uppercase mb-2 block text-center">管轄店舗を選択</label>
+                  <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-inner space-y-6">
+                    {regData.area.map(areaName => {
+                      const selectedTerrs = regData.territory[areaName] || [];
+                      const storesInArea = allStores.filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
+                      if (storesInArea.length === 0) return null;
+                      return (
+                        <div key={areaName} className="border-b border-slate-200 pb-5 last:border-0 last:pb-0">
+                           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 text-center">{areaName} の店舗</p>
+                           <div className="flex flex-wrap justify-center gap-3">
+                             {storesInArea.map(store => {
+                                const isSelected = regData.stores.includes(store.storeName);
+                                return (
+                                  <button key={store.storeName} type="button" onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }} className={`px-4 py-3 rounded-xl font-black text-sm border transition-all flex items-center justify-center gap-2 ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-white border-white text-indigo-600' : 'border-slate-300 bg-white'}`}>{isSelected && <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3"><path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>}</div>{store.storeName}
+                                  </button>
+                                )
+                             })}
+                           </div>
+                        </div>
+                      )
+                    })}
+                    {allStores.filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory)).length === 0 && (
+                      <p className="text-sm font-bold text-slate-500 text-center">※ 選択したエリア・テリトリーに該当する店舗データがありません。</p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="pt-6 flex gap-4">
                 <button type="button" onClick={() => {setAuthStep('login'); setInputEmail('');}} className="w-1/3 bg-white border-2 border-slate-200 text-slate-500 font-black py-5 text-lg rounded-2xl hover:bg-slate-50 transition-all">戻る</button>
                 <button type="submit" disabled={isSubmitting} className="w-2/3 bg-indigo-600 text-white font-black py-5 text-lg rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">{isSubmitting ? <span className="animate-spin"><Icon name="loader" /></span> : '登録して開始'}</button>
@@ -506,7 +542,6 @@ export default function App() {
             <div className="w-28 h-28 bg-indigo-50 rounded-full mx-auto flex items-center justify-center text-indigo-600 mb-6 shadow-inner ring-4 ring-indigo-100"><Icon name="user" /></div>
             <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-2">{tempUser?.team}</p>
             <h2 className="text-4xl font-black text-slate-800 mb-6 tracking-tighter">{tempUser?.name}</h2>
-            {/* ★修正: 担当エリアを美しく改行表示 */}
             <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-8">
               <p className="text-xs text-slate-400 font-black uppercase mb-3 tracking-widest">担当エリア</p>
               {tempUser?.territory ? (
@@ -532,7 +567,6 @@ export default function App() {
       ========================================= */}
       {authStep === 'ready' && (
         <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
-          
           <aside className={`bg-white border-r border-slate-200 flex flex-col shadow-2xl transition-all duration-300 overflow-hidden z-50 absolute lg:relative h-full ${isSidebarOpen ? 'w-80' : 'w-0'}`}>
             <div className="h-16 border-b border-slate-100 flex items-center justify-between px-8">
               <span className="font-black text-slate-800 tracking-tighter uppercase text-xs text-indigo-600">TaskMaster Pro</span>
@@ -542,7 +576,6 @@ export default function App() {
               <div className="w-28 h-28 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-6 shadow-inner ring-4 ring-indigo-100"><Icon name="user" /></div>
               <p className="text-slate-800 font-black text-2xl tracking-tight text-center mb-8">{currentUser?.name}</p>
               <div className="w-full space-y-6">
-                {/* ★修正: 担当エリアを美しく改行表示 */}
                 <div className="bg-slate-50 rounded-3xl p-6 text-center border border-slate-100">
                   <p className="text-xs text-slate-400 font-black uppercase mb-4 tracking-widest">担当エリア</p>
                   {currentUser?.territory ? (
@@ -716,7 +749,7 @@ export default function App() {
                         <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="3" className="w-full bg-slate-50 border-2 border-slate-200 rounded-[2rem] p-6 text-slate-800 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 font-bold placeholder-slate-400 shadow-inner text-center" placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
                       </div>
                       <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 shadow-inner text-center">
-                        <p className="text-xs font-black text-indigo-600 uppercase mb-5 tracking-[0.2em]">配信先を選択</p>
+                        <p className="text-xs font-black text-indigo-600 uppercase mb-5 tracking-[0.2em]">配信先</p>
                         <div className="flex flex-wrap justify-center gap-3">
                           {availableTags.map(tag => (
                             <button key={tag} type="button" onClick={() => setScheduleTags(p => p.includes(tag) ? p.filter(t=>t!==tag) : [...p, tag])} className={`px-5 py-3 rounded-full font-black text-sm border-2 transition-all ${scheduleTags.includes(tag) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'}`}># {tag}</button>
