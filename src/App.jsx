@@ -14,7 +14,6 @@ const Icon = ({ name }) => {
     list: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>,
     loader: <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>,
     user: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    menu: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
     x: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
     chevronLeft: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
     link: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
@@ -97,7 +96,6 @@ export default function App() {
   const [regData, setRegData] = useState({ name: '', team: [], area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
@@ -471,7 +469,7 @@ export default function App() {
 
 
   if (authStep === 'loading') return (
-    <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4 text-black">
+    <div className="h-screen flex items-center justify-center bg-[#f0f0f0] flex-col gap-4 text-black">
       <div className="text-indigo-600 scale-150"><Icon name="loader" /></div>
       <p className="font-black tracking-widest text-sm uppercase animate-pulse mt-4">システムを起動しています...</p>
     </div>
@@ -479,6 +477,7 @@ export default function App() {
 
   return (
     <Fragment>
+      {/* --- モーダル群 --- */}
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })}></div>
@@ -516,6 +515,7 @@ export default function App() {
         </div>
       )}
 
+      {/* --- ログイン・登録画面 --- */}
       {authStep === 'login' && (
         <div className="h-screen bg-[#f0f0f0] flex items-center justify-center p-6 relative overflow-hidden">
           <div className="bg-white border-4 border-black rounded-[2.5rem] p-12 max-w-lg w-full shadow-[12px_12px_0_0_#000] relative z-10">
@@ -649,58 +649,64 @@ export default function App() {
         </div>
       )}
 
+      {/* --- メイン画面（PC版 フル横幅最適化・サイドバー廃止） --- */}
       {authStep === 'ready' && (
-        <div className="flex h-screen bg-[#f0f0f0] font-sans text-black overflow-hidden relative">
+        <div className="flex flex-col h-screen bg-[#f0f0f0] font-sans text-black overflow-hidden">
           
-          <aside className={`bg-white border-r-4 border-black flex flex-col transition-all duration-300 overflow-hidden z-50 absolute lg:relative h-full shadow-[8px_0_0_0_rgba(0,0,0,0.1)] ${isSidebarOpen ? 'w-80' : 'w-0 lg:w-80'}`}>
-            <div className="h-20 border-b-4 border-black flex items-center justify-between px-8 bg-indigo-50">
-              <span className="font-black text-black tracking-tighter uppercase text-xl italic">ToDo List</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-black hover:scale-110 transition-transform"><Icon name="x" /></button>
+          <header className="h-20 bg-white border-b-4 border-black flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-50">
+            {/* 左側：ロゴと戻るボタン */}
+            <div className="flex items-center gap-6">
+               <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-xl shadow-[4px_4px_0_0_rgba(0,0,0,0.2)]">
+                    <Icon name="check" />
+                 </div>
+                 <div className="flex flex-col">
+                    <h1 className="text-xl font-black italic tracking-tighter leading-none hidden md:block">ToDo LIST</h1>
+                    <span className="text-[10px] font-bold text-gray-500 tracking-widest hidden md:block">TEAM TASK MANAGER</span>
+                 </div>
+               </div>
+               
+               {activeTab !== 'home' && (
+                 <>
+                   <div className="h-8 w-1 bg-gray-300 hidden md:block"></div>
+                   <button onClick={() => setActiveTab('home')} className="flex items-center gap-2 text-base font-black text-black hover:opacity-70 transition-opacity">
+                     <Icon name="chevronLeft" /> 戻る
+                   </button>
+                   <h2 className="font-black text-black tracking-tighter uppercase text-xl md:text-2xl ml-2">
+                     {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
+                   </h2>
+                 </>
+               )}
+               {activeTab === 'home' && (
+                 <>
+                   <div className="h-8 w-1 bg-gray-300 hidden md:block"></div>
+                   <h2 className="font-black text-black tracking-tighter uppercase text-xl md:text-2xl">ダッシュボード</h2>
+                 </>
+               )}
             </div>
-            <div className="flex flex-col items-center p-8 flex-1 overflow-y-auto">
-              <div className="w-32 h-32 bg-white border-4 border-black rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-[6px_6px_0_0_#000]"><Icon name="user" /></div>
-              <p className="text-black font-black text-3xl tracking-tighter text-center mb-8">{currentUser?.name}</p>
-              <div className="w-full space-y-8">
-                <div className="bg-white rounded-2xl p-6 text-center border-4 border-black shadow-[4px_4px_0_0_#000]">
-                  <p className="text-xs text-indigo-600 font-black uppercase mb-4 tracking-widest">担当エリア</p>
-                  {currentUser?.territory ? (
-                    <div className="space-y-3">
-                      {String(currentUser.territory).split(' / ').map((t, i) => (
-                        <p key={i} className="text-base font-black text-black leading-relaxed">{t}</p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-base font-black text-black">{currentUser?.area}</p>
-                  )}
-                </div>
-                <div className="bg-white rounded-2xl p-6 text-center border-4 border-black shadow-[4px_4px_0_0_#000]">
-                  <p className="text-xs text-indigo-600 font-black uppercase mb-4 tracking-widest">担当店舗</p>
-                  <div className="flex flex-wrap justify-center gap-3">
-                    {currentUser?.stores?.length > 0 ? currentUser.stores.map((s, i) => <span key={i} className="bg-gray-100 border-2 border-black text-black text-xs px-3 py-1.5 rounded-lg font-black shadow-[2px_2px_0_0_#000]">{s}</span>) : <span className="text-sm text-gray-500 font-bold">店舗なし</span>}
+
+            {/* 右側：アカウント情報（クリックでログアウト） */}
+            <div className="flex items-center">
+              <button onClick={handleLogout} className="flex items-center space-x-3 group bg-white border-4 border-black px-4 py-2 rounded-xl shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1">
+                  <div className="flex flex-col items-end text-right hidden sm:flex">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 leading-none mb-1">ACCOUNT</span>
+                      <span className="text-sm font-black text-black leading-none max-w-[120px] truncate">{currentUser?.name}</span>
                   </div>
-                </div>
-              </div>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold border-2 border-black">
+                     {currentUser?.name ? currentUser.name.charAt(0) : '?'}
+                  </div>
+              </button>
             </div>
-            <div className="p-6 border-t-4 border-black bg-gray-50">
-              <button onClick={handleLogout} className={brutalBtnSecondary + " w-full text-sm"}><Icon name="logout" /> ログアウト</button>
-            </div>
-          </aside>
+          </header>
 
-          <main className="flex-1 flex flex-col overflow-hidden relative bg-[#f0f0f0]">
-            <header className="h-20 bg-white border-b-4 border-black flex items-center px-8 absolute top-0 w-full z-10 gap-6 shadow-[0_4px_0_0_rgba(0,0,0,0.1)]">
-              <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-black hover:scale-110 transition-transform"><Icon name="menu" /></button>
-              {activeTab !== 'home' && <button onClick={() => setActiveTab('home')} className="flex items-center gap-2 text-base font-black text-black hover:opacity-70 transition-opacity -ml-2"><Icon name="chevronLeft" /> 戻る</button>}
-              <h2 className="font-black text-black tracking-tighter flex-1 uppercase text-2xl">{activeTab === 'home' ? 'ダッシュボード' : activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}</h2>
-            </header>
-
-            <div className="flex-1 overflow-auto p-6 md:p-12 pt-32 md:pt-36 relative z-0">
+          <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#f0f0f0]">
+            {/* メインコンテンツ幅を最大1400pxまで広げる */}
+            <div className="max-w-[1400px] mx-auto w-full pb-20">
               
               {/* === HOME === */}
-              {activeTab === 'home' ? (
-                <div className="max-w-6xl mx-auto animate-fade-in space-y-12">
+              {activeTab === 'home' && (
+                <div className="animate-fade-in space-y-8">
                   <div className={brutalCard + " flex flex-col md:flex-row gap-8 items-center bg-indigo-50"}>
-                    
-                    {/* ★修正: 挨拶を消して未完了タスク件数を大きく表示 */}
                     <div className="flex-1 w-full text-center md:text-left flex flex-col justify-center">
                        <p className="text-gray-700 text-xl font-bold">現在あなたが抱えている未完了タスク</p>
                        <p className="text-black font-black text-5xl mt-3"><span className="text-rose-600">{activeTasksCount}</span> <span className="text-3xl">件</span></p>
@@ -743,13 +749,12 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              )}
               
-              // === タスク配信 ===
-              ) : activeTab === 'request' ? (
-                <div className={`max-w-6xl mx-auto ${brutalCard} animate-fade-in`}>
-                  <h3 className="text-4xl font-black text-black mb-10 tracking-tighter uppercase text-center border-b-4 border-black pb-6">タスクの配信</h3>
-                  
-                  <form onSubmit={handleTaskSubmit} className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+              {/* === タスク配信 === */}
+              {activeTab === 'request' && (
+                <div className={`${brutalCard} animate-fade-in`}>
+                  <form onSubmit={handleTaskSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     {/* 左カラム：入力欄 */}
                     <div className="space-y-8">
                       <div>
@@ -824,11 +829,11 @@ export default function App() {
                     </div>
                   </form>
                 </div>
+              )}
               
-              // === 再投稿 (履歴) ===
-              ) : activeTab === 'repost' ? (
-                <div className={`max-w-5xl mx-auto ${brutalCard} animate-fade-in`}>
-                  <h3 className="text-4xl font-black text-black mb-4 tracking-tighter uppercase text-center">再投稿（履歴）</h3>
+              {/* === 再投稿 (履歴) === */}
+              {activeTab === 'repost' && (
+                <div className={`${brutalCard} animate-fade-in`}>
                   <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-4 border-black pb-8">過去に送信したタスクの情報を引き継いで、新しく作成します。</p>
                   
                   <div className="space-y-6">
@@ -851,15 +856,15 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+              )}
               
-              // === 定期配信 ===
-              ) : activeTab === 'scheduled' ? (
-                <div className="max-w-6xl mx-auto space-y-12 animate-fade-in">
+              {/* === 定期配信 === */}
+              {activeTab === 'scheduled' && (
+                <div className="space-y-12 animate-fade-in">
                   <div className={brutalCard}>
-                    <h3 className="text-4xl font-black text-black mb-4 tracking-tighter uppercase text-center">定期配信の作成</h3>
                     <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-4 border-black pb-8">毎月の決まった日に、システムが自動でタスクを配信します。</p>
                     
-                    <form onSubmit={handleScheduleSubmit} className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                    <form onSubmit={handleScheduleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                       <div className="space-y-8">
                         <div className="bg-indigo-50 border-4 border-black p-6 rounded-2xl shadow-[4px_4px_0_0_#000]">
                           <label className="text-sm font-black text-black uppercase mb-4 block tracking-widest border-b-2 border-black pb-2">配信スケジュールの設定</label>
@@ -921,29 +926,29 @@ export default function App() {
                             )}
                           </div>
                         </div>
-                      </div>
 
-                      <div>
-                        <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
-                        {scheduleImages.length < 3 && (
-                          <div className="bg-gray-50 border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-100 transition-colors relative cursor-pointer group">
-                            <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                            <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                              <div className="w-16 h-16 bg-white border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
-                              <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
-                            </div>
-                          </div>
-                        )}
-                        {scheduleImages.length > 0 && (
-                          <div className="flex flex-wrap gap-4 mt-6">
-                            {scheduleImages.map((img, i) => (
-                              <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-4 border-black shadow-[4px_4px_0_0_#000]">
-                                <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                        <div>
+                          <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
+                          {scheduleImages.length < 3 && (
+                            <div className="bg-gray-50 border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-100 transition-colors relative cursor-pointer group">
+                              <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                              <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
+                                <div className="w-16 h-16 bg-white border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
+                                <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                               </div>
-                            ))}
-                          </div>
-                        )}
+                            </div>
+                          )}
+                          {scheduleImages.length > 0 && (
+                            <div className="flex flex-wrap gap-4 mt-6">
+                              {scheduleImages.map((img, i) => (
+                                <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-4 border-black shadow-[4px_4px_0_0_#000]">
+                                  <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
+                                  <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex flex-col">
@@ -962,7 +967,6 @@ export default function App() {
                     </form>
                   </div>
 
-                  {/* 登録済みのスケジュール一覧 */}
                   <div className={brutalCard}>
                     <h3 className="text-3xl font-black text-black mb-8 tracking-tighter text-center border-b-4 border-black pb-6">稼働中の定期配信</h3>
                     <div className="space-y-6">
@@ -986,23 +990,16 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              )}
               
-              // === リストチェック画面 ===
-              ) : activeTab === 'checklist' ? (
-                <div className="max-w-6xl mx-auto h-full flex flex-col animate-fade-in">
+              {/* === リストチェック画面 === */}
+              {activeTab === 'checklist' && (
+                <div className="animate-fade-in">
                   
-                  <div className="flex gap-4 mb-10 max-w-xl mx-auto md:mx-0">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-4 text-xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
-                      未実施 <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
-                    </button>
-                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-4 text-xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'completed' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
-                      実施済み <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'completed' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{completedTasksCount}</span>
-                    </button>
-                  </div>
-
-                  <div className="flex gap-4 overflow-x-auto pb-4 mb-8 no-scrollbar justify-center md:justify-start px-2">
+                  {/* 上部：タグフィルター */}
+                  <div className="flex gap-4 overflow-x-auto pb-4 mb-8 no-scrollbar px-2">
                     <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-8 py-4 rounded-xl text-base font-black border-4 border-black transition-all flex items-center gap-3 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === 'ALL' ? 'bg-black text-white' : 'bg-white text-black'}`}>
-                      すべて
+                      全店
                       {activeTasksCount > 0 && <span className={`text-[12px] px-2.5 py-1 rounded-full border-2 border-black ${taskFilter === 'ALL' ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{activeTasksCount}</span>}
                     </button>
                     {currentUser?.stores?.map(s => {
@@ -1015,7 +1012,18 @@ export default function App() {
                       );
                     })}
                   </div>
+
+                  {/* ステータスタブ（幅を均等に） */}
+                  <div className="flex gap-4 mb-10 w-full md:w-[600px]">
+                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-4 text-xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
+                      未実施 <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
+                    </button>
+                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-4 text-xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'completed' ? 'bg-white text-black translate-x-1 translate-y-1 shadow-none' : 'bg-gray-200 text-gray-500 border-gray-300 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_rgba(0,0,0,0.1)]'}`}>
+                      実施済み <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'completed' ? 'bg-black text-white' : 'bg-gray-400 text-white border-transparent'}`}>{completedTasksCount}</span>
+                    </button>
+                  </div>
                   
+                  {/* タスクリスト */}
                   <div className="space-y-8 pb-24">
                     {tasksLoading ? (
                       <div className="space-y-8 animate-pulse"><div className="h-40 bg-white border-4 border-black rounded-[2.5rem] shadow-[8px_8px_0_0_#000]"></div></div>
@@ -1025,69 +1033,81 @@ export default function App() {
                         <p className="text-2xl">タスクはありません</p>
                       </div>
                     ) : filteredTasks.map(task => (
-                      <div key={task.id} className={`${brutalCard} flex flex-col md:flex-row gap-8 animate-fade-in`}>
-                        <div className="flex-1 text-center md:text-left w-full">
-                          <div className="flex items-center justify-center md:justify-start gap-4 mb-6 uppercase">
-                            <span className="bg-black text-white border-2 border-black text-xs font-black px-4 py-2 rounded-lg tracking-widest">{task.sender}からの依頼</span>
-                            
-                            {!task.completed && task.daysRemaining !== null && task.daysRemaining !== undefined && (
-                              <div className="flex items-center">
-                                {task.daysRemaining < 0 && (
-                                  <div className="flex items-center justify-center px-4 py-2 bg-black text-white border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] animate-pulse">
-                                    <span className="text-[10px] font-black leading-none tracking-widest">⚠ 超過</span>
-                                  </div>
-                                )}
-                                {task.daysRemaining === 0 && (
-                                  <div className="flex items-center justify-center px-4 py-2 bg-rose-500 text-white border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000]">
-                                    <span className="text-[10px] font-black leading-none tracking-widest">今日まで</span>
-                                  </div>
-                                )}
-                                {task.daysRemaining === 1 && (
-                                  <div className="flex items-center justify-center px-4 py-2 bg-orange-500 text-white border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000]">
-                                    <span className="text-[10px] font-black leading-none tracking-widest">明日まで</span>
-                                  </div>
-                                )}
-                                {task.daysRemaining === 2 && (
-                                  <div className="flex items-center justify-center px-4 py-2 bg-amber-400 text-black border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000]">
-                                    <span className="text-[10px] font-black leading-none tracking-widest">残り2日</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                      <div key={task.id} className={`${brutalCard} flex flex-col md:flex-row gap-6 items-center animate-fade-in !p-6`}>
+                        <div className="flex-1 w-full min-w-0">
+                          
+                          {/* 以前のシステムのUI：バッジ類 */}
+                          <div className="flex flex-wrap gap-2 mb-4 items-center">
+                            {task.targetTags && <span className="bg-rose-500 text-white border-2 border-black text-xs font-black px-3 py-1 rounded-md tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
+                            <span className="bg-white text-black border-2 border-black text-[10px] font-black px-2 py-1 rounded-md tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
+                            <span className="text-xs font-bold text-gray-500 ml-2">from {task.sender}</span>
                           </div>
                           
-                          <h3 className={`text-2xl font-black text-black leading-relaxed ${task.completed ? 'line-through opacity-40' : ''}`}>{task.content}</h3>
+                          {/* タイトル */}
+                          <h3 className={`text-xl md:text-2xl font-black text-black leading-relaxed mb-6 break-words ${task.completed ? 'line-through opacity-40' : ''}`}>{task.content}</h3>
                           
                           {!task.completed && (
-                            <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-8 items-center">
-                              <div className={`flex flex-col px-6 py-3 rounded-2xl border-4 border-black shadow-[4px_4px_0_0_#000] ${task.daysRemaining <= 0 ? 'bg-rose-50 text-rose-600' : 'bg-white text-black'}`}>
-                                <span className="text-xs font-black uppercase tracking-widest mb-1">期限</span>
-                                <span className="text-xl font-black tracking-tight">{task.deadline}</span>
+                            <div className="flex flex-col gap-4 border-t-4 border-gray-100 pt-5">
+                              
+                              {/* 以前のシステムのUI：日付バッジ（DL・超過など） */}
+                              <div className="flex flex-wrap gap-3 items-center">
+                                <div className="flex items-center gap-2 bg-white border-2 border-rose-500 rounded-lg px-3 py-1 shadow-[2px_2px_0_0_#e11d48]">
+                                  <span className="text-[10px] font-black text-rose-600 uppercase">DL</span>
+                                  <span className="text-sm font-black text-rose-600">{task.deadline}</span>
+                                </div>
+
+                                {task.daysRemaining !== null && task.daysRemaining !== undefined && (
+                                  <>
+                                    {task.daysRemaining < 0 && (
+                                      <div className="flex items-center justify-center px-4 py-1.5 bg-black text-white border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] animate-pulse">
+                                        <span className="text-[10px] font-black leading-none tracking-widest">⚠ 超過</span>
+                                      </div>
+                                    )}
+                                    {task.daysRemaining === 0 && (
+                                      <div className="flex items-center justify-center px-4 py-1.5 bg-rose-500 text-white border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000]">
+                                        <span className="text-[10px] font-black leading-none tracking-widest">今日まで</span>
+                                      </div>
+                                    )}
+                                    {task.daysRemaining === 1 && (
+                                      <div className="flex items-center justify-center px-4 py-1.5 bg-orange-500 text-white border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000]">
+                                        <span className="text-[10px] font-black leading-none tracking-widest">明日まで</span>
+                                      </div>
+                                    )}
+                                    {task.daysRemaining === 2 && (
+                                      <div className="flex items-center justify-center px-4 py-1.5 bg-amber-400 text-black border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000]">
+                                        <span className="text-[10px] font-black leading-none tracking-widest">残り2日</span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
                               </div>
 
-                              {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
-                                <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-4 border-black text-black text-sm font-black px-6 py-4 rounded-xl hover:bg-indigo-50 transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center gap-2 w-max h-full min-h-[70px]">
-                                  <Icon name="link" /> リンクを開く
-                                </a>
-                              ))}
-
-                              {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
-                                <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="bg-amber-100 border-4 border-black text-black text-sm font-black px-6 py-4 rounded-xl hover:bg-amber-200 transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center gap-2 w-max h-full min-h-[70px]">
-                                  <Icon name="image" /> 画像を開く
-                                </a>
-                              ))}
+                              {/* 以前のシステムのUI：全幅のリンクボタン群 */}
+                              <div className="flex flex-col gap-3 w-full mt-2">
+                                {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
+                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-2 border-black text-black text-sm font-black px-4 py-3 rounded-lg hover:bg-gray-50 transition-all shadow-[2px_2px_0_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0_0_#000] flex items-center justify-center gap-2">
+                                    <Icon name="link" /> リンクを開く
+                                  </a>
+                                ))}
+                                {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
+                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-2 border-black text-black text-sm font-black px-4 py-3 rounded-lg hover:bg-amber-200 transition-all shadow-[2px_2px_0_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0_0_#000] flex items-center justify-center gap-2">
+                                    <Icon name="image" /> 画像を開く
+                                  </a>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
                         
-                        <div className="flex items-center justify-center pt-6 md:pt-0 border-t-4 border-gray-100 md:border-t-0 md:border-l-4 md:pl-8 mt-6 md:mt-0">
+                        {/* 右側：完了ボタン */}
+                        <div className="flex-shrink-0 border-t-4 md:border-t-0 border-l-0 md:border-l-4 border-gray-100 pt-6 md:pt-0 md:pl-8 flex items-center justify-center w-full md:w-auto">
                           {!task.completed ? (
-                            <button onClick={() => openConfirmModal(task)} className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-black bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-[6px_6px_0_0_#000] group flex-shrink-0 active:translate-x-2 active:translate-y-2 active:shadow-none">
-                              <span className="group-hover:scale-125 transition-transform scale-110"><Icon name="check" /></span>
+                            <button onClick={() => openConfirmModal(task)} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-black bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-[4px_4px_0_0_#000] group active:translate-x-1 active:translate-y-1 active:shadow-none">
+                              <span className="group-hover:scale-125 transition-transform scale-150"><Icon name="check" /></span>
                             </button>
                           ) : (
-                            <div className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-black bg-gray-200 text-gray-400 transition-all flex items-center justify-center shadow-inner flex-shrink-0">
-                              <span className="scale-125"><Icon name="check" /></span>
+                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-black bg-gray-200 text-gray-400 transition-all flex items-center justify-center shadow-inner">
+                              <span className="scale-150"><Icon name="check" /></span>
                             </div>
                           )}
                         </div>
@@ -1095,7 +1115,7 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-              ) : null}
+              )}
             </div>
           </main>
         </div>
