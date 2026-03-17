@@ -26,27 +26,22 @@ const Icon = ({ name }) => {
   return icons[name] || null;
 };
 
-// --- 共通データ ---
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
-
 const getTerritories = (area) => {
-  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) {
-    return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
-  }
+  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
+  if (['第1エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
   return ['テリトリー1', 'テリトリー2']; 
 };
 
-// --- API層 ---
 const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
-
 const api = {
   fetchEmployees: () => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 600);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getEmployees();
   }),
   fetchStoreData: () => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res([]), 600); // ※テスト環境のダミーデータは削除済
+    if (!isGAS) return setTimeout(() => res([]), 600);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getStoreData();
   }),
   registerEmployee: (data) => new Promise((res, rej) => {
@@ -92,7 +87,6 @@ export default function App() {
   
   const [allEmployees, setAllEmployees] = useState([]);
   const [allStores, setAllStores] = useState([]);
-
   const [regData, setRegData] = useState({ name: '', team: [], area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
@@ -107,7 +101,6 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ★ URLと画像アップロード用の状態管理
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]); 
   const [selectedTags, setSelectedTags] = useState([]);
@@ -133,24 +126,14 @@ export default function App() {
       script.src = 'https://cdn.tailwindcss.com';
       document.head.appendChild(script);
     }
-
-    Promise.all([api.fetchEmployees(), api.fetchStoreData()])
-      .then(([employees, stores]) => {
-        const emps = Array.isArray(employees) ? employees : [];
-        setAllEmployees(emps);
-        setAllStores(Array.isArray(stores) ? stores : []);
-        
-        const savedEmail = localStorage.getItem('taskmaster_user_email');
-        const user = emps.find(e => e.email === savedEmail);
-        
-        if (user) {
-          setCurrentUser(user);
-          setAuthStep('ready');
-        } else {
-          setAuthStep('login');
-        }
-      })
-      .catch(() => setAuthStep('login'));
+    Promise.all([api.fetchEmployees(), api.fetchStoreData()]).then(([employees, stores]) => {
+      const emps = Array.isArray(employees) ? employees : [];
+      setAllEmployees(emps);
+      setAllStores(Array.isArray(stores) ? stores : []);
+      const savedEmail = localStorage.getItem('taskmaster_user_email');
+      const user = emps.find(e => e.email === savedEmail);
+      if (user) { setCurrentUser(user); setAuthStep('ready'); } else { setAuthStep('login'); }
+    }).catch(() => setAuthStep('login'));
   }, []);
 
   const refreshTasks = () => {
@@ -161,49 +144,28 @@ export default function App() {
       setTasks(taskList);
       const active = taskList.filter(t => !t.completed).length;
       const total = taskList.length;
-      setDashboardData({
-        myActiveTasks: active,
-        requestedTasksProgress: total === 0 ? 0 : Math.round(((total - active) / total) * 100)
-      });
+      setDashboardData({ myActiveTasks: active, requestedTasksProgress: total === 0 ? 0 : Math.round(((total - active) / total) * 100) });
       setTasksLoading(false);
     }).catch(() => setTasksLoading(false));
-
     api.getSentTasks(currentUser.name).then(res => setSentTasks(res || []));
     api.getScheduledTasks(currentUser.name).then(res => setScheduledTasks(res || []));
   };
 
-  useEffect(() => {
-    if (authStep === 'ready') refreshTasks();
-  }, [authStep, currentUser, activeTab]);
+  useEffect(() => { if (authStep === 'ready') refreshTasks(); }, [authStep, currentUser, activeTab]);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
-      const storeMatch = taskFilter === 'ALL' || t.store === taskFilter;
-      const statusMatch = taskTab === 'active' ? !t.completed : t.completed;
-      return storeMatch && statusMatch;
-    });
+    return tasks.filter(t => (taskFilter === 'ALL' || t.store === taskFilter) && (taskTab === 'active' ? !t.completed : t.completed));
   }, [tasks, taskFilter, taskTab]);
 
   const availableTags = useMemo(() => {
-    return Array.from(new Set(
-      allEmployees.flatMap(emp => {
-        const areas = emp.area ? emp.area.split(', ') : [];
-        return [...areas, ...(emp.stores || [])];
-      }).filter(Boolean)
-    )).sort();
+    return Array.from(new Set(allEmployees.flatMap(emp => [...(emp.area ? emp.area.split(', ') : []), ...(emp.stores || [])]).filter(Boolean))).sort();
   }, [allEmployees]);
 
   const handleLoginSearch = (e) => {
     e.preventDefault();
     setLoginError('');
     const user = allEmployees.find(emp => emp.email === inputEmail.trim());
-    if (user) { 
-      setTempUser(user); 
-      setAuthStep('confirm'); 
-    } else { 
-      setTempUser({ email: inputEmail.trim() });
-      setAuthStep('register');
-    }
+    if (user) { setTempUser(user); setAuthStep('confirm'); } else { setTempUser({ email: inputEmail.trim() }); setAuthStep('register'); }
   };
 
   const handleConfirmLogin = () => {
@@ -213,40 +175,29 @@ export default function App() {
   };
 
   const toggleTeam = (teamName) => setRegData(p => ({ ...p, team: p.team.includes(teamName) ? p.team.filter(t => t !== teamName) : [...p.team, teamName] }));
-  
-  const toggleArea = (areaName) => {
-    setRegData(prev => {
-      const isSelected = prev.area.includes(areaName);
-      const newArea = isSelected ? prev.area.filter(a => a !== areaName) : [...prev.area, areaName];
-      const newTerritory = { ...prev.territory };
-      if (isSelected) { delete newTerritory[areaName]; } 
-      else { newTerritory[areaName] = getTerritories(areaName); }
-      return { ...prev, area: newArea, territory: newTerritory };
-    });
-  };
-
-  const toggleTerritory = (areaName, terrName) => {
-    setRegData(prev => {
-      const terrs = prev.territory[areaName] || [];
-      const newTerrs = terrs.includes(terrName) ? terrs.filter(t => t !== terrName) : [...terrs, terrName].sort();
-      return { ...prev, territory: { ...prev.territory, [areaName]: newTerrs } };
-    });
-  };
+  const toggleArea = (areaName) => setRegData(prev => {
+    const isSelected = prev.area.includes(areaName);
+    const newArea = isSelected ? prev.area.filter(a => a !== areaName) : [...prev.area, areaName];
+    const newTerritory = { ...prev.territory };
+    if (isSelected) delete newTerritory[areaName]; else newTerritory[areaName] = getTerritories(areaName);
+    return { ...prev, area: newArea, territory: newTerritory };
+  });
+  const toggleTerritory = (areaName, terrName) => setRegData(prev => {
+    const terrs = prev.territory[areaName] || [];
+    const newTerrs = terrs.includes(terrName) ? terrs.filter(t => t !== terrName) : [...terrs, terrName].sort();
+    return { ...prev, territory: { ...prev.territory, [areaName]: newTerrs } };
+  });
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     if (regData.team.length === 0 || regData.area.length === 0) return alert('チーム名、エリアは選択必須です。');
     setIsSubmitting(true);
-
     const formattedTeam = regData.team.join(', ');
     const formattedArea = regData.area.join(', ');
     const formattedTerritory = Object.entries(regData.territory).filter(([_, ts]) => ts.length > 0).map(([a, ts]) => `${a}: ${ts.join(',')}`).join(' / ');
     const validStoreNames = allStores.filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory)).map(s => s.storeName);
     const finalStores = regData.stores.filter(s => validStoreNames.includes(s));
-
-    const newEmployee = {
-      ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: tempUser.email, stores: finalStores
-    };
+    const newEmployee = { ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: tempUser.email, stores: finalStores };
 
     try {
       await api.registerEmployee(newEmployee);
@@ -266,7 +217,6 @@ export default function App() {
     }
   };
 
-  // --- URL追加処理 ---
   const handleRequestUrlChange = (index, value) => {
     const newUrls = [...requestForm.urls];
     newUrls[index] = value;
@@ -278,48 +228,62 @@ export default function App() {
     setScheduleForm({ ...scheduleForm, urls: newUrls });
   };
 
-  // --- ★ 画像読み込み・Base64変換ロジック ---
+  // ★ 画像をアップロード前に圧縮するロジック
   const handleImageChange = (e, formType) => {
     const files = Array.from(e.target.files);
     files.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const imageData = {
-           name: file.name,
-           type: file.type,
-           base64: reader.result.split(',')[1], // GASへ送るためのデータ
-           preview: reader.result // 画面表示用
+        const img = new Image();
+        img.onload = () => {
+          let canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          // スマホでも素早く送れるように最大幅を1200pxに圧縮
+          const MAX_SIZE = 1200;
+          if (width > height) {
+            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+          } else {
+            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          let ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          let dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 圧縮
+          
+          const imageData = {
+             name: file.name,
+             type: 'image/jpeg',
+             base64: dataUrl.split(',')[1],
+             preview: dataUrl
+          };
+          if (formType === 'request') {
+            setRequestImages(prev => [...prev, imageData]);
+          } else {
+            setScheduleImages(prev => [...prev, imageData]);
+          }
         };
-        if (formType === 'request') {
-          setRequestImages(prev => [...prev, imageData]);
-        } else {
-          setScheduleImages(prev => [...prev, imageData]);
-        }
+        img.src = reader.result;
       };
       if (file) reader.readAsDataURL(file);
     });
   };
 
   const removeImage = (index, formType) => {
-    if (formType === 'request') {
-      setRequestImages(prev => prev.filter((_, i) => i !== index));
-    } else {
-      setScheduleImages(prev => prev.filter((_, i) => i !== index));
-    }
+    if (formType === 'request') setRequestImages(prev => prev.filter((_, i) => i !== index));
+    else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- タスク配信（新規投稿） ---
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTags.length) return alert('配信先を選択してください。');
     setIsSubmitting(true);
     const targetEmails = new Set();
-    
     allEmployees.forEach(emp => {
       const empAreas = emp.area ? emp.area.split(', ') : [];
-      if (empAreas.some(a => selectedTags.includes(a)) || emp.stores?.some(s => selectedTags.includes(s))) {
-        targetEmails.add(emp.email); 
-      }
+      if (empAreas.some(a => selectedTags.includes(a)) || emp.stores?.some(s => selectedTags.includes(s))) targetEmails.add(emp.email); 
     });
 
     const validUrls = requestForm.urls.filter(u => u.trim() !== '').join('\n');
@@ -333,7 +297,6 @@ export default function App() {
         sender: currentUser ? currentUser.name : "管理者",
         targets: Array.from(targetEmails),
         targetTags: selectedTags.join(', '),
-        // ★Base64変換した画像データを送る（プレビューデータは除外）
         images: requestImages.map(img => ({ name: img.name, type: img.type, base64: img.base64 }))
       });
       alert('タスクを配信しました！対象者に通知されます。');
@@ -345,20 +308,14 @@ export default function App() {
     } catch (error) { alert('送信失敗'); } finally { setIsSubmitting(false); }
   };
 
-  // --- 再利用して作成 ---
   const handleRepostClick = (task) => {
     const storedUrls = task.url ? task.url.split('\n') : [''];
-    setRequestForm({
-      content: task.content,
-      deadline: '', 
-      urls: storedUrls.length > 0 ? storedUrls : ['']
-    });
-    setRequestImages([]); // 履歴から画像までは復元しない
+    setRequestForm({ content: task.content, deadline: '', urls: storedUrls.length > 0 ? storedUrls : [''] });
+    setRequestImages([]); 
     setSelectedTags(task.targetTags ? task.targetTags.split(', ') : []);
     setActiveTab('request');
   };
 
-  // --- 定期配信の登録 ---
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!scheduleTags.length) return alert('配信先を選択してください。');
@@ -366,9 +323,7 @@ export default function App() {
     const targetEmails = new Set();
     allEmployees.forEach(emp => {
       const empAreas = emp.area ? emp.area.split(', ') : [];
-      if (empAreas.some(a => scheduleTags.includes(a)) || emp.stores?.some(s => scheduleTags.includes(s))) {
-        targetEmails.add(emp.email); 
-      }
+      if (empAreas.some(a => scheduleTags.includes(a)) || emp.stores?.some(s => scheduleTags.includes(s))) targetEmails.add(emp.email); 
     });
 
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '').join('\n');
@@ -423,9 +378,6 @@ export default function App() {
 
   return (
     <Fragment>
-      {/* =========================================
-          完了確認モーダル
-      ========================================= */}
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })}></div>
@@ -463,9 +415,6 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================
-          ログイン画面
-      ========================================= */}
       {authStep === 'login' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 max-w-md w-full shadow-xl relative z-10">
@@ -481,9 +430,6 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================
-          新規登録画面
-      ========================================= */}
       {authStep === 'register' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-y-auto py-12">
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-12 max-w-2xl w-full shadow-xl relative z-10 my-auto animate-fade-in">
@@ -579,9 +525,6 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================
-          ログイン確認画面
-      ========================================= */}
       {authStep === 'confirm' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-12 max-w-md w-full text-center shadow-2xl relative z-10">
@@ -608,9 +551,6 @@ export default function App() {
         </div>
       )}
 
-      {/* =========================================
-          メインダッシュボード画面
-      ========================================= */}
       {authStep === 'ready' && (
         <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
           <aside className={`bg-white border-r border-slate-200 flex flex-col shadow-2xl transition-all duration-300 overflow-hidden z-50 absolute lg:relative h-full ${isSidebarOpen ? 'w-80' : 'w-0'}`}>
@@ -702,7 +642,7 @@ export default function App() {
                   </div>
                 </div>
               
-              // === タスク配信画面 ===
+              // === タスク配信 ===
               ) : activeTab === 'request' ? (
                 <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 shadow-xl animate-fade-in">
                   <h3 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter uppercase text-center">タスクの配信</h3>
@@ -739,7 +679,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* ★追加: 参考画像のアップロードUI */}
                     <div>
                       <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意)</label>
                       <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
@@ -858,7 +797,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* ★追加: 定期配信の画像アップロードUI */}
                       <div>
                         <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意)</label>
                         <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
@@ -960,12 +898,27 @@ export default function App() {
                                 <span className="text-[10px] font-black uppercase tracking-widest mb-1">期限</span>
                                 <span className="text-base font-black tracking-tight">{task.deadline}</span>
                               </div>
-                              {/* 複数のURLがある場合は、複数ボタンを表示 */}
-                              {task.url && task.url.split('\n').map((u, i) => u.trim() && (
-                                <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
-                                  <Icon name="link" /> {task.url.split('\n').filter(x => x.trim()).length > 1 ? `リンク ${i + 1} を開く` : 'リンクを開く'}
-                                </a>
-                              ))}
+
+                              {/* ★修正: 画像の場合はサムネイルとして表示、その他のURLはボタンとして表示 */}
+                              {task.url && task.url.split('\n').map((u, i) => {
+                                if (!u.trim()) return null;
+                                const isImage = u.includes('drive.google.com/uc') || u.match(/\.(jpeg|jpg|gif|png)$/i);
+                                
+                                if (isImage) {
+                                  return (
+                                    <a key={i} href={u} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm hover:shadow-md transition-all h-24">
+                                      <img src={u} alt="添付画像" className="max-w-full h-full object-cover" />
+                                    </a>
+                                  );
+                                } else {
+                                  return (
+                                    <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 mt-2 w-max">
+                                      <Icon name="link" /> {task.url.split('\n').filter(x => x.trim()).length > 1 ? `リンク ${i + 1} を開く` : 'リンクを開く'}
+                                    </a>
+                                  );
+                                }
+                              })}
+
                             </div>
                           )}
                         </div>
