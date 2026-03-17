@@ -26,6 +26,7 @@ const Icon = ({ name }) => {
   return icons[name] || null;
 };
 
+// --- 共通データ ---
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
 const getTerritories = (area) => {
@@ -34,6 +35,7 @@ const getTerritories = (area) => {
   return ['テリトリー1', 'テリトリー2']; 
 };
 
+// --- API層 ---
 const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
 const api = {
   fetchEmployees: () => new Promise((res, rej) => {
@@ -101,6 +103,7 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ★ URLも最大3つまでの配列で管理
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]); 
   const [selectedTags, setSelectedTags] = useState([]);
@@ -228,7 +231,7 @@ export default function App() {
     setScheduleForm({ ...scheduleForm, urls: newUrls });
   };
 
-  // ★ 画像をアップロード前に圧縮するロジック
+  // 画像アップロード（最大3枚まで）
   const handleImageChange = (e, formType) => {
     const files = Array.from(e.target.files);
     files.forEach(file => {
@@ -239,7 +242,6 @@ export default function App() {
           let canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          // スマホでも素早く送れるように最大幅を1200pxに圧縮
           const MAX_SIZE = 1200;
           if (width > height) {
             if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
@@ -251,7 +253,7 @@ export default function App() {
           let ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
           
-          let dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 圧縮
+          let dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
           
           const imageData = {
              name: file.name,
@@ -260,9 +262,9 @@ export default function App() {
              preview: dataUrl
           };
           if (formType === 'request') {
-            setRequestImages(prev => [...prev, imageData]);
+            setRequestImages(prev => prev.length < 3 ? [...prev, imageData] : prev);
           } else {
-            setScheduleImages(prev => [...prev, imageData]);
+            setScheduleImages(prev => prev.length < 3 ? [...prev, imageData] : prev);
           }
         };
         img.src = reader.result;
@@ -276,6 +278,7 @@ export default function App() {
     else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // --- 新規投稿 ---
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTags.length) return alert('配信先を選択してください。');
@@ -286,14 +289,15 @@ export default function App() {
       if (empAreas.some(a => selectedTags.includes(a)) || emp.stores?.some(s => selectedTags.includes(s))) targetEmails.add(emp.email); 
     });
 
-    const validUrls = requestForm.urls.filter(u => u.trim() !== '').join('\n');
+    // フィルタリングした配列のままGASへ送信
+    const validUrls = requestForm.urls.filter(u => u.trim() !== '');
 
     try {
       await api.createTask({
         type: '新規投稿',
         content: requestForm.content,
         deadline: requestForm.deadline,
-        url1: validUrls, 
+        urls: validUrls, 
         sender: currentUser ? currentUser.name : "管理者",
         targets: Array.from(targetEmails),
         targetTags: selectedTags.join(', '),
@@ -308,14 +312,15 @@ export default function App() {
     } catch (error) { alert('送信失敗'); } finally { setIsSubmitting(false); }
   };
 
+  // --- 再投稿 ---
   const handleRepostClick = (task) => {
-    const storedUrls = task.url ? task.url.split('\n') : [''];
-    setRequestForm({ content: task.content, deadline: '', urls: storedUrls.length > 0 ? storedUrls : [''] });
+    setRequestForm({ content: task.content, deadline: '', urls: task.urls && task.urls.length > 0 ? task.urls : [''] });
     setRequestImages([]); 
     setSelectedTags(task.targetTags ? task.targetTags.split(', ') : []);
     setActiveTab('request');
   };
 
+  // --- 定期配信 ---
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!scheduleTags.length) return alert('配信先を選択してください。');
@@ -326,7 +331,7 @@ export default function App() {
       if (empAreas.some(a => scheduleTags.includes(a)) || emp.stores?.some(s => scheduleTags.includes(s))) targetEmails.add(emp.email); 
     });
 
-    const validUrls = scheduleForm.urls.filter(u => u.trim() !== '').join('\n');
+    const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
 
     try {
       await api.registerScheduledTask({
@@ -334,7 +339,7 @@ export default function App() {
         cycle: scheduleForm.cycle,
         deadlineOffset: scheduleForm.deadlineOffset,
         content: scheduleForm.content,
-        url1: validUrls,
+        urls: validUrls,
         targetTags: scheduleTags.join(', '),
         targets: Array.from(targetEmails),
         images: scheduleImages.map(img => ({ name: img.name, type: img.type, base64: img.base64 }))
@@ -659,7 +664,7 @@ export default function App() {
                       </div>
                       
                       <div>
-                        <label className="text-xs font-black text-indigo-600 uppercase mb-1 block tracking-[0.2em] text-center">URL (任意)</label>
+                        <label className="text-xs font-black text-indigo-600 uppercase mb-1 block tracking-[0.2em] text-center">URL (任意 / 最大3つ)</label>
                         <div className="space-y-3 mt-3">
                           {requestForm.urls.map((url, i) => (
                             <div key={i} className="flex gap-2">
@@ -672,22 +677,26 @@ export default function App() {
                               )}
                             </div>
                           ))}
-                          <button type="button" onClick={() => setRequestForm({ ...requestForm, urls: [...requestForm.urls, ''] })} className="w-full py-3 bg-indigo-50 text-indigo-600 font-black rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-2">
-                            <Icon name="plusCircle" /> URLを追加
-                          </button>
+                          {requestForm.urls.length < 3 && (
+                            <button type="button" onClick={() => setRequestForm({ ...requestForm, urls: [...requestForm.urls, ''] })} className="w-full py-3 bg-indigo-50 text-indigo-600 font-black rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-2">
+                              <Icon name="plusCircle" /> URLを追加
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意)</label>
-                      <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
-                        <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                        <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-500 transition-colors">
-                          <Icon name="image" />
-                          <span className="text-sm font-bold">タップして画像を選択（自動でDriveに保存されます）</span>
+                      <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意 / 最大3枚)</label>
+                      {requestImages.length < 3 && (
+                        <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
+                          <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                          <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                            <Icon name="image" />
+                            <span className="text-sm font-bold">タップして画像を選択（自動でDriveに保存されます）</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
                       {requestImages.length > 0 && (
                         <div className="flex flex-wrap justify-center gap-4 mt-4">
                           {requestImages.map((img, i) => (
@@ -777,7 +786,7 @@ export default function App() {
                         </div>
 
                         <div>
-                          <label className="text-xs font-black text-indigo-600 uppercase mb-1 block tracking-[0.2em] text-center">URL (任意)</label>
+                          <label className="text-xs font-black text-indigo-600 uppercase mb-1 block tracking-[0.2em] text-center">URL (任意 / 最大3つ)</label>
                           <div className="space-y-3 mt-3">
                             {scheduleForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-2">
@@ -790,22 +799,26 @@ export default function App() {
                                 )}
                               </div>
                             ))}
-                            <button type="button" onClick={() => setScheduleForm({ ...scheduleForm, urls: [...scheduleForm.urls, ''] })} className="w-full py-3 bg-indigo-50 text-indigo-600 font-black rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-2">
-                              <Icon name="plusCircle" /> URLを追加
-                            </button>
+                            {scheduleForm.urls.length < 3 && (
+                              <button type="button" onClick={() => setScheduleForm({ ...scheduleForm, urls: [...scheduleForm.urls, ''] })} className="w-full py-3 bg-indigo-50 text-indigo-600 font-black rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center justify-center gap-2">
+                                <Icon name="plusCircle" /> URLを追加
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
 
                       <div>
-                        <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意)</label>
-                        <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
-                          <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                          <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-500 transition-colors">
-                            <Icon name="image" />
-                            <span className="text-sm font-bold">タップして画像を選択（自動でDriveに保存されます）</span>
+                        <label className="text-xs font-black text-indigo-600 uppercase mb-3 block tracking-[0.2em] text-center">参考画像 (任意 / 最大3枚)</label>
+                        {scheduleImages.length < 3 && (
+                          <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-[2rem] p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
+                            <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <div className="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                              <Icon name="image" />
+                              <span className="text-sm font-bold">タップして画像を選択（自動でDriveに保存されます）</span>
+                            </div>
                           </div>
-                        </div>
+                        )}
                         {scheduleImages.length > 0 && (
                           <div className="flex flex-wrap justify-center gap-4 mt-4">
                             {scheduleImages.map((img, i) => (
@@ -899,26 +912,19 @@ export default function App() {
                                 <span className="text-base font-black tracking-tight">{task.deadline}</span>
                               </div>
 
-                              {/* ★修正: 画像の場合はサムネイルとして表示、その他のURLはボタンとして表示 */}
-                              {task.url && task.url.split('\n').map((u, i) => {
-                                if (!u.trim()) return null;
-                                const isImage = u.includes('drive.google.com/uc') || u.match(/\.(jpeg|jpg|gif|png)$/i);
-                                
-                                if (isImage) {
-                                  return (
-                                    <a key={i} href={u} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm hover:shadow-md transition-all h-24">
-                                      <img src={u} alt="添付画像" className="max-w-full h-full object-cover" />
-                                    </a>
-                                  );
-                                } else {
-                                  return (
-                                    <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 mt-2 w-max">
-                                      <Icon name="link" /> {task.url.split('\n').filter(x => x.trim()).length > 1 ? `リンク ${i + 1} を開く` : 'リンクを開く'}
-                                    </a>
-                                  );
-                                }
-                              })}
+                              {/* ★ リンクの表示（GHI列） */}
+                              {task.urls && task.urls.map((u, i) => u.trim() && (
+                                <a key={i} href={u} target="_blank" rel="noreferrer" className="bg-white border-2 border-slate-200 text-slate-600 text-xs font-black px-6 py-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 w-max">
+                                  <Icon name="link" /> リンク {i + 1} を開く
+                                </a>
+                              ))}
 
+                              {/* ★ 画像の表示（JKL列） */}
+                              {task.images && task.images.map((imgUrl, i) => imgUrl.trim() && (
+                                <a key={i} href={imgUrl} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm hover:shadow-md transition-all h-20 w-20">
+                                  <img src={imgUrl} alt="添付画像" className="w-full h-full object-cover" />
+                                </a>
+                              ))}
                             </div>
                           )}
                         </div>
