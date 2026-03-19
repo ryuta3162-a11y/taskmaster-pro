@@ -27,14 +27,13 @@ const Icon = ({ name }) => {
     repeat: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>,
     plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
     trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
-    image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-    cpu: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+    image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
   };
   return icons[name] || null;
 };
 
 // --- 入力規則データ（★ 役職を追加） ---
-const ROLES = ['SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
+const ROLES = ['GMG', 'A-SMG', 'SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
 const getTerritories = (area) => {
@@ -108,7 +107,6 @@ export default function App() {
   
   const [allEmployees, setAllEmployees] = useState([]);
   const [allStores, setAllStores] = useState([]);
-  // ★ 登録データに role を追加
   const [regData, setRegData] = useState({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
@@ -122,9 +120,8 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ★ 配信ターゲットのState（店舗に加えて「役職」を追加）
   const [requestSelectedStores, setRequestSelectedStores] = useState([]);
-  const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES); // デフォルトは全役職
+  const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES); 
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]); 
 
@@ -136,7 +133,7 @@ export default function App() {
   const [scheduleForm, setScheduleForm] = useState({ deadlineOffset: '月末', content: '', urls: [''] });
   const [scheduleImages, setScheduleImages] = useState([]); 
   const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
-  const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES); // デフォルトは全役職
+  const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES); 
 
   const activeTasksCount = tasks.filter(t => !t.completed).length;
   const completedTasksCount = tasks.filter(t => t.completed).length;
@@ -214,13 +211,35 @@ export default function App() {
     const isSelected = prev.area.includes(areaName);
     const newArea = isSelected ? prev.area.filter(a => a !== areaName) : [...prev.area, areaName];
     const newTerritory = { ...prev.territory };
-    if (isSelected) delete newTerritory[areaName]; else newTerritory[areaName] = getTerritories(areaName);
-    return { ...prev, area: newArea, territory: newTerritory };
+    
+    let newStores = [...prev.stores];
+    if (isSelected) { 
+      delete newTerritory[areaName]; 
+      const areaStores = allStores.filter(s => s.area === areaName).map(s => s.storeName);
+      newStores = newStores.filter(s => !areaStores.includes(s));
+    } else { 
+      newTerritory[areaName] = getTerritories(areaName); 
+      const addedStores = allStores.filter(s => s.area === areaName && newTerritory[areaName].includes(s.territory)).map(s => s.storeName);
+      newStores = [...new Set([...newStores, ...addedStores])];
+    }
+    return { ...prev, area: newArea, territory: newTerritory, stores: newStores };
   });
+
   const toggleTerritory = (areaName, terrName) => setRegData(prev => {
     const terrs = prev.territory[areaName] || [];
-    const newTerrs = terrs.includes(terrName) ? terrs.filter(t => t !== terrName) : [...terrs, terrName].sort();
-    return { ...prev, territory: { ...prev.territory, [areaName]: newTerrs } };
+    const isSelected = terrs.includes(terrName);
+    const newTerrs = isSelected ? terrs.filter(t => t !== terrName) : [...terrs, terrName].sort();
+    
+    let newStores = [...prev.stores];
+    if (isSelected) {
+      const removedStores = allStores.filter(s => s.area === areaName && s.territory === terrName).map(s => s.storeName);
+      newStores = newStores.filter(s => !removedStores.includes(s));
+    } else {
+      const addedStores = allStores.filter(s => s.area === areaName && s.territory === terrName).map(s => s.storeName);
+      newStores = [...new Set([...newStores, ...addedStores])];
+    }
+
+    return { ...prev, territory: { ...prev.territory, [areaName]: newTerrs }, stores: newStores };
   });
 
   const handleRegisterSubmit = async (e) => {
@@ -235,7 +254,6 @@ export default function App() {
     const finalStores = regData.stores.filter(s => validStoreNames.includes(s));
     
     const newEmail = tempUser?.email || inputEmail.trim();
-    // ★役職を新しく含める
     const newEmployee = { ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: newEmail, stores: finalStores, role: regData.role };
 
     try {
@@ -306,7 +324,6 @@ export default function App() {
     else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // ★ 修正: 店舗タグと役職タグを組み合わせる
   const generateTargetTags = (selectedStoreNames, selectedRoles) => {
     let storeTag = '';
     if (selectedStoreNames.length === 0) storeTag = '';
@@ -326,7 +343,7 @@ export default function App() {
     }
 
     let roleTag = '';
-    if (selectedRoles.length === ROLES.length) roleTag = ''; // 全役職なら表示を省略してスッキリさせる
+    if (selectedRoles.length === ROLES.length) roleTag = ''; 
     else roleTag = selectedRoles.join(', ');
 
     if (!storeTag && !roleTag) return '指定なし';
@@ -343,10 +360,8 @@ export default function App() {
     setIsSubmitting(true);
     const targetEmails = new Set();
     
-    // ★ 店舗条件 ＆ 役職条件 の掛け合わせ（AND検索）でターゲットを抽出
     allEmployees.forEach(emp => {
       const storeMatch = emp.stores && emp.stores.some(s => requestSelectedStores.includes(s));
-      // 古いデータで役職が空欄の人は、便宜上、全役職選択のときだけ配信対象とする
       const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
       
       if (storeMatch && roleMatch) {
@@ -454,7 +469,6 @@ export default function App() {
     } catch (e) { setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null }); }
   };
 
-  // --- ★ ターゲット選択UI（役職＋店舗） ---
   const renderTargetSelector = (selectedStores, setSelectedStores, selectedRoles, setSelectedRoles) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
     const handleSelectAllStores = (e) => {
@@ -652,7 +666,6 @@ export default function App() {
                   <input type="text" required value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className={brutalInput} placeholder="例: 岡本太郎" />
                 </div>
                 
-                {/* ★ 登録画面に役職選択を追加 */}
                 <div>
                   <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">あなたの役職 <span className="text-rose-500">*</span></label>
                   <div className="relative">
@@ -709,7 +722,7 @@ export default function App() {
               )}
               {regData.area.length > 0 && (
                 <div>
-                  <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">管轄店舗を選択</label>
+                  <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">管轄店舗 <span className="text-xs font-bold text-gray-500 ml-2">※管轄外の店舗のみチェックを外してください</span></label>
                   <div className="p-8 bg-gray-50 border-4 border-black rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
                     {regData.area.map(areaName => {
                       const selectedTerrs = regData.territory[areaName] || [];
@@ -746,7 +759,9 @@ export default function App() {
       {authStep === 'confirm' && (
         <div className="h-screen bg-[#f0f0f0] flex items-center justify-center p-6 relative overflow-hidden w-full">
           <div className="bg-white border-4 border-black rounded-[2.5rem] p-12 max-w-lg w-full text-center shadow-[12px_12px_0_0_#000] relative z-10">
-            <div className="w-32 h-32 bg-indigo-100 border-4 border-black rounded-full mx-auto flex items-center justify-center text-indigo-600 mb-8 shadow-[4px_4px_0_0_#000]"><Icon name="user" /></div>
+            <div className="w-32 h-32 bg-gray-100 border-4 border-black rounded-full mx-auto flex items-center justify-center text-black mb-8 shadow-[4px_4px_0_0_#000]">
+              <div className="scale-150"><Icon name="user" /></div>
+            </div>
             <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-3">{tempUser?.role || tempUser?.team}</p>
             <h2 className="text-5xl font-black text-black mb-8 tracking-tighter">{tempUser?.name}</h2>
             <div className="bg-gray-50 border-4 border-black rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
@@ -810,8 +825,8 @@ export default function App() {
                       <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 leading-none mb-1">ACCOUNT</span>
                       <span className="text-sm font-black text-black leading-none max-w-[120px] truncate">{currentUser?.name}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-[conic-gradient(at_bottom_right,_var(--tw-gradient-stops))] from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center font-bold border-2 border-black shadow-inner">
-                     <Icon name="cpu" />
+                  <div className="w-10 h-10 rounded-lg bg-gray-100 text-black flex items-center justify-center font-bold border-2 border-black shadow-[2px_2px_0_0_#000]">
+                     <Icon name="user" />
                   </div>
               </button>
               
@@ -819,15 +834,14 @@ export default function App() {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)}></div>
                   <div className="absolute right-0 mt-4 w-80 bg-white border-4 border-black rounded-2xl shadow-[8px_8px_0_0_#000] z-50 overflow-hidden animate-fade-in">
-                    <div className="p-6 border-b-4 border-black bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-gray-100 via-gray-50 to-white">
-                      <div className="w-20 h-20 rounded-2xl bg-[conic-gradient(at_bottom_right,_var(--tw-gradient-stops))] from-indigo-500 via-purple-500 to-pink-500 border-4 border-black flex items-center justify-center text-white mb-4 shadow-[4px_4px_0_0_#000] mx-auto">
-                        <Icon name="cpu" size="w-10 h-10" />
+                    <div className="p-6 border-b-4 border-black bg-white">
+                      <div className="w-20 h-20 rounded-2xl bg-gray-100 border-4 border-black flex items-center justify-center text-black mb-4 shadow-[4px_4px_0_0_#000] mx-auto">
+                        <div className="scale-150"><Icon name="user" /></div>
                       </div>
                       <p className="text-center text-2xl font-black text-black tracking-tighter">{currentUser?.name}</p>
                       <p className="text-center text-xs font-bold text-gray-500 mt-1">{currentUser?.email}</p>
                     </div>
                     <div className="p-6 space-y-4 bg-white">
-                      {/* ★ ポップオーバー内に役職を表示 */}
                       {currentUser?.role && (
                         <div>
                           <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">役職</p>
@@ -971,7 +985,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* ★ 右カラム：ターゲット選択（役職＋店舗） */}
                       <div className="w-full flex flex-col h-full">
                         {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles)}
                       </div>
@@ -996,7 +1009,7 @@ export default function App() {
                     {sentTasks.length === 0 ? (
                       <p className="text-center text-gray-500 font-black py-20 text-xl">送信履歴がありません</p>
                     ) : sentTasks.map(task => (
-                      <div key={task.id} className="bg-white p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-[6px_6px_0_0_#000] w-full">
+                      <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-[6px_6px_0_0_#000] w-full">
                          <div className="flex-1 text-center md:text-left w-full">
                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
                              <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest uppercase">過去の配信</span>
@@ -1106,7 +1119,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* ★ 右カラム：ターゲット選択（役職＋店舗） */}
                         <div className="flex flex-col w-full h-full">
                           <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">配信先を選択 <span className="text-rose-500">*</span></label>
                           {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles)}
@@ -1128,7 +1140,7 @@ export default function App() {
                       {scheduledTasks.length === 0 ? (
                         <p className="text-center text-gray-500 font-black py-10 text-xl">登録されている定期配信はありません</p>
                       ) : scheduledTasks.map(task => (
-                        <div key={task.id} className="bg-white p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 shadow-[6px_6px_0_0_#000] w-full">
+                        <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 shadow-[6px_6px_0_0_#000] w-full">
                            <div className="flex-1 text-center md:text-left w-full">
                              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
                                <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
@@ -1271,6 +1283,7 @@ export default function App() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
+        /* ViteのデフォルトCSSを完全リセットし、幅の制限を破壊する */
         html, body, #root { 
           margin: 0 !important; 
           padding: 0 !important; 
@@ -1279,7 +1292,7 @@ export default function App() {
           height: 100% !important; 
           text-align: left !important; 
         }
-        body { background: #f0f0f0; font-family: 'Inter', 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background: #f0f0f0; font-family: 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
