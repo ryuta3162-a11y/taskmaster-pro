@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
 
-// --- デザイン用定数（ネオブルータリズム） ---
+// --- デザイン用定数 ---
 const brutalCard = "bg-white border-4 border-black shadow-[8px_8px_0_0_#000] rounded-[2rem] p-8 md:p-12 transition-all w-full";
 const brutalInput = "bg-white border-4 border-black shadow-[4px_4px_0_0_#000] rounded-xl p-5 font-black text-black focus:outline-none focus:translate-x-1 focus:translate-y-1 focus:shadow-none transition-all w-full text-lg";
 const brutalBtnPrimary = "bg-indigo-600 text-white border-4 border-black shadow-[8px_8px_0_0_#000] rounded-2xl font-black transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_0_#000] active:translate-x-2 active:translate-y-2 active:shadow-none flex items-center justify-center gap-3 py-6 text-2xl";
@@ -33,7 +33,8 @@ const Icon = ({ name }) => {
   return icons[name] || null;
 };
 
-// --- 入力規則データ ---
+// --- 入力規則データ（★ 役職を追加） ---
+const ROLES = ['SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
 const getTerritories = (area) => {
@@ -87,7 +88,6 @@ const api = {
   })
 };
 
-// ★ テキストの自動改行フォーマット関数
 const formatContent = (text) => {
   if (!text) return null;
   return text.split('。').map((sentence, index, array) => (
@@ -108,10 +108,10 @@ export default function App() {
   
   const [allEmployees, setAllEmployees] = useState([]);
   const [allStores, setAllStores] = useState([]);
-  const [regData, setRegData] = useState({ name: '', team: [], area: [], territory: {}, stores: [] });
+  // ★ 登録データに role を追加
+  const [regData, setRegData] = useState({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
-  // ★ アカウントメニューのポップオーバー管理State
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
   const [tasks, setTasks] = useState([]);
@@ -122,7 +122,9 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ★ 配信ターゲットのState（店舗に加えて「役職」を追加）
   const [requestSelectedStores, setRequestSelectedStores] = useState([]);
+  const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES); // デフォルトは全役職
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]); 
 
@@ -134,6 +136,7 @@ export default function App() {
   const [scheduleForm, setScheduleForm] = useState({ deadlineOffset: '月末', content: '', urls: [''] });
   const [scheduleImages, setScheduleImages] = useState([]); 
   const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
+  const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES); // デフォルトは全役職
 
   const activeTasksCount = tasks.filter(t => !t.completed).length;
   const completedTasksCount = tasks.filter(t => t.completed).length;
@@ -222,6 +225,7 @@ export default function App() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
+    if (!regData.role) return alert('役職を選択してください。');
     if (regData.team.length === 0 || regData.area.length === 0) return alert('チーム名、エリアは選択必須です。');
     setIsSubmitting(true);
     const formattedTeam = regData.team.join(', ');
@@ -231,7 +235,8 @@ export default function App() {
     const finalStores = regData.stores.filter(s => validStoreNames.includes(s));
     
     const newEmail = tempUser?.email || inputEmail.trim();
-    const newEmployee = { ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: newEmail, stores: finalStores };
+    // ★役職を新しく含める
+    const newEmployee = { ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: newEmail, stores: finalStores, role: regData.role };
 
     try {
       await api.registerEmployee(newEmployee);
@@ -301,40 +306,56 @@ export default function App() {
     else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateTargetTags = (selectedStoreNames) => {
-    if (selectedStoreNames.length === 0) return '';
-    if (selectedStoreNames.length === allStores.length && allStores.length > 0) return '全店';
-    
-    let tags = [];
-    AREAS.forEach(area => {
-      const storesInArea = allStores.filter(s => s.area === area).map(s => s.storeName);
-      if (storesInArea.length === 0) return;
-      const selectedInArea = storesInArea.filter(s => selectedStoreNames.includes(s));
-      
-      if (selectedInArea.length > 0) {
-        if (selectedInArea.length === storesInArea.length) {
-          tags.push(area); 
-        } else {
-          tags.push(...selectedInArea);
+  // ★ 修正: 店舗タグと役職タグを組み合わせる
+  const generateTargetTags = (selectedStoreNames, selectedRoles) => {
+    let storeTag = '';
+    if (selectedStoreNames.length === 0) storeTag = '';
+    else if (selectedStoreNames.length === allStores.length && allStores.length > 0) storeTag = '全店';
+    else {
+      let tags = [];
+      AREAS.forEach(area => {
+        const storesInArea = allStores.filter(s => s.area === area).map(s => s.storeName);
+        if (storesInArea.length === 0) return;
+        const selectedInArea = storesInArea.filter(s => selectedStoreNames.includes(s));
+        if (selectedInArea.length > 0) {
+          if (selectedInArea.length === storesInArea.length) tags.push(area); 
+          else tags.push(...selectedInArea);
         }
-      }
-    });
-    return tags.join(', ');
+      });
+      storeTag = tags.join(', ');
+    }
+
+    let roleTag = '';
+    if (selectedRoles.length === ROLES.length) roleTag = ''; // 全役職なら表示を省略してスッキリさせる
+    else roleTag = selectedRoles.join(', ');
+
+    if (!storeTag && !roleTag) return '指定なし';
+    if (storeTag && !roleTag) return storeTag;
+    if (!storeTag && roleTag) return `全店 [${roleTag}]`;
+    return `${storeTag} [${roleTag}]`;
   };
 
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!requestSelectedStores.length) return alert('配信先を少なくとも1つ選択してください。');
+    if (!requestSelectedStores.length) return alert('配信先の店舗を少なくとも1つ選択してください。');
+    if (!requestSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
+    
     setIsSubmitting(true);
     const targetEmails = new Set();
+    
+    // ★ 店舗条件 ＆ 役職条件 の掛け合わせ（AND検索）でターゲットを抽出
     allEmployees.forEach(emp => {
-      if (emp.stores && emp.stores.some(s => requestSelectedStores.includes(s))) {
+      const storeMatch = emp.stores && emp.stores.some(s => requestSelectedStores.includes(s));
+      // 古いデータで役職が空欄の人は、便宜上、全役職選択のときだけ配信対象とする
+      const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
+      
+      if (storeMatch && roleMatch) {
         targetEmails.add(emp.email); 
       }
     });
 
     const validUrls = requestForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr = generateTargetTags(requestSelectedStores);
+    const finalTagsStr = generateTargetTags(requestSelectedStores, requestSelectedRoles);
 
     try {
       await api.createTask({
@@ -351,6 +372,7 @@ export default function App() {
       setRequestForm({ content: '', deadline: '', urls: [''] });
       setRequestImages([]);
       setRequestSelectedStores(allStores.map(s => s.storeName));
+      setRequestSelectedRoles(ROLES);
       setActiveTab('home');
       refreshTasks();
     } catch (error) { alert('送信失敗'); } finally { setIsSubmitting(false); }
@@ -364,22 +386,28 @@ export default function App() {
     setRequestForm({ content: task.content, deadline: '', urls: storedUrls });
     setRequestImages([]); 
     setRequestSelectedStores(allStores.map(s => s.storeName));
+    setRequestSelectedRoles(ROLES);
     setActiveTab('request');
   };
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    if (!scheduleSelectedStores.length) return alert('配信先を少なくとも1つ選択してください。');
+    if (!scheduleSelectedStores.length) return alert('配信先の店舗を少なくとも1つ選択してください。');
+    if (!scheduleSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
+    
     setIsSubmitting(true);
     const targetEmails = new Set();
     allEmployees.forEach(emp => {
-      if (emp.stores && emp.stores.some(s => scheduleSelectedStores.includes(s))) {
+      const storeMatch = emp.stores && emp.stores.some(s => scheduleSelectedStores.includes(s));
+      const roleMatch = (!emp.role && scheduleSelectedRoles.length === ROLES.length) || scheduleSelectedRoles.includes(emp.role);
+      
+      if (storeMatch && roleMatch) {
         targetEmails.add(emp.email); 
       }
     });
 
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr = generateTargetTags(scheduleSelectedStores);
+    const finalTagsStr = generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles);
     const cycleString = `毎月 ${scheduleDate}日 ${scheduleTime}`;
 
     try {
@@ -399,6 +427,7 @@ export default function App() {
       setScheduleTime('09:00');
       setScheduleImages([]);
       setScheduleSelectedStores(allStores.map(s => s.storeName));
+      setScheduleSelectedRoles(ROLES);
       refreshTasks(); 
     } catch (error) { alert('登録失敗'); } finally { setIsSubmitting(false); }
   };
@@ -425,76 +454,119 @@ export default function App() {
     } catch (e) { setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null }); }
   };
 
-  // --- ★ UI大幅改善: ターゲット選択をアコーディオン形式に ---
-  const renderTargetSelector = (selectedStores, setSelectedStores) => {
-    const isAllSelected = selectedStores.length === allStores.length && allStores.length > 0;
-    const handleSelectAll = (e) => {
+  // --- ★ ターゲット選択UI（役職＋店舗） ---
+  const renderTargetSelector = (selectedStores, setSelectedStores, selectedRoles, setSelectedRoles) => {
+    const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
+    const handleSelectAllStores = (e) => {
       if (e.target.checked) setSelectedStores(allStores.map(s => s.storeName));
       else setSelectedStores([]);
+    };
+    
+    const isAllRolesSelected = selectedRoles.length === ROLES.length;
+    const handleSelectAllRoles = (e) => {
+      if (e.target.checked) setSelectedRoles(ROLES);
+      else setSelectedRoles([]);
     };
 
     return (
       <div className="w-full flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b-4 border-black pb-4 gap-4">
-          <label className="flex items-center font-black text-2xl cursor-pointer w-max hover:opacity-70 transition-opacity">
+        
+        {/* ブロック1: 役職による絞り込み */}
+        <div className="bg-white border-4 border-black rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
+          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-4 border-black pb-2">1. 配信する役職</h4>
+          <label className="flex items-center font-black text-xl cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
             <input 
               type="checkbox" 
-              checked={isAllSelected} 
-              onChange={handleSelectAll}
-              className="mr-4 w-8 h-8 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
+              checked={isAllRolesSelected} 
+              onChange={handleSelectAllRoles}
+              className="mr-3 w-6 h-6 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
+            />
+            全役職を選択
+          </label>
+          <div className="flex flex-wrap gap-3 pl-2">
+            {ROLES.map(role => {
+              const isChecked = selectedRoles.includes(role);
+              return (
+                <label key={role} className={`flex items-center font-bold text-base border-4 border-black px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-[4px_4px_0_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_0_#000]'}`}>
+                  <input 
+                    type="checkbox" 
+                    checked={isChecked} 
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedRoles(prev => [...prev, role]);
+                      else setSelectedRoles(prev => prev.filter(r => r !== role));
+                    }} 
+                    className="mr-3 w-5 h-5 border-2 border-black rounded accent-indigo-600 cursor-pointer" 
+                  />
+                  {role}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ブロック2: 店舗による絞り込み */}
+        <div className="bg-white border-4 border-black rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
+          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-4 border-black pb-2">2. 配信するエリア・店舗</h4>
+          <label className="flex items-center font-black text-xl cursor-pointer w-max hover:opacity-70 transition-opacity mb-6">
+            <input 
+              type="checkbox" 
+              checked={isAllStoresSelected} 
+              onChange={handleSelectAllStores}
+              className="mr-3 w-6 h-6 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
             />
             全店舗を選択
           </label>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-start pl-2">
+            {AREAS.map(area => {
+              const storesInArea = allStores.filter(s => s.area === area);
+              if (storesInArea.length === 0) return null;
+              const isAllAreaSelected = storesInArea.every(s => selectedStores.includes(s.storeName));
+              return (
+                <details key={area} className="group bg-white border-4 border-black rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+                  <summary className="flex items-center justify-between p-4 font-black text-xl cursor-pointer hover:bg-indigo-50 transition-colors list-none select-none">
+                    <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={isAllAreaSelected} 
+                        onChange={(e) => {
+                          const areaStoreNames = storesInArea.map(s => s.storeName);
+                          if (e.target.checked) setSelectedStores(prev => Array.from(new Set([...prev, ...areaStoreNames])));
+                          else setSelectedStores(prev => prev.filter(s => !areaStoreNames.includes(s)));
+                        }}
+                        className="mr-3 w-6 h-6 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
+                      />
+                      {area}
+                    </label>
+                    <div className="w-8 h-8 rounded-full border-4 border-black bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-[2px_2px_0_0_#000]">
+                      <Icon name="chevronDown" />
+                    </div>
+                  </summary>
+                  <div className="p-4 border-t-4 border-black bg-gray-50 flex flex-wrap gap-2">
+                    {storesInArea.map(store => {
+                      const isChecked = selectedStores.includes(store.storeName);
+                      return (
+                        <label key={store.storeName} className={`flex items-center font-bold text-sm border-2 border-black px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-100 shadow-[2px_2px_0_0_#000] -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked} 
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedStores(prev => [...prev, store.storeName]);
+                              else setSelectedStores(prev => prev.filter(s => s !== store.storeName));
+                            }} 
+                            className="mr-2 w-4 h-4 border-2 border-black rounded accent-indigo-600 cursor-pointer" 
+                          />
+                          {store.storeName}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-start">
-          {AREAS.map(area => {
-            const storesInArea = allStores.filter(s => s.area === area);
-            if (storesInArea.length === 0) return null;
-            const isAllAreaSelected = storesInArea.every(s => selectedStores.includes(s.storeName));
-            return (
-              <details key={area} className="group bg-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000] overflow-hidden">
-                <summary className="flex items-center justify-between p-5 font-black text-xl cursor-pointer hover:bg-indigo-50 transition-colors list-none select-none">
-                  <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                    <input 
-                      type="checkbox" 
-                      checked={isAllAreaSelected} 
-                      onChange={(e) => {
-                        const areaStoreNames = storesInArea.map(s => s.storeName);
-                        if (e.target.checked) setSelectedStores(prev => Array.from(new Set([...prev, ...areaStoreNames])));
-                        else setSelectedStores(prev => prev.filter(s => !areaStoreNames.includes(s)));
-                      }}
-                      className="mr-4 w-7 h-7 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
-                    />
-                    {area}
-                  </label>
-                  <div className="w-10 h-10 rounded-full border-4 border-black bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-[2px_2px_0_0_#000]">
-                    <Icon name="chevronDown" />
-                  </div>
-                </summary>
-                <div className="p-6 border-t-4 border-black bg-gray-50 flex flex-wrap gap-3">
-                  {storesInArea.map(store => {
-                    const isChecked = selectedStores.includes(store.storeName);
-                    return (
-                      <label key={store.storeName} className={`flex items-center font-bold text-base border-4 border-black px-4 py-2 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-[4px_4px_0_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_0_#000]'}`}>
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked} 
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedStores(prev => [...prev, store.storeName]);
-                            else setSelectedStores(prev => prev.filter(s => s !== store.storeName));
-                          }} 
-                          className="mr-3 w-5 h-5 border-2 border-black rounded accent-indigo-600 cursor-pointer" 
-                        />
-                        {store.storeName}
-                      </label>
-                    );
-                  })}
-                </div>
-              </details>
-            );
-          })}
-        </div>
       </div>
     );
   };
@@ -573,10 +645,26 @@ export default function App() {
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">メールアドレス (固定)</label>
                 <input type="email" value={tempUser?.email || inputEmail || ''} disabled className="w-full px-6 py-5 bg-gray-100 border-4 border-black rounded-2xl text-gray-500 font-bold cursor-not-allowed text-lg shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]" />
               </div>
-              <div>
-                <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">お名前 <span className="text-rose-500">*</span></label>
-                <input type="text" required value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className={brutalInput} placeholder="例: 岡本太郎 (空欄なし)" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">お名前 <span className="text-rose-500">*</span></label>
+                  <input type="text" required value={regData.name} onChange={e => setRegData({...regData, name: e.target.value})} className={brutalInput} placeholder="例: 岡本太郎" />
+                </div>
+                
+                {/* ★ 登録画面に役職選択を追加 */}
+                <div>
+                  <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">あなたの役職 <span className="text-rose-500">*</span></label>
+                  <div className="relative">
+                    <select required value={regData.role} onChange={e => setRegData({...regData, role: e.target.value})} className={brutalInput + " appearance-none"}>
+                      <option value="" disabled>選択してください</option>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-black font-black">▼</div>
+                  </div>
+                </div>
               </div>
+
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
                 <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-4 border-black rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
@@ -659,7 +747,7 @@ export default function App() {
         <div className="h-screen bg-[#f0f0f0] flex items-center justify-center p-6 relative overflow-hidden w-full">
           <div className="bg-white border-4 border-black rounded-[2.5rem] p-12 max-w-lg w-full text-center shadow-[12px_12px_0_0_#000] relative z-10">
             <div className="w-32 h-32 bg-indigo-100 border-4 border-black rounded-full mx-auto flex items-center justify-center text-indigo-600 mb-8 shadow-[4px_4px_0_0_#000]"><Icon name="user" /></div>
-            <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-3">{tempUser?.team}</p>
+            <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-3">{tempUser?.role || tempUser?.team}</p>
             <h2 className="text-5xl font-black text-black mb-8 tracking-tighter">{tempUser?.name}</h2>
             <div className="bg-gray-50 border-4 border-black rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
               <p className="text-xs text-gray-500 font-black uppercase mb-4 tracking-widest">担当エリア</p>
@@ -681,11 +769,10 @@ export default function App() {
         </div>
       )}
 
-      {/* --- メイン画面（PCフルワイド） --- */}
+      {/* --- メイン画面 --- */}
       {authStep === 'ready' && (
         <div className="flex flex-col h-screen bg-[#f0f0f0] font-sans text-black overflow-hidden w-full">
           
-          {/* ヘッダー */}
           <header className="h-20 bg-white border-b-4 border-black flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-3">
@@ -717,7 +804,6 @@ export default function App() {
                )}
             </div>
 
-            {/* ★修正: デジタル感のあるアカウントポップオーバー */}
             <div className="relative">
               <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-4 border-black px-4 py-2 rounded-xl shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
                   <div className="flex flex-col items-end text-right hidden sm:flex">
@@ -741,6 +827,13 @@ export default function App() {
                       <p className="text-center text-xs font-bold text-gray-500 mt-1">{currentUser?.email}</p>
                     </div>
                     <div className="p-6 space-y-4 bg-white">
+                      {/* ★ ポップオーバー内に役職を表示 */}
+                      {currentUser?.role && (
+                        <div>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">役職</p>
+                          <p className="text-sm font-black text-black bg-indigo-50 border-2 border-indigo-200 px-3 py-1 rounded-lg w-max">{currentUser?.role}</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">担当エリア</p>
                         <p className="text-sm font-bold text-black">{currentUser?.area}</p>
@@ -765,7 +858,7 @@ export default function App() {
           </header>
 
           <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#f0f0f0] w-full">
-            <div className="w-full max-w-full xl:px-12 mx-auto pb-20">
+            <div className="max-w-[1400px] mx-auto w-full pb-20">
               
               {/* === HOME === */}
               {activeTab === 'home' && (
@@ -818,15 +911,9 @@ export default function App() {
               {/* === タスク配信 === */}
               {activeTab === 'request' && (
                 <div className={`${brutalCard} animate-fade-in w-full mt-4 !p-8 md:!p-12`}>
-                  <h3 className="text-4xl font-black text-black mb-10 tracking-tighter uppercase text-center border-b-4 border-black pb-6 flex items-center justify-center gap-4">
-                    <Icon name="send" /> タスクの配信
-                  </h3>
-                  
-                  {/* ★修正: 左右カラムのバランスと横幅を最適化 */}
                   <form onSubmit={handleTaskSubmit} className="flex flex-col gap-12 w-full">
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 w-full items-start">
                       
-                      {/* 左カラム：入力欄 */}
                       <div className="space-y-8 w-full flex flex-col">
                         <div>
                           <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">依頼内容 <span className="text-rose-500">*</span></label>
@@ -848,7 +935,7 @@ export default function App() {
                                   <button type="button" onClick={() => {
                                     const newUrls = requestForm.urls.filter((_, index) => index !== i);
                                     setRequestForm({ ...requestForm, urls: newUrls });
-                                  }} className="w-16 bg-rose-500 text-white border-2 border-black shadow-[4px_4px_0_0_#000] rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
+                                  }} className="w-16 bg-rose-500 text-white border-4 border-black shadow-[4px_4px_0_0_#000] rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
                                 )}
                               </div>
                             ))}
@@ -863,10 +950,10 @@ export default function App() {
                         <div>
                           <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
                           {requestImages.length < 3 && (
-                            <div className="bg-gray-50 border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-100 transition-colors relative cursor-pointer group">
+                            <div className="bg-white border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                <div className="w-16 h-16 bg-white border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
+                                <div className="w-16 h-16 bg-white border-4 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
                                 <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                               </div>
                             </div>
@@ -876,7 +963,7 @@ export default function App() {
                               {requestImages.map((img, i) => (
                                 <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-4 border-black shadow-[4px_4px_0_0_#000]">
                                   <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-4 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
                                 </div>
                               ))}
                             </div>
@@ -884,10 +971,9 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* 右カラム：ターゲット選択（アコーディオン化） */}
+                      {/* ★ 右カラム：ターゲット選択（役職＋店舗） */}
                       <div className="w-full flex flex-col h-full">
-                        <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">配信先を選択 <span className="text-rose-500">*</span></label>
-                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores)}
+                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles)}
                       </div>
                     </div>
 
@@ -910,7 +996,7 @@ export default function App() {
                     {sentTasks.length === 0 ? (
                       <p className="text-center text-gray-500 font-black py-20 text-xl">送信履歴がありません</p>
                     ) : sentTasks.map(task => (
-                      <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-[6px_6px_0_0_#000] w-full">
+                      <div key={task.id} className="bg-white p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-[6px_6px_0_0_#000] w-full">
                          <div className="flex-1 text-center md:text-left w-full">
                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
                              <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest uppercase">過去の配信</span>
@@ -932,15 +1018,12 @@ export default function App() {
               {activeTab === 'scheduled' && (
                 <div className="w-full space-y-12 animate-fade-in mt-4">
                   <div className={`${brutalCard} w-full !p-8 md:!p-12`}>
-                    <h3 className="text-4xl font-black text-black mb-10 tracking-tighter uppercase text-center border-b-4 border-black pb-6 flex items-center justify-center gap-4">
-                      <Icon name="calendar" /> 定期配信の作成
-                    </h3>
                     <p className="text-lg font-bold text-gray-600 mb-10 text-center">毎月の決まった日に、システムが自動でタスクを配信します。</p>
                     
                     <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-12 w-full">
                       <div className="bg-indigo-50 border-4 border-black p-8 rounded-2xl shadow-[4px_4px_0_0_#000] w-full">
-                        <label className="text-sm font-black text-black uppercase mb-4 block tracking-widest border-b-2 border-black pb-2">配信スケジュールの設定</label>
-                        <div className="flex flex-col md:flex-row gap-6 mt-4">
+                        <label className="text-sm font-black text-black uppercase mb-4 block tracking-widest border-b-4 border-black pb-2">配信スケジュールの設定</label>
+                        <div className="flex flex-col md:flex-row gap-6 mt-6">
                           <div className="flex-1">
                             <label className="text-xs font-black text-gray-600 mb-2 block">毎月何日に配信しますか？</label>
                             <div className="relative">
@@ -965,6 +1048,9 @@ export default function App() {
                             </div>
                           </div>
                         </div>
+                        <div className="mt-8 p-4 bg-white border-4 border-black rounded-xl text-center shadow-[2px_2px_0_0_#000]">
+                          <p className="text-sm font-black text-gray-500">システム登録日 (初回設定日): {todayForMin}</p>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 w-full items-start">
@@ -984,7 +1070,7 @@ export default function App() {
                                     <button type="button" onClick={() => {
                                       const newUrls = scheduleForm.urls.filter((_, index) => index !== i);
                                       setScheduleForm({ ...scheduleForm, urls: newUrls });
-                                    }} className="w-16 bg-rose-500 text-white border-2 border-black shadow-[4px_4px_0_0_#000] rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
+                                    }} className="w-16 bg-rose-500 text-white border-4 border-black shadow-[4px_4px_0_0_#000] rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
                                   )}
                                 </div>
                               ))}
@@ -999,10 +1085,10 @@ export default function App() {
                           <div>
                             <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
                             {scheduleImages.length < 3 && (
-                              <div className="bg-gray-50 border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-100 transition-colors relative cursor-pointer group">
+                              <div className="bg-white border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
                                 <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                                 <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                  <div className="w-16 h-16 bg-white border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
+                                  <div className="w-16 h-16 bg-white border-4 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
                                   <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                                 </div>
                               </div>
@@ -1012,7 +1098,7 @@ export default function App() {
                                 {scheduleImages.map((img, i) => (
                                   <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-4 border-black shadow-[4px_4px_0_0_#000]">
                                     <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                    <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                                    <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-4 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
                                   </div>
                                 ))}
                               </div>
@@ -1020,9 +1106,10 @@ export default function App() {
                           </div>
                         </div>
 
+                        {/* ★ 右カラム：ターゲット選択（役職＋店舗） */}
                         <div className="flex flex-col w-full h-full">
                           <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">配信先を選択 <span className="text-rose-500">*</span></label>
-                          {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores)}
+                          {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles)}
                         </div>
                       </div>
 
@@ -1041,12 +1128,12 @@ export default function App() {
                       {scheduledTasks.length === 0 ? (
                         <p className="text-center text-gray-500 font-black py-10 text-xl">登録されている定期配信はありません</p>
                       ) : scheduledTasks.map(task => (
-                        <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 shadow-[6px_6px_0_0_#000] w-full">
+                        <div key={task.id} className="bg-white p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 shadow-[6px_6px_0_0_#000] w-full">
                            <div className="flex-1 text-center md:text-left w-full">
                              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
                                <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
-                               <span className="text-sm text-black font-black bg-white border-2 border-black px-3 py-1.5 rounded-lg shadow-[2px_2px_0_0_#000]">期限: 毎月 {task.deadlineOffset}</span>
-                               {task.targetTags && <span className="text-sm text-black font-black bg-white border-2 border-black px-3 py-1.5 rounded-lg shadow-[2px_2px_0_0_#000]">宛先: {task.targetTags}</span>}
+                               <span className="text-sm text-black font-black bg-white border-4 border-black px-4 py-2 rounded-lg shadow-[2px_2px_0_0_#000]">期限: 毎月 {task.deadlineOffset}</span>
+                               {task.targetTags && <span className="text-sm text-black font-black bg-white border-4 border-black px-4 py-2 rounded-lg shadow-[2px_2px_0_0_#000]">宛先: {task.targetTags}</span>}
                              </div>
                              <p className="text-black text-xl font-bold leading-relaxed">{formatContent(task.content)}</p>
                            </div>
@@ -1064,7 +1151,7 @@ export default function App() {
               {activeTab === 'checklist' && (
                 <div className="animate-fade-in w-full mt-4">
                   
-                  <div className="flex flex-col md:flex-row gap-4 mb-10 w-full xl:w-[800px]">
+                  <div className="flex flex-col md:flex-row gap-6 mb-10 w-full xl:w-[800px]">
                     <button onClick={() => setTaskTab('active')} className={`flex-1 py-5 text-xl md:text-2xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-4 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
                       未実施 <span className={`px-4 py-1.5 rounded-full text-base border-2 border-black ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
                     </button>
@@ -1102,8 +1189,8 @@ export default function App() {
                         <div className="flex-1 w-full min-w-0">
                           
                           <div className="flex flex-wrap gap-3 mb-6 items-center">
-                            {task.targetTags && <span className="bg-rose-500 text-white border-2 border-black text-sm font-black px-4 py-1.5 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
-                            <span className="bg-white text-black border-2 border-black text-xs font-black px-3 py-1.5 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
+                            {task.targetTags && <span className="bg-rose-500 text-white border-4 border-black text-sm font-black px-4 py-1.5 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
+                            <span className="bg-white text-black border-4 border-black text-xs font-black px-3 py-1.5 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
                             <span className="text-sm font-bold text-gray-500 ml-2">from {task.sender}</span>
                           </div>
                           
@@ -1116,7 +1203,7 @@ export default function App() {
                               
                               <div className="flex flex-wrap gap-4 items-center">
                                 <div className="flex items-center gap-4 bg-rose-100 border-4 border-rose-600 rounded-2xl px-6 py-4 shadow-[6px_6px_0_0_#e11d48]">
-                                  <span className="text-sm font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border-2 border-rose-600">提出期限</span>
+                                  <span className="text-sm font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border-4 border-rose-600">提出期限</span>
                                   <span className="text-3xl md:text-4xl font-black text-rose-600 tracking-tight">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
                                 </div>
 
