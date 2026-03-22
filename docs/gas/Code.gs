@@ -201,12 +201,14 @@ function getSentTasks(userName) {
     return values.map(row => ({
       id: String(row[0] || ""),
       createdAt: row[1] ? Utilities.formatDate(new Date(row[1]), "JST", "yyyy/MM/dd") : "",
-      deadline: String(row[3] || ""),
+      deadline: row[3] ? Utilities.formatDate(new Date(row[3]), "JST", "yyyy-MM-dd") : "",
       sender: String(row[4] || ""),
       content: String(row[5] || ""),
       urls: [String(row[6]||""), String(row[7]||""), String(row[8]||"")].filter(Boolean),
       images: [String(row[9]||""), String(row[10]||""), String(row[11]||"")].filter(Boolean),
-      targetTags: String(row[12] || "") 
+      targetTags: String(row[12] || ""),
+      /** 配信先メール（再投稿で役職・店舗を正確に復元するため） */
+      targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean)
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
+import { ACCENT_THEMES, applyAccentTheme, readStoredAccentId } from './accentThemes.js';
 
 // --- デザイン用定数（おしゃれ・シンプル・プロ仕様） ---
 const brutalCard = "bg-white border-2 border-slate-300 shadow-md rounded-2xl p-6 md:p-8 transition-all w-full";
-const brutalInput = "bg-white border-2 border-slate-300 shadow-sm rounded-xl p-4 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all w-full text-base";
-const brutalBtnPrimary = "bg-indigo-500 text-white border-2 border-indigo-600/30 shadow-md rounded-2xl font-bold transition-all hover:bg-indigo-600 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 py-5 text-xl";
+const brutalInput = "bg-white border-2 border-slate-300 shadow-sm rounded-xl p-4 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[var(--acc-500)]/30 focus:border-[var(--acc-400)] transition-all w-full text-base";
+const brutalBtnPrimary = "bg-[var(--acc-500)] text-white border-2 border-[var(--acc-600)]/30 shadow-md rounded-2xl font-bold transition-all hover:bg-[var(--acc-600)] hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 py-5 text-xl";
 const brutalBtnSecondary = "bg-white text-slate-700 border-2 border-slate-300 shadow-sm rounded-2xl font-bold transition-all hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-lg";
 
 // --- アイコン部品 ---
@@ -182,6 +183,13 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('home');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [accentId, setAccentId] = useState('indigo');
+
+  useEffect(() => {
+    const id = readStoredAccentId();
+    setAccentId(id);
+    applyAccentTheme(id);
+  }, []);
 
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
@@ -489,9 +497,18 @@ export default function App() {
       });
     }
 
-    const { stores, roles } = parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
+    const derived =
+      Array.isArray(task.targets) && task.targets.length > 0
+        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES)
+        : null;
+    const { stores, roles } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
 
-    setRequestForm({ content: task.content, deadline: '', urls: storedUrls });
+    const deadlineInput =
+      task.deadline && /^\d{4}-\d{2}-\d{2}$/.test(String(task.deadline).trim())
+        ? String(task.deadline).trim()
+        : '';
+
+    setRequestForm({ content: task.content, deadline: deadlineInput, urls: storedUrls });
     setRequestImages(repostImages);
     setRequestSelectedStores(stores);
     setRequestSelectedRoles(roles);
@@ -647,13 +664,13 @@ export default function App() {
         
         {/* ブロック1: 役職による絞り込み */}
         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-          <h4 className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum}. 配信する役職</h4>
+          <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum}. 配信する役職</h4>
           <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
             <input 
               type="checkbox" 
               checked={isAllRolesSelected} 
               onChange={handleSelectAllRoles}
-              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
+              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
             />
             全役職を選択
           </label>
@@ -661,7 +678,7 @@ export default function App() {
             {ROLES.map(role => {
               const isChecked = selectedRoles.includes(role);
               return (
-                <label key={role} className={`flex items-center font-bold text-base border-2 border-slate-300 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}>
+                <label key={role} className={`flex items-center font-bold text-base border-2 border-slate-300 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-200)] shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}>
                   <input 
                     type="checkbox" 
                     checked={isChecked} 
@@ -669,7 +686,7 @@ export default function App() {
                       if (e.target.checked) setSelectedRoles(prev => [...prev, role]);
                       else setSelectedRoles(prev => prev.filter(r => r !== role));
                     }} 
-                    className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
+                    className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
                   />
                   {role}
                 </label>
@@ -680,13 +697,13 @@ export default function App() {
 
         {/* ブロック2: 店舗による絞り込み */}
         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-          <h4 className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum + 1}. 配信するエリア・店舗</h4>
+          <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum + 1}. 配信するエリア・店舗</h4>
           <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
             <input 
               type="checkbox" 
               checked={isAllStoresSelected} 
               onChange={handleSelectAllStores}
-              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
+              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
             />
             全店舗を選択
           </label>
@@ -698,7 +715,7 @@ export default function App() {
               const isAllAreaSelected = storesInArea.every(s => selectedStores.includes(s.storeName));
               return (
                 <details key={area} className="group bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden">
-                  <summary className="flex items-center justify-between p-3 font-bold text-base cursor-pointer hover:bg-indigo-50 transition-colors list-none select-none">
+                  <summary className="flex items-center justify-between p-3 font-bold text-base cursor-pointer hover:bg-[var(--acc-50)] transition-colors list-none select-none">
                     <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
@@ -708,7 +725,7 @@ export default function App() {
                           if (e.target.checked) setSelectedStores(prev => Array.from(new Set([...prev, ...areaStoreNames])));
                           else setSelectedStores(prev => prev.filter(s => !areaStoreNames.includes(s)));
                         }}
-                        className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
+                        className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
                       />
                       {area}
                     </label>
@@ -720,7 +737,7 @@ export default function App() {
                     {storesInArea.map(store => {
                       const isChecked = selectedStores.includes(store.storeName);
                       return (
-                        <label key={store.storeName} className={`flex items-center font-bold text-sm border-2 border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-100 shadow-sm -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}>
+                        <label key={store.storeName} className={`flex items-center font-bold text-sm border-2 border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-100)] shadow-sm -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}>
                           <input 
                             type="checkbox" 
                             checked={isChecked} 
@@ -728,7 +745,7 @@ export default function App() {
                               if (e.target.checked) setSelectedStores(prev => [...prev, store.storeName]);
                               else setSelectedStores(prev => prev.filter(s => s !== store.storeName));
                             }} 
-                            className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
+                            className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
                           />
                           {store.storeName}
                         </label>
@@ -748,7 +765,7 @@ export default function App() {
 
   if (authStep === 'loading') return (
     <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4 text-black">
-      <div className="text-indigo-600 scale-150"><Icon name="loader" /></div>
+      <div className="text-[var(--acc-600)] scale-150"><Icon name="loader" /></div>
       <p className="font-black tracking-widest text-sm uppercase animate-pulse mt-4">システムを起動しています...</p>
     </div>
   );
@@ -766,7 +783,7 @@ export default function App() {
                 <h3 className="text-3xl font-black text-black mb-2 tracking-tighter">タスクを完了しますか？</h3>
                 <p className="text-lg font-bold text-gray-600 mb-8">内容を確認して、よろしければ実行してください。</p>
                 <div className="bg-gray-50 p-6 rounded-2xl mb-8 text-center border-2 border-slate-300 shadow-sm">
-                  <p className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-3 border-b-2 border-slate-300 pb-3">対象タスク</p>
+                  <p className="text-sm font-black text-[var(--acc-600)] uppercase tracking-widest mb-3 border-b-2 border-slate-300 pb-3">対象タスク</p>
                   <p className="text-xl font-bold text-black leading-relaxed">{formatContent(confirmModal.task.content)}</p>
                 </div>
                 <div className="flex gap-4">
@@ -777,7 +794,7 @@ export default function App() {
             )}
             {confirmModal.step === 'loading' && (
               <div className="text-center py-12">
-                <div className="text-indigo-600 mb-8 flex justify-center scale-150"><Icon name="loader" /></div>
+                <div className="text-[var(--acc-600)] mb-8 flex justify-center scale-150"><Icon name="loader" /></div>
                 <h3 className="text-3xl font-black text-black tracking-tighter animate-pulse">記録中...</h3>
               </div>
             )}
@@ -797,9 +814,12 @@ export default function App() {
       {authStep === 'login' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden w-full">
           <div className="bg-white border-2 border-slate-300 rounded-[2.5rem] p-12 max-w-lg w-full shadow-xl relative z-10">
-            <div className="w-24 h-24 bg-indigo-500 border-2 border-indigo-400/50 rounded-3xl mx-auto flex items-center justify-center text-white mb-8 shadow-md"><Icon name="list" /></div>
-            <h2 className="text-5xl font-black text-black mb-4 text-center tracking-tighter italic">ToDo List</h2>
-            <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">チームのタスクを一元管理。</p>
+            <div className="w-24 h-24 bg-[var(--acc-500)] border-2 border-[var(--acc-400)]/50 rounded-3xl mx-auto flex items-center justify-center text-white mb-6 shadow-md"><Icon name="list" /></div>
+            <div className="text-center mb-8">
+              <p className="text-[10px] font-bold tracking-[0.28em] text-slate-500 uppercase mb-2">Task Force Team</p>
+              <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-2 tracking-tighter italic">To-Do List</h2>
+            </div>
+            <p className="text-gray-600 text-base font-bold mb-10 text-center leading-relaxed">チームのタスクを一元管理。</p>
             <form onSubmit={handleLoginSearch} className="space-y-8">
               <input type="email" required value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} className={brutalInput + " text-center"} placeholder="メールアドレスを入力" />
               {loginError && <p className="text-rose-500 text-sm font-black text-center animate-bounce">{loginError}</p>}
@@ -842,7 +862,7 @@ export default function App() {
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
                 <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
                   {TEAMS.map(t => (
-                    <button key={t} type="button" onClick={() => toggleTeam(t)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                    <button key={t} type="button" onClick={() => toggleTeam(t)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                       {t}
                     </button>
                   ))}
@@ -852,7 +872,7 @@ export default function App() {
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">エリア（複数選択可） <span className="text-rose-500">*</span></label>
                 <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
                   {AREAS.map(a => (
-                    <button key={a} type="button" onClick={() => toggleArea(a)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                    <button key={a} type="button" onClick={() => toggleArea(a)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                       {a}
                     </button>
                   ))}
@@ -864,12 +884,12 @@ export default function App() {
                   <div className="p-8 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
                     {regData.area.map(areaName => (
                       <div key={areaName} className="border-b-2 border-slate-300 pb-6 last:border-0 last:pb-0">
-                        <p className="text-lg font-black text-black mb-4 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-indigo-500 border-2 border-slate-300"></span>{areaName}</p>
+                        <p className="text-lg font-black text-black mb-4 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-[var(--acc-500)] border-2 border-slate-300"></span>{areaName}</p>
                         <div className="flex flex-wrap gap-3 pl-6">
                           {getTerritories(areaName).map(terr => {
                              const isSelected = regData.territory[areaName]?.includes(terr);
                              return (
-                              <button key={terr} type="button" onClick={() => toggleTerritory(areaName, terr)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                              <button key={terr} type="button" onClick={() => toggleTerritory(areaName, terr)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                                 {terr}
                               </button>
                             );
@@ -895,7 +915,7 @@ export default function App() {
                              {storesInArea.map(store => {
                                 const isSelected = regData.stores.includes(store.storeName);
                                 return (
-                                  <button key={store.storeName} type="button" onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                                  <button key={store.storeName} type="button" onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                                     {store.storeName}
                                   </button>
                                 )
@@ -922,7 +942,7 @@ export default function App() {
             <div className="w-32 h-32 bg-gray-100 border-2 border-slate-300 rounded-full mx-auto flex items-center justify-center text-black mb-8 shadow-sm">
               <div className="scale-150"><Icon name="user" /></div>
             </div>
-            <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-3">{tempUser?.role || tempUser?.team}</p>
+            <p className="text-[var(--acc-600)] font-black text-sm uppercase tracking-widest mb-3">{tempUser?.role || tempUser?.team}</p>
             <h2 className="text-5xl font-black text-black mb-8 tracking-tighter">{tempUser?.name}</h2>
             <div className="bg-gray-50 border-2 border-slate-300 rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
               <p className="text-xs text-gray-500 font-black uppercase mb-4 tracking-widest">担当エリア</p>
@@ -951,12 +971,12 @@ export default function App() {
           <header className="h-20 bg-white border-b-2 border-slate-300 flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-indigo-500 text-white flex items-center justify-center rounded-xl shadow-sm">
+                 <div className="w-10 h-10 bg-[var(--acc-500)] text-white flex items-center justify-center rounded-xl shadow-sm">
                     <Icon name="check" />
                  </div>
-                 <div className="flex flex-col">
-                    <h1 className="text-xl font-black italic tracking-tighter leading-none hidden md:block">ToDo List</h1>
-                    <span className="text-[10px] font-bold text-gray-500 tracking-widest hidden md:block">TEAM TASK MANAGER</span>
+                 <div className="flex flex-col leading-tight gap-0.5">
+                    <span className="text-[8px] sm:text-[9px] font-bold tracking-[0.22em] text-slate-500 uppercase">Task Force Team</span>
+                    <h1 className="text-lg sm:text-xl font-black italic tracking-tight text-slate-900">To-Do List</h1>
                  </div>
                </div>
                
@@ -974,7 +994,7 @@ export default function App() {
                {activeTab === 'home' && (
                  <>
                    <div className="h-8 w-1 bg-gray-300 hidden md:block"></div>
-                   <h2 className="font-black text-black tracking-tighter uppercase text-xl md:text-2xl">ダッシュボード</h2>
+                   <h2 className="font-black text-slate-900 tracking-tight uppercase text-lg md:text-xl">Dashboard</h2>
                  </>
                )}
             </div>
@@ -982,7 +1002,7 @@ export default function App() {
             <div className="relative">
               <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-2 border-slate-300 px-4 py-2 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
                   <div className="flex flex-col items-end text-right hidden sm:flex">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 leading-none mb-1">ACCOUNT</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[var(--acc-600)] leading-none mb-1">ACCOUNT</span>
                       <span className="text-sm font-black text-black leading-none max-w-[120px] truncate">{currentUser?.name}</span>
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold border-2 border-slate-300 shadow-sm">
@@ -993,35 +1013,64 @@ export default function App() {
               {isAccountMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-4 w-80 bg-white border-2 border-slate-300 rounded-2xl shadow-lg z-50 overflow-hidden animate-fade-in">
-                    <div className="p-6 border-b-2 border-slate-300 bg-white">
-                      <div className="w-20 h-20 rounded-2xl bg-gray-100 border-2 border-slate-300 flex items-center justify-center text-black mb-4 shadow-sm mx-auto">
-                        <div className="scale-150"><Icon name="user" /></div>
+                  <div className="absolute right-0 mt-3 w-[min(14rem,88vw)] max-h-[min(88vh,34rem)] flex flex-col bg-white border-2 border-slate-300 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                    <div className="p-3.5 border-b-2 border-slate-200 bg-white shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 border-2 border-slate-300 flex items-center justify-center text-black mb-2.5 shadow-sm mx-auto">
+                        <div className="scale-125"><Icon name="user" /></div>
                       </div>
-                      <p className="text-center text-2xl font-black text-black tracking-tighter">{currentUser?.name}</p>
-                      <p className="text-center text-xs font-bold text-gray-500 mt-1">{currentUser?.email}</p>
+                      <p className="text-center text-lg font-black text-slate-900 tracking-tight leading-tight">{currentUser?.name}</p>
+                      <p className="text-center text-[10px] font-bold text-slate-500 mt-0.5 break-all px-1">{currentUser?.email}</p>
                     </div>
-                    <div className="p-6 space-y-4 bg-white">
+                    <div className="px-3.5 py-3 space-y-3 bg-white overflow-y-auto overscroll-contain min-h-0 max-h-[min(42vh,220px)] border-b border-slate-100">
                       {currentUser?.role && (
                         <div>
-                          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">役職</p>
-                          <p className="text-sm font-black text-black bg-indigo-50 border-2 border-indigo-200 px-3 py-1 rounded-lg w-max">{currentUser?.role}</p>
+                          <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">役職</p>
+                          <p className="text-xs font-black text-black bg-[var(--acc-50)] border border-[var(--acc-200)] px-2 py-0.5 rounded-md w-max">{currentUser?.role}</p>
                         </div>
                       )}
                       <div>
-                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">担当エリア</p>
-                        <p className="text-sm font-bold text-black">{currentUser?.area}</p>
-                        {currentUser?.territory && <p className="text-xs font-bold text-gray-600 mt-1 leading-relaxed">{String(currentUser.territory).split(' / ').join('\n')}</p>}
+                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">担当エリア</p>
+                        <p className="text-xs font-bold text-slate-900">{currentUser?.area}</p>
+                        {currentUser?.territory && <p className="text-[11px] font-semibold text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap">{String(currentUser.territory).split(' / ').join('\n')}</p>}
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">管轄店舗</p>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {currentUser?.stores?.length > 0 ? currentUser.stores.map((s, i) => <span key={i} className="bg-gray-100 border border-black text-black text-[10px] px-2 py-1 rounded-md font-bold">{s}</span>) : <span className="text-xs text-gray-500">店舗なし</span>}
+                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">管轄店舗</p>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {currentUser?.stores?.length > 0 ? currentUser.stores.map((s, i) => <span key={i} className="bg-gray-100 border border-slate-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-bold">{s}</span>) : <span className="text-[11px] text-slate-500">店舗なし</span>}
                         </div>
                       </div>
                     </div>
-                    <div className="p-4 border-t-2 border-slate-300 bg-gray-50">
-                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-2 border-slate-300 font-black py-3 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
+                    <div className="px-3 py-2.5 border-t border-slate-200 bg-gradient-to-b from-slate-50 to-white shrink-0">
+                      <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-2">アクセントカラー</p>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {ACCENT_THEMES.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            title={t.label}
+                            onClick={() => {
+                              applyAccentTheme(t.id);
+                              setAccentId(t.id);
+                            }}
+                            className={`h-8 rounded-lg border-2 transition-all shadow-sm flex items-center justify-center ${
+                              accentId === t.id
+                                ? 'border-black ring-2 ring-black/25 ring-offset-1 scale-[1.02]'
+                                : 'border-slate-200 hover:border-slate-400 hover:scale-105 active:scale-95'
+                            }`}
+                            style={{ background: t['500'] }}
+                          >
+                            {accentId === t.id && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-white shadow-sm border border-white/80" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold text-center mt-2">
+                        現在: <span className="text-[var(--acc-700)]">{ACCENT_THEMES.find((x) => x.id === accentId)?.label ?? '—'}</span>
+                      </p>
+                    </div>
+                    <div className="p-2.5 border-t-2 border-slate-300 bg-slate-50 shrink-0">
+                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-2 border-slate-300 font-black py-2 rounded-lg shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest">
                         <Icon name="logout" /> ログアウト
                       </button>
                     </div>
@@ -1036,47 +1085,77 @@ export default function App() {
               
               {/* === HOME === */}
               {activeTab === 'home' && (
-                <div className="animate-fade-in space-y-6 mt-4 w-full">
-                  <div className={brutalCard + " flex flex-col lg:flex-row gap-6 lg:gap-8 items-center bg-indigo-50 p-6 md:p-8"}>
-                    <div className="flex-1 w-full text-center lg:text-left flex flex-col justify-center">
-                       <p className="text-gray-700 text-base md:text-lg font-bold">現在あなたが抱えている未完了タスク</p>
-                       <p className="text-black font-black text-4xl md:text-5xl mt-2"><span className="text-rose-600">{activeTasksCount}</span> <span className="text-2xl md:text-3xl">件</span></p>
-                    </div>
-
-                    <div className="flex gap-4 w-full lg:w-auto flex-shrink-0">
-                       <div className="bg-white p-5 rounded-2xl border-2 border-slate-300 flex-1 lg:w-72 shadow-sm">
-                         <p className="text-xs font-black text-indigo-600 uppercase mb-3 tracking-widest text-center lg:text-left">あなたのタスク完了率</p>
-                         <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-gray-100 border-2 border-slate-300 rounded-full h-3 overflow-hidden shadow-[inset_2px_2px_0_0_rgba(0,0,0,0.1)]">
-                              <div className="bg-emerald-400 border-r-2 border-emerald-500 h-full w-full transition-all duration-1000 ease-out" style={{ width: `${requestedTasksProgress}%` }}></div>
-                            </div>
-                            <span className="text-xl font-black text-black">{requestedTasksProgress}%</span>
-                         </div>
-                       </div>
+                <div className="animate-fade-in space-y-5 mt-3 w-full">
+                  {/* コンパクトな状況（主役は下の4メニュー） */}
+                  <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 px-1 border-b border-slate-200/90 pb-4">
+                    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-slate-600">
+                      <span>
+                        未完了{' '}
+                        <strong className="text-slate-900 font-black tabular-nums text-base">{activeTasksCount}</strong>
+                        <span className="font-bold text-slate-500"> 件</span>
+                      </span>
+                      <span className="hidden sm:inline text-slate-300 select-none">/</span>
+                      <span>
+                        完了率{' '}
+                        <strong className="text-slate-900 font-black tabular-nums text-base">{requestedTasksProgress}</strong>
+                        <span className="font-bold text-slate-500"> %</span>
+                      </span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6 w-full">
-                    <button onClick={() => setActiveTab('request')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="plus" /></div>
-                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">新規投稿</h4>
-                      <p className="text-gray-600 text-sm font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
+                    {/* 新規投稿：レッド系（新規・発信） */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('request')}
+                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-rose-600 hover:border-t-rose-700"
+                    >
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-rose-200/90 bg-gradient-to-br from-white via-rose-50 to-rose-100/90 text-rose-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(225,29,72,0.15)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_5px_14px_rgba(225,29,72,0.22)] [&>svg]:scale-[0.85]">
+                        <Icon name="plus" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">新規投稿</h4>
+                      <p className="text-slate-600 text-sm font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
                     </button>
-                    <button onClick={() => setActiveTab('repost')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="history" /></div>
-                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">再投稿</h4>
-                      <p className="text-gray-600 text-sm font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
+                    {/* 再投稿：ブルー系 */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('repost')}
+                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-blue-600 hover:border-t-blue-700"
+                    >
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-blue-200/80 bg-gradient-to-br from-white via-blue-50/95 to-blue-100/85 text-blue-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(37,99,235,0.14)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_5px_14px_rgba(37,99,235,0.2)] [&>svg]:scale-[0.85]">
+                        <Icon name="history" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">再投稿</h4>
+                      <p className="text-slate-600 text-sm font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
                     </button>
-                    <button onClick={() => setActiveTab('scheduled')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="repeat" /></div>
-                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">定期配信</h4>
-                      <p className="text-gray-600 text-sm font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
+                    {/* 定期配信：アンバー／イエロー系 */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('scheduled')}
+                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-amber-500 hover:border-t-amber-600"
+                    >
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-amber-200/90 bg-gradient-to-br from-white via-amber-50 to-amber-100/85 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(245,158,11,0.18)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_5px_14px_rgba(245,158,11,0.25)] [&>svg]:scale-[0.85]">
+                        <Icon name="repeat" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">定期配信</h4>
+                      <p className="text-slate-600 text-sm font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
                     </button>
-                    <button onClick={() => setActiveTab('checklist')} className={brutalCard + " text-left hover:bg-indigo-50 relative overflow-hidden !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="list" /></div>
-                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">リストチェック</h4>
-                      <p className="text-gray-600 text-sm font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
-                      {activeTasksCount > 0 && <div className="absolute top-4 right-4 bg-rose-500 border-2 border-rose-400 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm animate-pulse tracking-widest">未完了 {activeTasksCount}</div>}
+                    {/* リストチェック：ブラック系（閲覧・確認） */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('checklist')}
+                      className="group text-left relative overflow-hidden bg-white border-2 border-slate-400 rounded-2xl p-6 md:p-7 shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 border-t-[4px] border-t-slate-800 ring-1 ring-slate-900/5"
+                    >
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-slate-600 bg-gradient-to-br from-slate-700 via-slate-900 to-slate-950 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_16px_rgba(0,0,0,0.35)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_22px_rgba(0,0,0,0.4)] [&>svg]:scale-[0.85]">
+                        <Icon name="list" />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">リストチェック</h4>
+                      <p className="text-slate-600 text-sm font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
+                      {activeTasksCount > 0 && (
+                        <div className="absolute top-3 right-3 bg-rose-500 border-2 border-rose-400 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm tracking-widest">
+                          未完了 {activeTasksCount}
+                        </div>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1091,17 +1170,17 @@ export default function App() {
                       {/* 左列：入力内容 (1〜4) */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="具体的な指示内容を入力してください"></textarea>
                         </div>
                         
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 期限 (DL) <span className="text-rose-500">*</span></label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 期限 (DL) <span className="text-rose-500">*</span></label>
                           <input type="date" min={todayForMin} value={requestForm.deadline} onChange={e => setRequestForm({...requestForm, deadline: e.target.value})} required className={brutalInput} />
                         </div>
                         
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
                           <div className="space-y-3">
                             {requestForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
@@ -1123,7 +1202,7 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
                           {requestImages.length < 3 && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -1175,10 +1254,10 @@ export default function App() {
                     {sentTasks.length === 0 ? (
                       <p className="text-center text-slate-500 font-bold py-20 text-lg">送信履歴がありません</p>
                     ) : sentTasks.map(task => (
-                      <div key={task.id} className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-indigo-200 hover:shadow-md transition-all shadow-sm w-full">
+                      <div key={task.id} className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-[var(--acc-200)] hover:shadow-md transition-all shadow-sm w-full">
                          <div className="flex-1 text-center md:text-left w-full">
                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
-                             <span className="bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">過去の配信</span>
+                             <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">過去の配信</span>
                              <span className="text-sm text-slate-600 font-bold">{task.createdAt}</span>
                              {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
                            </div>
@@ -1206,18 +1285,18 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6 md:p-8 space-y-5 shadow-sm">
-                    <p className="text-lg md:text-xl font-black text-indigo-900 text-center leading-snug">
+                  <div className="bg-[var(--acc-50)] border-2 border-[var(--acc-200)] rounded-2xl p-6 md:p-8 space-y-5 shadow-sm">
+                    <p className="text-lg md:text-xl font-black text-[var(--acc-900)] text-center leading-snug">
                       初回のみ当月分は即タスクに反映されます。
                     </p>
                     <ul className="space-y-3 text-base text-slate-800 font-bold leading-relaxed">
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-indigo-500 text-white text-sm flex items-center justify-center font-black">1</span>
+                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white text-sm flex items-center justify-center font-black">1</span>
                         <span>初回の期限は、下の「タスクの期限（毎月〜まで）」に従います。</span>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-indigo-500 text-white text-sm flex items-center justify-center font-black">2</span>
-                        <span>2回目以降は、指定した<strong className="text-indigo-600">日</strong>にだけ自動配信されます。</span>
+                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white text-sm flex items-center justify-center font-black">2</span>
+                        <span>2回目以降は、指定した<strong className="text-[var(--acc-600)]">日</strong>にだけ自動配信されます。</span>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-600 text-white text-sm flex items-center justify-center font-black">3</span>
@@ -1231,7 +1310,7 @@ export default function App() {
                       {/* 左列：1〜4 */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
                           <p className="text-sm text-slate-600 mb-4">配信時刻は<strong>午前10:00</strong>固定です（変更はシステム管理者向け設定です）。</p>
                           <div className="flex flex-col sm:flex-row gap-4 mt-2">
                             <div className="flex-1">
@@ -1262,7 +1341,7 @@ export default function App() {
                                 type="checkbox"
                                 checked={scheduleSkipInitialMonth}
                                 onChange={(e) => setScheduleSkipInitialMonth(e.target.checked)}
-                                className="mt-1 w-5 h-5 rounded border-2 border-slate-400 text-indigo-600 focus:ring-indigo-500"
+                                className="mt-1 w-5 h-5 rounded border-2 border-slate-400 text-[var(--acc-600)] focus:ring-[var(--acc-500)]"
                               />
                               <span className="text-sm font-bold text-slate-800 leading-relaxed">
                                 <span className="block text-amber-900">今月の初回分は作成しない</span>
@@ -1273,12 +1352,12 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 依頼内容 <span className="text-rose-500">*</span></label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
                           <div className="space-y-3">
                             {scheduleForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
@@ -1300,7 +1379,7 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
                           {scheduleImages.length < 3 && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -1348,14 +1427,14 @@ export default function App() {
                         <div key={task.id} className="bg-white p-6 rounded-xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm w-full">
                            <div className="flex-1 text-center md:text-left w-full">
                              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
-                               <span className="bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
+                               <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
                                <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">期限: 毎月 {task.deadlineOffset}</span>
                                {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
                              </div>
                              <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
                            </div>
                            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
-                             <button type="button" onClick={() => handleEditScheduleClick(task)} className="w-full bg-white border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
+                             <button type="button" onClick={() => handleEditScheduleClick(task)} className="w-full bg-white border-2 border-[var(--acc-300)] text-[var(--acc-700)] hover:bg-[var(--acc-50)] px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
                                <Icon name="calendar" /> 内容を編集
                              </button>
                              <button type="button" onClick={() => handleDeleteSchedule(task.id)} className="w-full bg-slate-50 border-2 border-slate-300 hover:bg-rose-500 hover:text-white text-slate-700 hover:border-rose-400 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
@@ -1374,8 +1453,8 @@ export default function App() {
                 <div className="animate-fade-in w-full mt-4">
                   
                   <div className="flex flex-col sm:flex-row gap-4 mb-8 w-full max-w-2xl">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
-                      未実施 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
+                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                      未実施 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'active' ? 'bg-white text-[var(--acc-600)]' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
                     </button>
                     <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'completed' ? 'bg-white text-slate-800 border-slate-400' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}>
                       実施済み <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'completed' ? 'bg-slate-600 text-white' : 'bg-slate-400 text-white'}`}>{completedTasksCount}</span>
@@ -1383,16 +1462,16 @@ export default function App() {
                   </div>
 
                   <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-300">
-                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === 'ALL' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                       全店
-                      {activeTasksCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500 text-white font-bold">{activeTasksCount}</span>}
+                      {activeTasksCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--acc-500)] text-white font-bold">{activeTasksCount}</span>}
                     </button>
                     {currentUser?.stores?.map(s => {
                       const storeTaskCount = tasks.filter(t => !t.completed && t.targetTags && t.targetTags.includes(s)).length;
                       return (
-                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === s ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                           {s}
-                          {storeTaskCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500 text-white font-bold">{storeTaskCount}</span>}
+                          {storeTaskCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--acc-500)] text-white font-bold">{storeTaskCount}</span>}
                         </button>
                       );
                     })}
@@ -1411,7 +1490,7 @@ export default function App() {
                         <div className="flex-1 w-full min-w-0">
                           
                           <div className="flex flex-wrap gap-2 mb-3 items-center">
-                            {task.targetTags && <span className="bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-lg">{task.targetTags}</span>}
+                            {task.targetTags && <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1 rounded-lg">{task.targetTags}</span>}
                             <span className="bg-slate-100 text-slate-700 border-2 border-slate-300 text-xs font-bold px-2 py-1 rounded-lg">{task.type}</span>
                             <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
                           </div>
