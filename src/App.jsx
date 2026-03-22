@@ -1,10 +1,10 @@
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
 
 // --- デザイン用定数（おしゃれ・シンプル・プロ仕様） ---
-const brutalCard = "bg-white border-2 border-slate-200 shadow-md rounded-2xl p-8 md:p-12 transition-all w-full";
-const brutalInput = "bg-white border-2 border-slate-200 shadow-sm rounded-xl p-5 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all w-full text-lg";
-const brutalBtnPrimary = "bg-indigo-500 text-white border-2 border-indigo-600/30 shadow-md rounded-2xl font-bold transition-all hover:bg-indigo-600 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 py-6 text-2xl";
-const brutalBtnSecondary = "bg-white text-slate-700 border-2 border-slate-200 shadow-sm rounded-2xl font-bold transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] flex items-center justify-center gap-2 py-4 text-xl";
+const brutalCard = "bg-white border-2 border-slate-300 shadow-md rounded-2xl p-6 md:p-8 transition-all w-full";
+const brutalInput = "bg-white border-2 border-slate-300 shadow-sm rounded-xl p-4 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all w-full text-base";
+const brutalBtnPrimary = "bg-indigo-500 text-white border-2 border-indigo-600/30 shadow-md rounded-2xl font-bold transition-all hover:bg-indigo-600 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 py-5 text-xl";
+const brutalBtnSecondary = "bg-white text-slate-700 border-2 border-slate-300 shadow-sm rounded-2xl font-bold transition-all hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-lg";
 
 // --- アイコン部品 ---
 const Icon = ({ name }) => {
@@ -36,6 +36,73 @@ const Icon = ({ name }) => {
 const ROLES = ['GMG', 'A-SMG', 'SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
 const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
+
+/** 定期配信の実行時刻（GAS の processScheduledTasksBatch と一致させる） */
+const SCHEDULE_DELIVERY_TIME = '10:00';
+
+/** 「毎月 N日 10:00」形式から日だけ取り出す */
+function parseCycleDayFromString(cycleStr) {
+  const m = String(cycleStr || '').match(/毎月\s+(\d{1,2})日/);
+  return m ? m[1] : '1';
+}
+
+/**
+ * スプレッドシートに保存された targetTags 文字列から、配信先の店舗・役職を復元（再投稿用）
+ */
+function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList) {
+  const allStoreNames = allStores.map((s) => s.storeName);
+  if (!tagStr || String(tagStr).trim() === '' || tagStr === '指定なし') {
+    return { stores: [...allStoreNames], roles: [...rolesList] };
+  }
+  const s = String(tagStr).trim();
+  let roles = [...rolesList];
+  let storePart = s;
+  const roleBracket = s.match(/\s*\[([^\]]+)\]\s*$/);
+  if (roleBracket) {
+    const roleNames = roleBracket[1].split(/,\s*/).map((r) => r.trim()).filter(Boolean);
+    const matched = rolesList.filter((r) => roleNames.includes(r));
+    if (matched.length > 0) roles = matched;
+    storePart = s.slice(0, s.lastIndexOf('[')).trim();
+  }
+  if (!storePart || storePart === '全店') {
+    return { stores: [...allStoreNames], roles };
+  }
+  const parts = storePart.split(/,\s*/).map((x) => x.trim()).filter(Boolean);
+  const selected = new Set();
+  parts.forEach((p) => {
+    if (areasList.includes(p)) {
+      allStores.filter((st) => st.area === p).forEach((st) => selected.add(st.storeName));
+    } else if (allStoreNames.includes(p)) {
+      selected.add(p);
+    }
+  });
+  const stores = Array.from(selected);
+  if (stores.length === 0) {
+    return { stores: [...allStoreNames], roles };
+  }
+  return { stores, roles };
+}
+
+/** 配信先メール一覧から店舗・役職を復元（定期編集用・targetTags より正確な場合がある） */
+function deriveStoresAndRolesFromTargets(targetEmails, allEmployees, allStoreNamesList, rolesList) {
+  const emails = new Set((targetEmails || []).map((e) => String(e).trim()).filter(Boolean));
+  if (emails.size === 0) return null;
+  const storeSet = new Set();
+  const roleSet = new Set();
+  allEmployees.forEach((emp) => {
+    if (emails.has(emp.email)) {
+      (emp.stores || []).forEach((s) => storeSet.add(s));
+      if (emp.role) roleSet.add(emp.role);
+    }
+  });
+  const stores = allStoreNamesList.filter((s) => storeSet.has(s));
+  const roles = rolesList.filter((r) => roleSet.has(r));
+  if (stores.length === 0 && roleSet.size === 0) return null;
+  return {
+    stores: stores.length ? stores : allStoreNamesList,
+    roles: roles.length ? roles : rolesList
+  };
+}
 const getTerritories = (area) => {
   if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
   if (['第1エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
@@ -84,6 +151,10 @@ const api = {
   deleteScheduledTask: (id) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).deleteScheduledTask(id);
+  }),
+  updateScheduledTask: (id, data) => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res({ status: 'success' }), 1000);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).updateScheduledTask(id, data);
   })
 };
 
@@ -129,8 +200,11 @@ export default function App() {
   const [scheduledTasks, setScheduledTasks] = useState([]);
   
   const [scheduleDate, setScheduleDate] = useState('1');
-  const [scheduleTime, setScheduleTime] = useState('09:00');
   const [scheduleForm, setScheduleForm] = useState({ deadlineOffset: '月末', content: '', urls: [''] });
+  /** チェック時は初回の今月分タスクを作らず、翌月の定期配信からのみ開始 */
+  const [scheduleSkipInitialMonth, setScheduleSkipInitialMonth] = useState(false);
+  /** 編集中の定期配信ID（null なら新規登録） */
+  const [scheduleEditingId, setScheduleEditingId] = useState(null);
   const [scheduleImages, setScheduleImages] = useState([]); 
   const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
   const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES); 
@@ -375,7 +449,11 @@ export default function App() {
         sender: currentUser ? currentUser.name : "管理者",
         targets: Array.from(targetEmails),
         targetTags: finalTagsStr,
-        images: requestImages.map(img => ({ name: img.name, type: img.type, base64: img.base64 }))
+        images: requestImages.map((img) =>
+          img.reuseUrl
+            ? { name: img.name, type: img.type || 'image/jpeg', reuseUrl: img.reuseUrl }
+            : { name: img.name, type: img.type, base64: img.base64 }
+        )
       });
       alert('タスクを配信しました！対象者に通知されます。');
       setRequestForm({ content: '', deadline: '', urls: [''] });
@@ -389,13 +467,34 @@ export default function App() {
 
   const handleRepostClick = (task) => {
     let storedUrls = [''];
-    if (Array.isArray(task.urls) && task.urls.length > 0) storedUrls = task.urls;
-    else if (typeof task.url === 'string' && task.url) storedUrls = task.url.split('\n');
-    
+    if (Array.isArray(task.urls) && task.urls.length > 0) {
+      storedUrls = [...task.urls];
+    } else if (typeof task.url === 'string' && task.url) {
+      storedUrls = task.url.split('\n').filter(Boolean);
+    }
+    if (storedUrls.length === 0) storedUrls = [''];
+
+    const repostImages = [];
+    if (Array.isArray(task.images)) {
+      task.images.forEach((url, idx) => {
+        const u = String(url || '').trim();
+        if (u) {
+          repostImages.push({
+            name: `参考画像${idx + 1}.jpg`,
+            type: 'image/jpeg',
+            preview: u,
+            reuseUrl: u
+          });
+        }
+      });
+    }
+
+    const { stores, roles } = parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
+
     setRequestForm({ content: task.content, deadline: '', urls: storedUrls });
-    setRequestImages([]); 
-    setRequestSelectedStores(allStores.map(s => s.storeName));
-    setRequestSelectedRoles(ROLES);
+    setRequestImages(repostImages);
+    setRequestSelectedStores(stores);
+    setRequestSelectedRoles(roles);
     setActiveTab('request');
   };
 
@@ -417,28 +516,95 @@ export default function App() {
 
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
     const finalTagsStr = generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles);
-    const cycleString = `毎月 ${scheduleDate}日 ${scheduleTime}`;
+    const cycleString = `毎月 ${scheduleDate}日 ${SCHEDULE_DELIVERY_TIME}`;
+    const scheduleImagePayload = scheduleImages.map((img) =>
+      img.reuseUrl
+        ? { name: img.name, type: img.type || 'image/jpeg', reuseUrl: img.reuseUrl }
+        : { name: img.name, type: img.type, base64: img.base64 }
+    );
 
     try {
-      await api.registerScheduledTask({
-        sender: currentUser.name,
-        cycle: cycleString,
-        deadlineOffset: scheduleForm.deadlineOffset,
-        content: scheduleForm.content,
-        urls: validUrls,
-        targetTags: finalTagsStr,
-        targets: Array.from(targetEmails),
-        images: scheduleImages.map(img => ({ name: img.name, type: img.type, base64: img.base64 }))
-      });
-      alert('スケジュールを登録しました！');
+      if (scheduleEditingId) {
+        await api.updateScheduledTask(scheduleEditingId, {
+          sender: currentUser.name,
+          cycle: cycleString,
+          deadlineOffset: scheduleForm.deadlineOffset,
+          content: scheduleForm.content,
+          urls: validUrls,
+          targetTags: finalTagsStr,
+          targets: Array.from(targetEmails),
+          images: scheduleImagePayload
+        });
+        alert('保存しました。次回の定期配信からこの内容で送信されます。');
+      } else {
+        await api.registerScheduledTask({
+          sender: currentUser.name,
+          cycle: cycleString,
+          deadlineOffset: scheduleForm.deadlineOffset,
+          content: scheduleForm.content,
+          urls: validUrls,
+          targetTags: finalTagsStr,
+          targets: Array.from(targetEmails),
+          images: scheduleImagePayload,
+          skipInitialTask: scheduleSkipInitialMonth
+        });
+        alert('スケジュールを登録しました！');
+      }
+      setScheduleEditingId(null);
       setScheduleForm({ deadlineOffset: '月末', content: '', urls: [''] });
+      setScheduleSkipInitialMonth(false);
       setScheduleDate('1');
-      setScheduleTime('09:00');
       setScheduleImages([]);
       setScheduleSelectedStores(allStores.map(s => s.storeName));
       setScheduleSelectedRoles(ROLES);
       refreshTasks(); 
-    } catch (error) { alert('登録失敗'); } finally { setIsSubmitting(false); }
+    } catch (error) { alert(scheduleEditingId ? '保存に失敗しました' : '登録失敗'); } finally { setIsSubmitting(false); }
+  };
+
+  const handleEditScheduleClick = (task) => {
+    setScheduleEditingId(task.id);
+    setScheduleDate(parseCycleDayFromString(task.cycle));
+    const urls = task.urls && task.urls.length > 0 ? [...task.urls] : [''];
+    setScheduleForm({
+      deadlineOffset: task.deadlineOffset || '月末',
+      content: task.content || '',
+      urls
+    });
+    const imgs = [];
+    if (Array.isArray(task.images)) {
+      task.images.forEach((url, idx) => {
+        const u = String(url || '').trim();
+        if (u) {
+          imgs.push({
+            name: `参考画像${idx + 1}.jpg`,
+            type: 'image/jpeg',
+            preview: u,
+            reuseUrl: u
+          });
+        }
+      });
+    }
+    setScheduleImages(imgs);
+    const derived =
+      Array.isArray(task.targets) && task.targets.length > 0
+        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES)
+        : null;
+    const { stores, roles } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
+    setScheduleSelectedStores(stores);
+    setScheduleSelectedRoles(roles);
+    setScheduleSkipInitialMonth(false);
+    setActiveTab('scheduled');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelScheduleEdit = () => {
+    setScheduleEditingId(null);
+    setScheduleForm({ deadlineOffset: '月末', content: '', urls: [''] });
+    setScheduleSkipInitialMonth(false);
+    setScheduleDate('1');
+    setScheduleImages([]);
+    setScheduleSelectedStores(allStores.map((s) => s.storeName));
+    setScheduleSelectedRoles(ROLES);
   };
 
   const handleDeleteSchedule = async (id) => {
@@ -463,7 +629,7 @@ export default function App() {
     } catch (e) { setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null }); }
   };
 
-  const renderTargetSelector = (selectedStores, setSelectedStores, selectedRoles, setSelectedRoles) => {
+  const renderTargetSelector = (selectedStores, setSelectedStores, selectedRoles, setSelectedRoles, startNum = 1) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
     const handleSelectAllStores = (e) => {
       if (e.target.checked) setSelectedStores(allStores.map(s => s.storeName));
@@ -480,14 +646,14 @@ export default function App() {
       <div className="w-full flex flex-col gap-6">
         
         {/* ブロック1: 役職による絞り込み */}
-        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-2 border-slate-200 pb-2">1. 配信する役職</h4>
-          <label className="flex items-center font-black text-xl cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
+        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+          <h4 className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum}. 配信する役職</h4>
+          <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
             <input 
               type="checkbox" 
               checked={isAllRolesSelected} 
               onChange={handleSelectAllRoles}
-              className="mr-3 w-6 h-6 border-2 border-slate-200 rounded accent-indigo-600 cursor-pointer" 
+              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
             />
             全役職を選択
           </label>
@@ -495,7 +661,7 @@ export default function App() {
             {ROLES.map(role => {
               const isChecked = selectedRoles.includes(role);
               return (
-                <label key={role} className={`flex items-center font-bold text-base border-2 border-slate-200 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}>
+                <label key={role} className={`flex items-center font-bold text-base border-2 border-slate-300 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}>
                   <input 
                     type="checkbox" 
                     checked={isChecked} 
@@ -513,14 +679,14 @@ export default function App() {
         </div>
 
         {/* ブロック2: 店舗による絞り込み */}
-        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-2 border-slate-200 pb-2">2. 配信するエリア・店舗</h4>
-          <label className="flex items-center font-black text-xl cursor-pointer w-max hover:opacity-70 transition-opacity mb-6">
+        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+          <h4 className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum + 1}. 配信するエリア・店舗</h4>
+          <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
             <input 
               type="checkbox" 
               checked={isAllStoresSelected} 
               onChange={handleSelectAllStores}
-              className="mr-3 w-6 h-6 border-2 border-slate-200 rounded accent-indigo-600 cursor-pointer" 
+              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
             />
             全店舗を選択
           </label>
@@ -531,8 +697,8 @@ export default function App() {
               if (storesInArea.length === 0) return null;
               const isAllAreaSelected = storesInArea.every(s => selectedStores.includes(s.storeName));
               return (
-                <details key={area} className="group bg-white border-2 border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                  <summary className="flex items-center justify-between p-4 font-black text-xl cursor-pointer hover:bg-indigo-50 transition-colors list-none select-none">
+                <details key={area} className="group bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden">
+                  <summary className="flex items-center justify-between p-3 font-bold text-base cursor-pointer hover:bg-indigo-50 transition-colors list-none select-none">
                     <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
@@ -542,15 +708,15 @@ export default function App() {
                           if (e.target.checked) setSelectedStores(prev => Array.from(new Set([...prev, ...areaStoreNames])));
                           else setSelectedStores(prev => prev.filter(s => !areaStoreNames.includes(s)));
                         }}
-                        className="mr-3 w-6 h-6 border-2 border-slate-200 rounded accent-indigo-600 cursor-pointer" 
+                        className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
                       />
                       {area}
                     </label>
-                    <div className="w-8 h-8 rounded-full border-2 border-slate-200 bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-sm">
+                    <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-sm">
                       <Icon name="chevronDown" />
                     </div>
                   </summary>
-                  <div className="p-4 border-t-2 border-slate-200 bg-gray-50 flex flex-wrap gap-2">
+                  <div className="p-4 border-t-2 border-slate-300 bg-gray-50 flex flex-wrap gap-2">
                     {storesInArea.map(store => {
                       const isChecked = selectedStores.includes(store.storeName);
                       return (
@@ -593,14 +759,14 @@ export default function App() {
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })}></div>
-          <div className="bg-white rounded-[2.5rem] border-2 border-slate-200 p-8 md:p-12 max-w-xl w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] border-2 border-slate-300 p-8 md:p-12 max-w-xl w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
             {confirmModal.step === 'confirm' && (
               <div className="text-center">
-                <div className="w-24 h-24 bg-rose-50 border-2 border-slate-200 text-rose-500 rounded-full mx-auto flex items-center justify-center mb-8 shadow-sm"><Icon name="alertTriangle" /></div>
+                <div className="w-24 h-24 bg-rose-50 border-2 border-slate-300 text-rose-500 rounded-full mx-auto flex items-center justify-center mb-8 shadow-sm"><Icon name="alertTriangle" /></div>
                 <h3 className="text-3xl font-black text-black mb-2 tracking-tighter">タスクを完了しますか？</h3>
                 <p className="text-lg font-bold text-gray-600 mb-8">内容を確認して、よろしければ実行してください。</p>
-                <div className="bg-gray-50 p-6 rounded-2xl mb-8 text-center border-2 border-slate-200 shadow-sm">
-                  <p className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-3 border-b-2 border-slate-200 pb-3">対象タスク</p>
+                <div className="bg-gray-50 p-6 rounded-2xl mb-8 text-center border-2 border-slate-300 shadow-sm">
+                  <p className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-3 border-b-2 border-slate-300 pb-3">対象タスク</p>
                   <p className="text-xl font-bold text-black leading-relaxed">{formatContent(confirmModal.task.content)}</p>
                 </div>
                 <div className="flex gap-4">
@@ -617,10 +783,10 @@ export default function App() {
             )}
             {confirmModal.step === 'result' && (
               <div className="text-center py-8 animate-fade-in relative">
-                <div className="w-40 h-40 bg-gradient-to-tr from-amber-300 via-yellow-300 to-orange-200 text-black border-2 border-slate-200 rounded-full mx-auto flex items-center justify-center mb-8 shadow-lg transform hover:scale-110 transition-transform"><span className="text-8xl font-black tracking-tighter drop-shadow-sm">{confirmModal.rank}</span><span className="text-2xl font-black mt-6 ml-1">位</span></div>
+                <div className="w-40 h-40 bg-gradient-to-tr from-amber-300 via-yellow-300 to-orange-200 text-black border-2 border-slate-300 rounded-full mx-auto flex items-center justify-center mb-8 shadow-lg transform hover:scale-110 transition-transform"><span className="text-8xl font-black tracking-tighter drop-shadow-sm">{confirmModal.rank}</span><span className="text-2xl font-black mt-6 ml-1">位</span></div>
                 <h3 className="text-4xl font-black text-black mb-4 tracking-tighter relative z-10">完了しました！</h3>
                 <p className="text-lg font-bold text-gray-600 mb-10 relative z-10">このタスクを全社で <span className="text-black font-black text-2xl mx-1">{confirmModal.rank}番目</span> にクリアしました！</p>
-                <div className="w-full bg-gray-100 border-2 border-slate-200 h-6 rounded-full overflow-hidden shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.1)]"><div className="bg-emerald-400 border-r-2 border-emerald-500 h-full w-full animate-[progress_3.5s_ease-in-out]"></div></div>
+                <div className="w-full bg-gray-100 border-2 border-slate-300 h-6 rounded-full overflow-hidden shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.1)]"><div className="bg-emerald-400 border-r-2 border-emerald-500 h-full w-full animate-[progress_3.5s_ease-in-out]"></div></div>
               </div>
             )}
           </div>
@@ -630,7 +796,7 @@ export default function App() {
       {/* --- ログイン・登録画面 --- */}
       {authStep === 'login' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden w-full">
-          <div className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-12 max-w-lg w-full shadow-xl relative z-10">
+          <div className="bg-white border-2 border-slate-300 rounded-[2.5rem] p-12 max-w-lg w-full shadow-xl relative z-10">
             <div className="w-24 h-24 bg-indigo-500 border-2 border-indigo-400/50 rounded-3xl mx-auto flex items-center justify-center text-white mb-8 shadow-md"><Icon name="list" /></div>
             <h2 className="text-5xl font-black text-black mb-4 text-center tracking-tighter italic">ToDo List</h2>
             <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">チームのタスクを一元管理。</p>
@@ -645,13 +811,13 @@ export default function App() {
 
       {authStep === 'register' && (
         <div className="h-screen bg-slate-50 flex flex-col p-6 relative overflow-y-auto w-full">
-          <div className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-8 md:p-16 max-w-3xl w-full shadow-xl relative z-10 mx-auto my-auto animate-fade-in">
+          <div className="bg-white border-2 border-slate-300 rounded-[2.5rem] p-8 md:p-16 max-w-3xl w-full shadow-xl relative z-10 mx-auto my-auto animate-fade-in">
             <h2 className="text-4xl font-black text-black mb-4 text-center tracking-tighter">アカウント作成</h2>
             <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">初めてのログインですね。<br/>プロフィールを登録して開始してください。</p>
             <form onSubmit={handleRegisterSubmit} className="space-y-10">
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">メールアドレス (固定)</label>
-                <input type="email" value={tempUser?.email || inputEmail || ''} disabled className="w-full px-6 py-5 bg-gray-100 border-2 border-slate-200 rounded-2xl text-gray-500 font-bold cursor-not-allowed text-lg shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]" />
+                <input type="email" value={tempUser?.email || inputEmail || ''} disabled className="w-full px-6 py-5 bg-gray-100 border-2 border-slate-300 rounded-2xl text-gray-500 font-bold cursor-not-allowed text-lg shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -674,7 +840,7 @@ export default function App() {
 
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
-                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
                   {TEAMS.map(t => (
                     <button key={t} type="button" onClick={() => toggleTeam(t)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                       {t}
@@ -684,7 +850,7 @@ export default function App() {
               </div>
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">エリア（複数選択可） <span className="text-rose-500">*</span></label>
-                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
                   {AREAS.map(a => (
                     <button key={a} type="button" onClick={() => toggleArea(a)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                       {a}
@@ -695,9 +861,9 @@ export default function App() {
               {regData.area.length > 0 && (
                 <div>
                   <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
-                  <div className="p-8 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
+                  <div className="p-8 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
                     {regData.area.map(areaName => (
-                      <div key={areaName} className="border-b-2 border-slate-200 pb-6 last:border-0 last:pb-0">
+                      <div key={areaName} className="border-b-2 border-slate-300 pb-6 last:border-0 last:pb-0">
                         <p className="text-lg font-black text-black mb-4 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-indigo-500 border-2 border-slate-300"></span>{areaName}</p>
                         <div className="flex flex-wrap gap-3 pl-6">
                           {getTerritories(areaName).map(terr => {
@@ -717,13 +883,13 @@ export default function App() {
               {regData.area.length > 0 && (
                 <div>
                   <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">管轄店舗 <span className="text-xs font-bold text-gray-500 ml-2">※管轄外の店舗のみチェックを外してください</span></label>
-                  <div className="p-8 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
+                  <div className="p-8 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
                     {regData.area.map(areaName => {
                       const selectedTerrs = regData.territory[areaName] || [];
                       const storesInArea = allStores.filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
                       if (storesInArea.length === 0) return null;
                       return (
-                        <div key={areaName} className="border-b-2 border-slate-200 pb-6 last:border-0 last:pb-0">
+                        <div key={areaName} className="border-b-2 border-slate-300 pb-6 last:border-0 last:pb-0">
                            <p className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">{areaName} の店舗</p>
                            <div className="flex flex-wrap gap-3 pl-6">
                              {storesInArea.map(store => {
@@ -752,13 +918,13 @@ export default function App() {
 
       {authStep === 'confirm' && (
         <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden w-full">
-          <div className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-12 max-w-lg w-full text-center shadow-xl relative z-10">
-            <div className="w-32 h-32 bg-gray-100 border-2 border-slate-200 rounded-full mx-auto flex items-center justify-center text-black mb-8 shadow-sm">
+          <div className="bg-white border-2 border-slate-300 rounded-[2.5rem] p-12 max-w-lg w-full text-center shadow-xl relative z-10">
+            <div className="w-32 h-32 bg-gray-100 border-2 border-slate-300 rounded-full mx-auto flex items-center justify-center text-black mb-8 shadow-sm">
               <div className="scale-150"><Icon name="user" /></div>
             </div>
             <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-3">{tempUser?.role || tempUser?.team}</p>
             <h2 className="text-5xl font-black text-black mb-8 tracking-tighter">{tempUser?.name}</h2>
-            <div className="bg-gray-50 border-2 border-slate-200 rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+            <div className="bg-gray-50 border-2 border-slate-300 rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
               <p className="text-xs text-gray-500 font-black uppercase mb-4 tracking-widest">担当エリア</p>
               {tempUser?.territory ? (
                 <div className="space-y-2">
@@ -782,7 +948,7 @@ export default function App() {
       {authStep === 'ready' && (
         <div className="flex flex-col h-screen bg-slate-50 font-sans text-black overflow-hidden w-full">
           
-          <header className="h-20 bg-white border-b-2 border-slate-200 flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
+          <header className="h-20 bg-white border-b-2 border-slate-300 flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-3">
                  <div className="w-10 h-10 bg-indigo-500 text-white flex items-center justify-center rounded-xl shadow-sm">
@@ -814,12 +980,12 @@ export default function App() {
             </div>
 
             <div className="relative">
-              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-2 border-slate-200 px-4 py-2 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
+              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-2 border-slate-300 px-4 py-2 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
                   <div className="flex flex-col items-end text-right hidden sm:flex">
                       <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 leading-none mb-1">ACCOUNT</span>
                       <span className="text-sm font-black text-black leading-none max-w-[120px] truncate">{currentUser?.name}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold border-2 border-slate-200 shadow-sm">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold border-2 border-slate-300 shadow-sm">
                      <Icon name="user" />
                   </div>
               </button>
@@ -827,9 +993,9 @@ export default function App() {
               {isAccountMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-4 w-80 bg-white border-2 border-slate-200 rounded-2xl shadow-lg z-50 overflow-hidden animate-fade-in">
-                    <div className="p-6 border-b-2 border-slate-200 bg-white">
-                      <div className="w-20 h-20 rounded-2xl bg-gray-100 border-2 border-slate-200 flex items-center justify-center text-black mb-4 shadow-sm mx-auto">
+                  <div className="absolute right-0 mt-4 w-80 bg-white border-2 border-slate-300 rounded-2xl shadow-lg z-50 overflow-hidden animate-fade-in">
+                    <div className="p-6 border-b-2 border-slate-300 bg-white">
+                      <div className="w-20 h-20 rounded-2xl bg-gray-100 border-2 border-slate-300 flex items-center justify-center text-black mb-4 shadow-sm mx-auto">
                         <div className="scale-150"><Icon name="user" /></div>
                       </div>
                       <p className="text-center text-2xl font-black text-black tracking-tighter">{currentUser?.name}</p>
@@ -854,8 +1020,8 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                    <div className="p-4 border-t-2 border-slate-200 bg-gray-50">
-                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-2 border-slate-200 font-black py-3 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
+                    <div className="p-4 border-t-2 border-slate-300 bg-gray-50">
+                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-2 border-slate-300 font-black py-3 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
                         <Icon name="logout" /> ログアウト
                       </button>
                     </div>
@@ -878,7 +1044,7 @@ export default function App() {
                     </div>
 
                     <div className="flex gap-4 w-full lg:w-auto flex-shrink-0">
-                       <div className="bg-white p-5 rounded-2xl border-2 border-slate-200 flex-1 lg:w-72 shadow-sm">
+                       <div className="bg-white p-5 rounded-2xl border-2 border-slate-300 flex-1 lg:w-72 shadow-sm">
                          <p className="text-xs font-black text-indigo-600 uppercase mb-3 tracking-widest text-center lg:text-left">あなたのタスク完了率</p>
                          <div className="flex items-center gap-3">
                             <div className="flex-1 bg-gray-100 border-2 border-slate-300 rounded-full h-3 overflow-hidden shadow-[inset_2px_2px_0_0_rgba(0,0,0,0.1)]">
@@ -892,22 +1058,22 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6 w-full">
                     <button onClick={() => setActiveTab('request')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="plus" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="plus" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">新規投稿</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
                     </button>
                     <button onClick={() => setActiveTab('repost')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="history" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="history" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">再投稿</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
                     </button>
                     <button onClick={() => setActiveTab('scheduled')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="repeat" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="repeat" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">定期配信</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
                     </button>
                     <button onClick={() => setActiveTab('checklist')} className={brutalCard + " text-left hover:bg-indigo-50 relative overflow-hidden !p-6"}>
-                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="list" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-300 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="list" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">リストチェック</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
                       {activeTasksCount > 0 && <div className="absolute top-4 right-4 bg-rose-500 border-2 border-rose-400 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm animate-pulse tracking-widest">未完了 {activeTasksCount}</div>}
@@ -918,24 +1084,25 @@ export default function App() {
               
               {/* === タスク配信 === */}
               {activeTab === 'request' && (
-                <div className={`${brutalCard} animate-fade-in w-full mt-4 !p-8 md:!p-12`}>
-                  <form onSubmit={handleTaskSubmit} className="flex flex-col gap-12 w-full">
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 w-full items-start">
-                      
-                      <div className="space-y-8 w-full flex flex-col">
-                        <div>
-                          <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">依頼内容 <span className="text-rose-500">*</span></label>
-                          <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="6" className={`${brutalInput} min-h-[200px]`} placeholder="具体的な指示内容を入力してください"></textarea>
+                <div className="animate-fade-in w-full mt-4">
+                  <form onSubmit={handleTaskSubmit} className="flex flex-col gap-6 w-full">
+                    {/* 入力フロー：1→2→3→4｜5→6 の見える区切り */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
+                      {/* 左列：入力内容 (1〜4) */}
+                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
+                          <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="具体的な指示内容を入力してください"></textarea>
                         </div>
                         
-                        <div>
-                          <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">期限 (DL) <span className="text-rose-500">*</span></label>
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 期限 (DL) <span className="text-rose-500">*</span></label>
                           <input type="date" min={todayForMin} value={requestForm.deadline} onChange={e => setRequestForm({...requestForm, deadline: e.target.value})} required className={brutalInput} />
                         </div>
                         
-                        <div>
-                          <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">URL (任意 / 最大3つ)</label>
-                          <div className="space-y-4">
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
+                          <div className="space-y-3">
                             {requestForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
                                 <input type="url" value={url} onChange={e => handleRequestUrlChange(i, e.target.value)} className={brutalInput + " py-3"} placeholder="https://..." />
@@ -943,7 +1110,7 @@ export default function App() {
                                   <button type="button" onClick={() => {
                                     const newUrls = requestForm.urls.filter((_, index) => index !== i);
                                     setRequestForm({ ...requestForm, urls: newUrls });
-                                  }} className="w-16 bg-rose-500 text-white border-2 border-slate-200 shadow-sm rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
+                                  }} className="w-16 bg-rose-500 text-white border-2 border-slate-300 shadow-sm rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
                                 )}
                               </div>
                             ))}
@@ -955,13 +1122,13 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div>
-                          <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
                           {requestImages.length < 3 && (
-                            <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
+                            <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                <div className="w-16 h-16 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
+                                <div className="w-16 h-16 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
                                 <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                               </div>
                             </div>
@@ -969,9 +1136,9 @@ export default function App() {
                           {requestImages.length > 0 && (
                             <div className="flex flex-wrap gap-4 mt-6">
                               {requestImages.map((img, i) => (
-                                <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm">
+                                <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm">
                                   <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-200 p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-300 p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
                                 </div>
                               ))}
                             </div>
@@ -979,13 +1146,14 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="w-full flex flex-col h-full">
-                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles)}
+                      {/* 右列：配信先 (5〜6) */}
+                      <div className="w-full flex flex-col gap-5 xl:pl-8">
+                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles, 5)}
                       </div>
                     </div>
 
-                    <div className="border-t-2 border-slate-200 pt-8 w-full mt-4">
-                      <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-8 text-3xl"}>
+                    <div className="border-t-2 border-slate-300 pt-6 w-full mt-2">
+                      <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-6 text-xl"}>
                         {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="send" />}
                         <span className="tracking-widest ml-4">{isSubmitting ? '処理中...' : 'この内容で配信する'}</span>
                       </button>
@@ -996,23 +1164,27 @@ export default function App() {
               
               {/* === 再投稿 (履歴) === */}
               {activeTab === 'repost' && (
-                <div className={`${brutalCard} animate-fade-in w-full mt-4`}>
-                  <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-2 border-slate-200 pb-8">過去に送信したタスクの情報を引き継いで、新しく作成します。</p>
+                <div className="animate-fade-in w-full mt-4">
+                  <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
+                    <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
+                    <br />
+                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・参考画像・配信先を引き継いでタスク配信画面を開きます。期限だけ選び直してください。</span>
+                  </p>
                   
                   <div className="space-y-6 w-full">
                     {sentTasks.length === 0 ? (
-                      <p className="text-center text-gray-500 font-black py-20 text-xl">送信履歴がありません</p>
+                      <p className="text-center text-slate-500 font-bold py-20 text-lg">送信履歴がありません</p>
                     ) : sentTasks.map(task => (
-                      <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-md w-full">
+                      <div key={task.id} className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-indigo-200 hover:shadow-md transition-all shadow-sm w-full">
                          <div className="flex-1 text-center md:text-left w-full">
-                           <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
-                             <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest uppercase">過去の配信</span>
-                             <span className="text-base text-gray-600 font-black">{task.createdAt}</span>
-                             {task.targetTags && <span className="text-xs font-black text-black bg-white border-2 border-slate-300 px-3 py-1.5 rounded-lg shadow-sm">宛先: {task.targetTags}</span>}
+                           <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
+                             <span className="bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">過去の配信</span>
+                             <span className="text-sm text-slate-600 font-bold">{task.createdAt}</span>
+                             {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
                            </div>
-                           <p className="text-black text-xl font-bold leading-relaxed">{formatContent(task.content)}</p>
+                           <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
                          </div>
-                         <button onClick={() => handleRepostClick(task)} className={brutalBtnSecondary + " w-full md:w-auto px-10 flex-shrink-0"}>
+                         <button onClick={() => handleRepostClick(task)} className={brutalBtnSecondary + " w-full md:w-auto px-8 flex-shrink-0"}>
                            再利用して作成
                          </button>
                       </div>
@@ -1023,129 +1195,173 @@ export default function App() {
               
               {/* === 定期配信 === */}
               {activeTab === 'scheduled' && (
-                <div className="w-full space-y-12 animate-fade-in mt-4">
-                  <div className={`${brutalCard} w-full !p-8 md:!p-12`}>
-                    <p className="text-lg font-bold text-gray-600 mb-10 text-center">毎月の決まった日に、システムが自動でタスクを配信します。</p>
-                    
-                    <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-12 w-full">
-                      <div className="bg-indigo-50 border-2 border-slate-200 p-8 rounded-2xl shadow-sm w-full">
-                        <label className="text-sm font-black text-black uppercase mb-4 block tracking-widest border-b-2 border-slate-200 pb-2">配信スケジュールの設定</label>
-                        <div className="flex flex-col md:flex-row gap-6 mt-6">
-                          <div className="flex-1">
-                            <label className="text-xs font-black text-gray-600 mb-2 block">毎月何日に配信しますか？</label>
-                            <div className="relative">
-                              <select value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className={brutalInput + " appearance-none text-center"}>
-                                {Array.from({length: 31}, (_, i) => <option key={i+1} value={i+1}>{i+1}日</option>)}
-                              </select>
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-black font-black">▼</div>
+                <div className="w-full space-y-10 animate-fade-in mt-4">
+                  {scheduleEditingId && (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <p className="text-base font-black text-amber-900">
+                        編集中：保存すると<strong>次回の定期配信から</strong>この内容で送信されます（今日のタスクは増えません）。
+                      </p>
+                      <button type="button" onClick={handleCancelScheduleEdit} className={brutalBtnSecondary + " whitespace-nowrap py-3 px-6 text-sm"}>
+                        編集をやめる
+                      </button>
+                    </div>
+                  )}
+                  <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6 md:p-8 space-y-5 shadow-sm">
+                    <p className="text-lg md:text-xl font-black text-indigo-900 text-center leading-snug">
+                      初回のみ当月分は即タスクに反映されます。
+                    </p>
+                    <ul className="space-y-3 text-base text-slate-800 font-bold leading-relaxed">
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-indigo-500 text-white text-sm flex items-center justify-center font-black">1</span>
+                        <span>初回の期限は、下の「タスクの期限（毎月〜まで）」に従います。</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-indigo-500 text-white text-sm flex items-center justify-center font-black">2</span>
+                        <span>2回目以降は、指定した<strong className="text-indigo-600">日</strong>にだけ自動配信されます。</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-600 text-white text-sm flex items-center justify-center font-black">3</span>
+                        <span>配信の時刻は<strong>午前10:00</strong>固定です。</span>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-6 w-full">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
+                      {/* 左列：1〜4 */}
+                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
+                          <p className="text-sm text-slate-600 mb-4">配信時刻は<strong>午前10:00</strong>固定です（変更はシステム管理者向け設定です）。</p>
+                          <div className="flex flex-col sm:flex-row gap-4 mt-2">
+                            <div className="flex-1">
+                              <label className="text-xs font-bold text-slate-600 mb-2 block">毎月何日に配信するか</label>
+                              <div className="relative">
+                                <select value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className={brutalInput + " appearance-none text-center"}>
+                                  {Array.from({length: 31}, (_, i) => <option key={i+1} value={i+1}>{i+1}日</option>)}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 font-bold">▼</div>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-xs font-bold text-slate-600 mb-2 block">タスクの期限（毎月〜まで）</label>
+                              <div className="relative">
+                                <select value={scheduleForm.deadlineOffset} onChange={e => setScheduleForm({...scheduleForm, deadlineOffset: e.target.value})} className={brutalInput + " appearance-none text-center"}>
+                                  <option value="月末">月末</option>
+                                  {Array.from({length: 31}, (_, i) => <option key={i+1} value={`${i+1}日`}>{i+1}日</option>)}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 font-bold">▼</div>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex-1">
-                            <label className="text-xs font-black text-gray-600 mb-2 block">何時に配信しますか？</label>
-                            <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className={brutalInput + " text-center"} />
+                          <p className="text-xs text-slate-500 mt-4">登録日: {todayForMin} ／ 保存される配信時刻: {SCHEDULE_DELIVERY_TIME}</p>
+
+                          {!scheduleEditingId && (
+                            <label className="flex items-start gap-3 mt-5 p-4 rounded-xl border-2 border-amber-200 bg-amber-50/80 cursor-pointer hover:bg-amber-50 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={scheduleSkipInitialMonth}
+                                onChange={(e) => setScheduleSkipInitialMonth(e.target.checked)}
+                                className="mt-1 w-5 h-5 rounded border-2 border-slate-400 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="text-sm font-bold text-slate-800 leading-relaxed">
+                                <span className="block text-amber-900">今月の初回分は作成しない</span>
+                                <span className="block text-xs font-semibold text-slate-600 mt-1">今月の配信日が過ぎたあとに登録する場合など、チェックすると翌月の定期配信からのみ始まります。</span>
+                              </span>
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 依頼内容 <span className="text-rose-500">*</span></label>
+                          <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
+                        </div>
+
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
+                          <div className="space-y-3">
+                            {scheduleForm.urls.map((url, i) => (
+                              <div key={i} className="flex gap-3">
+                                <input type="url" value={url} onChange={e => handleScheduleUrlChange(i, e.target.value)} className={brutalInput + " py-3"} placeholder="https://..." />
+                                {scheduleForm.urls.length > 1 && (
+                                  <button type="button" onClick={() => {
+                                    const newUrls = scheduleForm.urls.filter((_, index) => index !== i);
+                                    setScheduleForm({ ...scheduleForm, urls: newUrls });
+                                  }} className="w-14 bg-rose-500 text-white border-2 border-slate-300 shadow-sm rounded-xl flex items-center justify-center hover:opacity-90 transition-all"><Icon name="trash" /></button>
+                                )}
+                              </div>
+                            ))}
+                            {scheduleForm.urls.length < 3 && (
+                              <button type="button" onClick={() => setScheduleForm({ ...scheduleForm, urls: [...scheduleForm.urls, ''] })} className={brutalBtnSecondary + " w-full py-2 text-sm"}>
+                                <Icon name="plusCircle" /> URLを追加
+                              </button>
+                            )}
                           </div>
-                          <div className="flex-1">
-                            <label className="text-xs font-black text-gray-600 mb-2 block">毎月何日までを期限にしますか？</label>
-                            <div className="relative">
-                              <select value={scheduleForm.deadlineOffset} onChange={e => setScheduleForm({...scheduleForm, deadlineOffset: e.target.value})} className={brutalInput + " appearance-none text-center"}>
-                                <option value="月末">毎月 月末 まで</option>
-                                {Array.from({length: 31}, (_, i) => <option key={i+1} value={`${i+1}日`}>毎月 {i+1}日 まで</option>)}
-                              </select>
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-black font-black">▼</div>
+                        </div>
+
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-indigo-600 mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
+                          {scheduleImages.length < 3 && (
+                            <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
+                              <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                              <div className="flex flex-col items-center gap-3 text-slate-700 group-hover:scale-105 transition-transform">
+                                <div className="w-14 h-14 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
+                                <span className="text-sm font-bold">タップして画像を選択</span>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="mt-8 p-4 bg-white border-2 border-slate-200 rounded-xl text-center shadow-sm">
-                          <p className="text-sm font-black text-gray-500">システム登録日 (初回設定日): {todayForMin}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 w-full items-start">
-                        <div className="space-y-8 w-full flex flex-col">
-                          <div>
-                            <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">依頼内容 <span className="text-rose-500">*</span></label>
-                            <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="6" className={`${brutalInput} min-h-[200px]`} placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">URL (任意 / 最大3つ)</label>
-                            <div className="space-y-4">
-                              {scheduleForm.urls.map((url, i) => (
-                                <div key={i} className="flex gap-3">
-                                  <input type="url" value={url} onChange={e => handleScheduleUrlChange(i, e.target.value)} className={brutalInput + " py-3"} placeholder="https://..." />
-                                  {scheduleForm.urls.length > 1 && (
-                                    <button type="button" onClick={() => {
-                                      const newUrls = scheduleForm.urls.filter((_, index) => index !== i);
-                                      setScheduleForm({ ...scheduleForm, urls: newUrls });
-                                    }} className="w-16 bg-rose-500 text-white border-2 border-slate-200 shadow-sm rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
-                                  )}
+                          )}
+                          {scheduleImages.length > 0 && (
+                            <div className="flex flex-wrap gap-3 mt-4">
+                              {scheduleImages.map((img, i) => (
+                                <div key={i} className="relative w-28 h-28 rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm">
+                                  <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
+                                  <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-1 right-1 bg-rose-500 text-white border-2 border-slate-300 p-1.5 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
                                 </div>
                               ))}
-                              {scheduleForm.urls.length < 3 && (
-                                <button type="button" onClick={() => setScheduleForm({ ...scheduleForm, urls: [...scheduleForm.urls, ''] })} className={brutalBtnSecondary + " w-full py-3 text-base"}>
-                                  <Icon name="plusCircle" /> URLを追加
-                                </button>
-                              )}
                             </div>
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
-                            {scheduleImages.length < 3 && (
-                              <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
-                                <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                  <div className="w-16 h-16 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
-                                  <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
-                                </div>
-                              </div>
-                            )}
-                            {scheduleImages.length > 0 && (
-                              <div className="flex flex-wrap gap-4 mt-6">
-                                {scheduleImages.map((img, i) => (
-                                  <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm">
-                                    <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                    <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-200 p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col w-full h-full">
-                          <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">配信先を選択 <span className="text-rose-500">*</span></label>
-                          {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles)}
+                          )}
                         </div>
                       </div>
 
-                      <div className="border-t-2 border-slate-200 pt-8 w-full mt-4">
-                        <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-8 text-3xl"}>
+                      {/* 右列：5〜6 */}
+                      <div className="w-full flex flex-col gap-5 xl:pl-8">
+                        {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles, 5)}
+                      </div>
+                    </div>
+
+                    <div className="border-t-2 border-slate-300 pt-6 w-full mt-2 flex flex-col gap-4">
+                      <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-6 text-xl"}>
                           {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="repeat" />}
-                          <span className="tracking-widest ml-4">{isSubmitting ? '処理中...' : 'スケジュールを登録する'}</span>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
+                        <span className="tracking-widest ml-4">
+                          {isSubmitting ? '処理中...' : scheduleEditingId ? '変更を保存する' : 'スケジュールを登録する'}
+                        </span>
+                      </button>
+                    </div>
+                  </form>
 
-                  <div className={`${brutalCard} w-full`}>
-                    <h3 className="text-3xl font-black text-black mb-8 tracking-tighter text-center border-b-2 border-slate-200 pb-6">稼働中の定期配信</h3>
+                  <div className="mt-10">
+                    <h3 className="text-xl font-bold text-slate-800 mb-6 tracking-tight border-b-2 border-slate-300 pb-4">稼働中の定期配信</h3>
                     <div className="space-y-6 w-full">
                       {scheduledTasks.length === 0 ? (
                         <p className="text-center text-gray-500 font-black py-10 text-xl">登録されている定期配信はありません</p>
                       ) : scheduledTasks.map(task => (
-                        <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 shadow-md w-full">
+                        <div key={task.id} className="bg-white p-6 rounded-xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm w-full">
                            <div className="flex-1 text-center md:text-left w-full">
-                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
-                               <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
-                               <span className="text-sm text-black font-black bg-white border-2 border-slate-200 px-4 py-2 rounded-lg shadow-sm">期限: 毎月 {task.deadlineOffset}</span>
-                               {task.targetTags && <span className="text-sm text-black font-black bg-white border-2 border-slate-200 px-4 py-2 rounded-lg shadow-sm">宛先: {task.targetTags}</span>}
+                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
+                               <span className="bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
+                               <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">期限: 毎月 {task.deadlineOffset}</span>
+                               {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
                              </div>
-                             <p className="text-black text-xl font-bold leading-relaxed">{formatContent(task.content)}</p>
+                             <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
                            </div>
-                           <button onClick={() => handleDeleteSchedule(task.id)} className="w-full md:w-auto bg-rose-50 border-2 border-slate-200 hover:bg-rose-500 hover:text-white text-rose-600 px-8 py-4 rounded-2xl font-black transition-all flex-shrink-0 flex items-center justify-center gap-2 shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none text-lg">
-                             <Icon name="trash" /> 停止 (削除)
-                           </button>
+                           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
+                             <button type="button" onClick={() => handleEditScheduleClick(task)} className="w-full bg-white border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
+                               <Icon name="calendar" /> 内容を編集
+                             </button>
+                             <button type="button" onClick={() => handleDeleteSchedule(task.id)} className="w-full bg-slate-50 border-2 border-slate-300 hover:bg-rose-500 hover:text-white text-slate-700 hover:border-rose-400 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
+                               <Icon name="trash" /> 停止
+                             </button>
+                           </div>
                         </div>
                       ))}
                     </div>
@@ -1158,25 +1374,25 @@ export default function App() {
                 <div className="animate-fade-in w-full mt-4">
                   
                   <div className="flex flex-col sm:flex-row gap-4 mb-8 w-full max-w-2xl">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-2 border-slate-200 font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-md hover:-translate-y-1 hover:shadow-lg'}`}>
-                      未実施 <span className={`px-3 py-1 rounded-full text-sm border-2 border-slate-300 ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
+                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                      未実施 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
                     </button>
-                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-2 border-slate-200 font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'completed' ? 'bg-white text-black translate-x-1 translate-y-1 shadow-none' : 'bg-gray-200 text-gray-500 border-gray-300 hover:-translate-y-1 hover:shadow-md'}`}>
-                      実施済み <span className={`px-3 py-1 rounded-full text-sm border-2 border-slate-300 ${taskTab === 'completed' ? 'bg-black text-white' : 'bg-gray-400 text-white border-transparent'}`}>{completedTasksCount}</span>
+                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'completed' ? 'bg-white text-slate-800 border-slate-400' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}>
+                      実施済み <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'completed' ? 'bg-slate-600 text-white' : 'bg-slate-400 text-white'}`}>{completedTasksCount}</span>
                     </button>
                   </div>
 
-                  <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-200">
-                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-2 border-slate-200 transition-all flex items-center gap-2 shadow-sm hover:-translate-y-1 hover:shadow-md ${taskFilter === 'ALL' ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                  <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-300">
+                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === 'ALL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                       全店
-                      {activeTasksCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-slate-300 ${taskFilter === 'ALL' ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{activeTasksCount}</span>}
+                      {activeTasksCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500 text-white font-bold">{activeTasksCount}</span>}
                     </button>
                     {currentUser?.stores?.map(s => {
                       const storeTaskCount = tasks.filter(t => !t.completed && t.targetTags && t.targetTags.includes(s)).length;
                       return (
-                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-2 border-slate-200 transition-all flex items-center gap-2 shadow-sm hover:-translate-y-1 hover:shadow-md ${taskFilter === s ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                           {s}
-                          {storeTaskCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-slate-300 ${taskFilter === s ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{storeTaskCount}</span>}
+                          {storeTaskCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500 text-white font-bold">{storeTaskCount}</span>}
                         </button>
                       );
                     })}
@@ -1184,19 +1400,19 @@ export default function App() {
                   
                   <div className="space-y-6 pb-24 w-full">
                     {tasksLoading ? (
-                      <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border-2 border-slate-200 rounded-2xl shadow-lg w-full"></div></div>
+                      <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border-2 border-slate-300 rounded-2xl shadow-lg w-full"></div></div>
                     ) : filteredTasks.length === 0 ? (
                       <div className="py-24 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.2em] w-full">
                         <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
                         <p className="text-lg">タスクはありません</p>
                       </div>
                     ) : filteredTasks.map(task => (
-                      <div key={task.id} className={`${brutalCard} flex flex-col xl:flex-row gap-6 items-center animate-fade-in !p-6 w-full`}>
+                      <div key={task.id} className="bg-white border-2 border-slate-300 rounded-xl p-5 flex flex-col xl:flex-row gap-5 items-center animate-fade-in shadow-sm w-full">
                         <div className="flex-1 w-full min-w-0">
                           
-                          <div className="flex flex-wrap gap-2 mb-4 items-center">
-                            {task.targetTags && <span className="bg-rose-500 text-white border-2 border-slate-300 text-xs font-black px-3 py-1 rounded-lg tracking-widest shadow-sm">{task.targetTags}</span>}
-                            <span className="bg-white text-black border-2 border-slate-300 text-[10px] font-black px-2 py-1 rounded-lg tracking-widest shadow-sm">{task.type}</span>
+                          <div className="flex flex-wrap gap-2 mb-3 items-center">
+                            {task.targetTags && <span className="bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-lg">{task.targetTags}</span>}
+                            <span className="bg-slate-100 text-slate-700 border-2 border-slate-300 text-xs font-bold px-2 py-1 rounded-lg">{task.type}</span>
                             <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
                           </div>
                           
@@ -1205,35 +1421,27 @@ export default function App() {
                           </h3>
                           
                           {!task.completed && (
-                            <div className="flex flex-col gap-6 border-t-4 border-gray-100 pt-6">
+                            <div className="flex flex-col gap-4 border-t-2 border-slate-200 pt-4">
                               
-                              <div className="flex flex-wrap gap-4 items-center">
-                                <div className="flex items-center gap-4 bg-rose-100 border-2 border-rose-400 rounded-2xl px-6 py-4 shadow-md">
-                                  <span className="text-sm font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border-2 border-rose-400">提出期限</span>
-                                  <span className="text-lg md:text-xl font-black text-rose-600 tracking-tight">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
+                              <div className="flex flex-wrap gap-3 items-center">
+                                <div className="flex items-center gap-3 bg-slate-50 border-2 border-slate-300 rounded-xl px-4 py-2">
+                                  <span className="text-xs font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-300">提出期限</span>
+                                  <span className="text-base font-bold text-slate-800">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
                                 </div>
 
                                 {task.daysRemaining !== null && task.daysRemaining !== undefined && (
                                   <>
                                     {task.daysRemaining < 0 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-black text-white border-2 border-slate-200 rounded-2xl shadow-md animate-pulse">
-                                        <span className="text-sm font-black leading-none tracking-widest">⚠ 超過</span>
-                                      </div>
+                                      <div className="flex items-center justify-center px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold animate-pulse">⚠ 超過</div>
                                     )}
                                     {task.daysRemaining === 0 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-rose-500 text-white border-2 border-slate-200 rounded-2xl shadow-md">
-                                        <span className="text-sm font-black leading-none tracking-widest">今日まで</span>
-                                      </div>
+                                      <div className="flex items-center justify-center px-4 py-2 bg-rose-500 text-white rounded-lg text-xs font-bold">今日まで</div>
                                     )}
                                     {task.daysRemaining === 1 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-orange-500 text-white border-2 border-slate-200 rounded-2xl shadow-md">
-                                        <span className="text-sm font-black leading-none tracking-widest">明日まで</span>
-                                      </div>
+                                      <div className="flex items-center justify-center px-4 py-2 bg-orange-400 text-white rounded-lg text-xs font-bold">明日まで</div>
                                     )}
                                     {task.daysRemaining === 2 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-amber-400 text-black border-2 border-slate-200 rounded-2xl shadow-md">
-                                        <span className="text-sm font-black leading-none tracking-widest">残り2日</span>
-                                      </div>
+                                      <div className="flex items-center justify-center px-4 py-2 bg-amber-300 text-slate-800 rounded-lg text-xs font-bold">残り2日</div>
                                     )}
                                   </>
                                 )}
@@ -1241,12 +1449,12 @@ export default function App() {
 
                               <div className="flex flex-col gap-4 w-full mt-4">
                                 {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
-                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-2 border-slate-200 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
+                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-2 border-slate-300 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
                                     <Icon name="link" /> リンクを開く
                                   </a>
                                 ))}
                                 {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
-                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-2 border-slate-200 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
+                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-2 border-slate-300 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
                                     <Icon name="image" /> 画像を開く
                                   </a>
                                 ))}
@@ -1255,14 +1463,14 @@ export default function App() {
                           )}
                         </div>
                         
-                        <div className="flex-shrink-0 border-t-4 xl:border-t-0 border-l-0 xl:border-l-4 border-gray-100 pt-6 xl:pt-0 xl:pl-8 flex items-center justify-center w-full xl:w-auto mt-6 xl:mt-0">
+                        <div className="flex-shrink-0 border-t-2 xl:border-t-0 border-l-0 xl:border-l-2 border-slate-200 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
                           {!task.completed ? (
-                            <button onClick={() => openConfirmModal(task)} className="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-slate-200 bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-lg group active:translate-x-2 active:translate-y-2 active:shadow-none">
-                              <span className="group-hover:scale-125 transition-transform scale-150"><Icon name="check" /></span>
+                            <button onClick={() => openConfirmModal(task)} className="w-14 h-14 rounded-xl border-2 border-slate-300 bg-white text-slate-300 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all flex items-center justify-center shadow-sm hover:shadow-md group">
+                              <span className="group-hover:scale-110 transition-transform inline-flex"><Icon name="check" /></span>
                             </button>
                           ) : (
-                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-slate-200 bg-gray-200 text-gray-400 transition-all flex items-center justify-center shadow-inner">
-                              <span className="scale-150"><Icon name="check" /></span>
+                            <div className="w-14 h-14 rounded-xl border-2 border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center">
+                              <span className="inline-flex"><Icon name="check" /></span>
                             </div>
                           )}
                         </div>
