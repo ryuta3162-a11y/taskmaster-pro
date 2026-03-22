@@ -871,52 +871,52 @@ export default function App() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#f0f0f0] w-full">
-            <div className="max-w-[1400px] mx-auto w-full pb-20">
+          <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-[#f0f0f0] w-full">
+            <div className="max-w-[1920px] mx-auto w-full px-2 md:px-4 pb-20">
               
               {/* === HOME === */}
               {activeTab === 'home' && (
-                <div className="animate-fade-in space-y-8 mt-4 w-full">
-                  <div className={brutalCard + " flex flex-col md:flex-row gap-8 items-center bg-indigo-50"}>
-                    <div className="flex-1 w-full text-center md:text-left flex flex-col justify-center">
-                       <p className="text-gray-700 text-xl font-bold">現在あなたが抱えている未完了タスク</p>
-                       <p className="text-black font-black text-5xl mt-3"><span className="text-rose-600">{activeTasksCount}</span> <span className="text-3xl">件</span></p>
+                <div className="animate-fade-in space-y-6 mt-4 w-full">
+                  <div className={brutalCard + " flex flex-col lg:flex-row gap-6 lg:gap-8 items-center bg-indigo-50 p-6 md:p-8"}>
+                    <div className="flex-1 w-full text-center lg:text-left flex flex-col justify-center">
+                       <p className="text-gray-700 text-base md:text-lg font-bold">現在あなたが抱えている未完了タスク</p>
+                       <p className="text-black font-black text-4xl md:text-5xl mt-2"><span className="text-rose-600">{activeTasksCount}</span> <span className="text-2xl md:text-3xl">件</span></p>
                     </div>
 
-                    <div className="flex gap-4 w-full md:w-auto">
-                       <div className="bg-white p-6 rounded-2xl border-4 border-black flex-1 md:w-80 shadow-[4px_4px_0_0_#000]">
-                         <p className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest text-center md:text-left">あなたのタスク完了率</p>
-                         <div className="flex items-center gap-4">
-                            <div className="flex-1 bg-gray-100 border-2 border-black rounded-full h-4 overflow-hidden shadow-[inset_2px_2px_0_0_rgba(0,0,0,0.1)]">
+                    <div className="flex gap-4 w-full lg:w-auto flex-shrink-0">
+                       <div className="bg-white p-5 rounded-2xl border-4 border-black flex-1 lg:w-72 shadow-[4px_4px_0_0_#000]">
+                         <p className="text-xs font-black text-indigo-600 uppercase mb-3 tracking-widest text-center lg:text-left">あなたのタスク完了率</p>
+                         <div className="flex items-center gap-3">
+                            <div className="flex-1 bg-gray-100 border-2 border-black rounded-full h-3 overflow-hidden shadow-[inset_2px_2px_0_0_rgba(0,0,0,0.1)]">
                               <div className="bg-emerald-400 border-r-2 border-black h-full w-full transition-all duration-1000 ease-out" style={{ width: `${requestedTasksProgress}%` }}></div>
                             </div>
-                            <span className="text-3xl font-black text-black">{requestedTasksProgress}%</span>
+                            <span className="text-xl font-black text-black">{requestedTasksProgress}%</span>
                          </div>
                        </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
-                    <button onClick={() => setActiveTab('request')} className={brutalCard + " text-left hover:bg-indigo-50"}>
-                      <div className="w-20 h-20 bg-white border-4 border-black text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-[4px_4px_0_0_#000]"><Icon name="plus" /></div>
-                      <h4 className="text-3xl font-black text-black mb-4 tracking-tighter">新規投稿</h4>
-                      <p className="text-gray-600 text-lg font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6 w-full">
+                    <button onClick={() => setActiveTab('request')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
+                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="plus" /></div>
+                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">新規投稿</h4>
+                      <p className="text-gray-600 text-sm font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
                     </button>
-                    <button onClick={() => setActiveTab('repost')} className={brutalCard + " text-left hover:bg-indigo-50"}>
-                      <div className="w-20 h-20 bg-white border-4 border-black text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-[4px_4px_0_0_#000]"><Icon name="history" /></div>
-                      <h4 className="text-3xl font-black text-black mb-4 tracking-tighter">再投稿</h4>
-                      <p className="text-gray-600 text-lg font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
+                    <button onClick={() => setActiveTab('repost')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
+                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="history" /></div>
+                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">再投稿</h4>
+                      <p className="text-gray-600 text-sm font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
                     </button>
-                    <button onClick={() => setActiveTab('scheduled')} className={brutalCard + " text-left hover:bg-indigo-50"}>
-                      <div className="w-20 h-20 bg-white border-4 border-black text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-[4px_4px_0_0_#000]"><Icon name="repeat" /></div>
-                      <h4 className="text-3xl font-black text-black mb-4 tracking-tighter">定期配信</h4>
-                      <p className="text-gray-600 text-lg font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
+                    <button onClick={() => setActiveTab('scheduled')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
+                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="repeat" /></div>
+                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">定期配信</h4>
+                      <p className="text-gray-600 text-sm font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
                     </button>
-                    <button onClick={() => setActiveTab('checklist')} className={brutalCard + " text-left hover:bg-indigo-50 relative overflow-hidden"}>
-                      <div className="w-20 h-20 bg-white border-4 border-black text-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-[4px_4px_0_0_#000]"><Icon name="list" /></div>
-                      <h4 className="text-3xl font-black text-black mb-4 tracking-tighter">リストチェック</h4>
-                      <p className="text-gray-600 text-lg font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
-                      {activeTasksCount > 0 && <div className="absolute top-8 right-8 bg-rose-500 border-2 border-black text-white text-sm font-black px-4 py-2 rounded-full shadow-[4px_4px_0_0_#000] animate-pulse tracking-widest uppercase">未完了 {activeTasksCount}</div>}
+                    <button onClick={() => setActiveTab('checklist')} className={brutalCard + " text-left hover:bg-indigo-50 relative overflow-hidden !p-6"}>
+                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="list" /></div>
+                      <h4 className="text-xl font-black text-black mb-2 tracking-tighter">リストチェック</h4>
+                      <p className="text-gray-600 text-sm font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
+                      {activeTasksCount > 0 && <div className="absolute top-4 right-4 bg-rose-500 border-2 border-black text-white text-xs font-black px-3 py-1.5 rounded-full shadow-[4px_4px_0_0_#000] animate-pulse tracking-widest">未完了 {activeTasksCount}</div>}
                     </button>
                   </div>
                 </div>
@@ -1163,50 +1163,50 @@ export default function App() {
               {activeTab === 'checklist' && (
                 <div className="animate-fade-in w-full mt-4">
                   
-                  <div className="flex flex-col md:flex-row gap-6 mb-10 w-full xl:w-[800px]">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-5 text-xl md:text-2xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-4 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
-                      未実施 <span className={`px-4 py-1.5 rounded-full text-base border-2 border-black ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
+                  <div className="flex flex-col sm:flex-row gap-4 mb-8 w-full max-w-2xl">
+                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
+                      未実施 <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
                     </button>
-                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-5 text-xl md:text-2xl rounded-2xl border-4 border-black font-black transition-all flex items-center justify-center gap-4 ${taskTab === 'completed' ? 'bg-white text-black translate-x-1 translate-y-1 shadow-none' : 'bg-gray-200 text-gray-500 border-gray-300 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_rgba(0,0,0,0.1)]'}`}>
-                      実施済み <span className={`px-4 py-1.5 rounded-full text-base border-2 border-black ${taskTab === 'completed' ? 'bg-black text-white' : 'bg-gray-400 text-white border-transparent'}`}>{completedTasksCount}</span>
+                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'completed' ? 'bg-white text-black translate-x-1 translate-y-1 shadow-none' : 'bg-gray-200 text-gray-500 border-gray-300 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_rgba(0,0,0,0.1)]'}`}>
+                      実施済み <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'completed' ? 'bg-black text-white' : 'bg-gray-400 text-white border-transparent'}`}>{completedTasksCount}</span>
                     </button>
                   </div>
 
-                  <div className="flex gap-4 overflow-x-auto pb-6 mb-8 no-scrollbar w-full border-b-4 border-gray-200">
-                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-8 py-4 rounded-xl text-lg font-black border-4 border-black transition-all flex items-center gap-3 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === 'ALL' ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                  <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-4 border-gray-200">
+                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-4 border-black transition-all flex items-center gap-2 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === 'ALL' ? 'bg-black text-white' : 'bg-white text-black'}`}>
                       全店
-                      {activeTasksCount > 0 && <span className={`text-[12px] px-2.5 py-1 rounded-full border-2 border-black ${taskFilter === 'ALL' ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{activeTasksCount}</span>}
+                      {activeTasksCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-black ${taskFilter === 'ALL' ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{activeTasksCount}</span>}
                     </button>
                     {currentUser?.stores?.map(s => {
                       const storeTaskCount = tasks.filter(t => !t.completed && t.targetTags && t.targetTags.includes(s)).length;
                       return (
-                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-8 py-4 rounded-xl text-lg font-black border-4 border-black transition-all flex items-center gap-3 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === s ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-4 border-black transition-all flex items-center gap-2 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === s ? 'bg-black text-white' : 'bg-white text-black'}`}>
                           {s}
-                          {storeTaskCount > 0 && <span className={`text-[12px] px-2.5 py-1 rounded-full border-2 border-black ${taskFilter === s ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{storeTaskCount}</span>}
+                          {storeTaskCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-black ${taskFilter === s ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{storeTaskCount}</span>}
                         </button>
                       );
                     })}
                   </div>
                   
-                  <div className="space-y-10 pb-24 w-full">
+                  <div className="space-y-6 pb-24 w-full">
                     {tasksLoading ? (
-                      <div className="space-y-10 animate-pulse"><div className="h-40 bg-white border-4 border-black rounded-[2.5rem] shadow-[8px_8px_0_0_#000] w-full"></div></div>
+                      <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border-4 border-black rounded-2xl shadow-[8px_8px_0_0_#000] w-full"></div></div>
                     ) : filteredTasks.length === 0 ? (
-                      <div className="py-32 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.3em] w-full">
-                        <div className="w-32 h-32 border-[12px] border-gray-300 rounded-full flex items-center justify-center text-6xl"><Icon name="check" /></div>
-                        <p className="text-2xl">タスクはありません</p>
+                      <div className="py-24 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.2em] w-full">
+                        <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
+                        <p className="text-lg">タスクはありません</p>
                       </div>
                     ) : filteredTasks.map(task => (
-                      <div key={task.id} className={`${brutalCard} flex flex-col xl:flex-row gap-8 items-center animate-fade-in !p-8 w-full`}>
+                      <div key={task.id} className={`${brutalCard} flex flex-col xl:flex-row gap-6 items-center animate-fade-in !p-6 w-full`}>
                         <div className="flex-1 w-full min-w-0">
                           
-                          <div className="flex flex-wrap gap-3 mb-6 items-center">
-                            {task.targetTags && <span className="bg-rose-500 text-white border-4 border-black text-sm font-black px-4 py-1.5 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
-                            <span className="bg-white text-black border-4 border-black text-xs font-black px-3 py-1.5 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
-                            <span className="text-sm font-bold text-gray-500 ml-2">from {task.sender}</span>
+                          <div className="flex flex-wrap gap-2 mb-4 items-center">
+                            {task.targetTags && <span className="bg-rose-500 text-white border-2 border-black text-xs font-black px-3 py-1 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
+                            <span className="bg-white text-black border-2 border-black text-[10px] font-black px-2 py-1 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
+                            <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
                           </div>
                           
-                          <h3 className={`text-2xl md:text-3xl font-black text-black leading-relaxed mb-8 break-words ${task.completed ? 'line-through opacity-40' : ''}`}>
+                          <h3 className={`text-lg md:text-xl font-black text-black leading-relaxed mb-6 break-words ${task.completed ? 'line-through opacity-40' : ''}`}>
                             {formatContent(task.content)}
                           </h3>
                           
@@ -1216,29 +1216,29 @@ export default function App() {
                               <div className="flex flex-wrap gap-4 items-center">
                                 <div className="flex items-center gap-4 bg-rose-100 border-4 border-rose-600 rounded-2xl px-6 py-4 shadow-[6px_6px_0_0_#e11d48]">
                                   <span className="text-sm font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border-4 border-rose-600">提出期限</span>
-                                  <span className="text-3xl md:text-4xl font-black text-rose-600 tracking-tight">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
+                                  <span className="text-lg md:text-xl font-black text-rose-600 tracking-tight">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
                                 </div>
 
                                 {task.daysRemaining !== null && task.daysRemaining !== undefined && (
                                   <>
                                     {task.daysRemaining < 0 && (
                                       <div className="flex items-center justify-center px-6 py-4 bg-black text-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000] animate-pulse">
-                                        <span className="text-xl font-black leading-none tracking-widest">⚠ 超過</span>
+                                        <span className="text-sm font-black leading-none tracking-widest">⚠ 超過</span>
                                       </div>
                                     )}
                                     {task.daysRemaining === 0 && (
                                       <div className="flex items-center justify-center px-6 py-4 bg-rose-500 text-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000]">
-                                        <span className="text-xl font-black leading-none tracking-widest">今日まで</span>
+                                        <span className="text-sm font-black leading-none tracking-widest">今日まで</span>
                                       </div>
                                     )}
                                     {task.daysRemaining === 1 && (
                                       <div className="flex items-center justify-center px-6 py-4 bg-orange-500 text-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000]">
-                                        <span className="text-xl font-black leading-none tracking-widest">明日まで</span>
+                                        <span className="text-sm font-black leading-none tracking-widest">明日まで</span>
                                       </div>
                                     )}
                                     {task.daysRemaining === 2 && (
                                       <div className="flex items-center justify-center px-6 py-4 bg-amber-400 text-black border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000]">
-                                        <span className="text-xl font-black leading-none tracking-widest">残り2日</span>
+                                        <span className="text-sm font-black leading-none tracking-widest">残り2日</span>
                                       </div>
                                     )}
                                   </>
@@ -1247,12 +1247,12 @@ export default function App() {
 
                               <div className="flex flex-col gap-4 w-full mt-4">
                                 {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
-                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-4 border-black text-black text-lg font-black px-6 py-5 rounded-2xl hover:bg-gray-50 transition-all shadow-[6px_6px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center justify-center gap-3">
+                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-4 border-black text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-gray-50 transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center justify-center gap-2 max-w-md">
                                     <Icon name="link" /> リンクを開く
                                   </a>
                                 ))}
                                 {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
-                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-4 border-black text-black text-lg font-black px-6 py-5 rounded-2xl hover:bg-amber-200 transition-all shadow-[6px_6px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center justify-center gap-3">
+                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-4 border-black text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center justify-center gap-2 max-w-md">
                                     <Icon name="image" /> 画像を開く
                                   </a>
                                 ))}
@@ -1261,7 +1261,7 @@ export default function App() {
                           )}
                         </div>
                         
-                        <div className="flex-shrink-0 border-t-4 xl:border-t-0 border-l-0 xl:border-l-4 border-gray-100 pt-8 xl:pt-0 xl:pl-10 flex items-center justify-center w-full xl:w-auto mt-8 xl:mt-0">
+                        <div className="flex-shrink-0 border-t-4 xl:border-t-0 border-l-0 xl:border-l-4 border-gray-100 pt-6 xl:pt-0 xl:pl-8 flex items-center justify-center w-full xl:w-auto mt-6 xl:mt-0">
                           {!task.completed ? (
                             <button onClick={() => openConfirmModal(task)} className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-[8px_8px_0_0_#000] group active:translate-x-2 active:translate-y-2 active:shadow-none">
                               <span className="group-hover:scale-125 transition-transform scale-150"><Icon name="check" /></span>
