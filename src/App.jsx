@@ -1,10 +1,10 @@
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
 
-// --- デザイン用定数 ---
-const brutalCard = "bg-white border-4 border-black shadow-[8px_8px_0_0_#000] rounded-[2rem] p-8 md:p-12 transition-all w-full";
-const brutalInput = "bg-white border-4 border-black shadow-[4px_4px_0_0_#000] rounded-xl p-5 font-black text-black focus:outline-none focus:translate-x-1 focus:translate-y-1 focus:shadow-none transition-all w-full text-lg";
-const brutalBtnPrimary = "bg-indigo-600 text-white border-4 border-black shadow-[8px_8px_0_0_#000] rounded-2xl font-black transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-[4px_4px_0_0_#000] active:translate-x-2 active:translate-y-2 active:shadow-none flex items-center justify-center gap-3 py-6 text-2xl";
-const brutalBtnSecondary = "bg-white text-black border-4 border-black shadow-[6px_6px_0_0_#000] rounded-2xl font-black transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] active:translate-x-2 active:translate-y-2 active:shadow-none flex items-center justify-center gap-2 py-4 text-xl";
+// --- デザイン用定数（おしゃれ・シンプル・プロ仕様） ---
+const brutalCard = "bg-white border-2 border-slate-200 shadow-md rounded-2xl p-8 md:p-12 transition-all w-full";
+const brutalInput = "bg-white border-2 border-slate-200 shadow-sm rounded-xl p-5 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all w-full text-lg";
+const brutalBtnPrimary = "bg-indigo-500 text-white border-2 border-indigo-600/30 shadow-md rounded-2xl font-bold transition-all hover:bg-indigo-600 hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 py-6 text-2xl";
+const brutalBtnSecondary = "bg-white text-slate-700 border-2 border-slate-200 shadow-sm rounded-2xl font-bold transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] flex items-center justify-center gap-2 py-4 text-xl";
 
 // --- アイコン部品 ---
 const Icon = ({ name }) => {
@@ -150,12 +150,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!document.getElementById('tailwindcss-cdn')) {
-      const script = document.createElement('script');
-      script.id = 'tailwindcss-cdn';
-      script.src = 'https://cdn.tailwindcss.com';
-      document.head.appendChild(script);
-    }
     Promise.all([api.fetchEmployees(), api.fetchStoreData()]).then(([employees, stores]) => {
       const emps = Array.isArray(employees) ? employees : [];
       setAllEmployees(emps);
@@ -486,14 +480,14 @@ export default function App() {
       <div className="w-full flex flex-col gap-6">
         
         {/* ブロック1: 役職による絞り込み */}
-        <div className="bg-white border-4 border-black rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
-          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-4 border-black pb-2">1. 配信する役職</h4>
+        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm">
+          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-2 border-slate-200 pb-2">1. 配信する役職</h4>
           <label className="flex items-center font-black text-xl cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
             <input 
               type="checkbox" 
               checked={isAllRolesSelected} 
               onChange={handleSelectAllRoles}
-              className="mr-3 w-6 h-6 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
+              className="mr-3 w-6 h-6 border-2 border-slate-200 rounded accent-indigo-600 cursor-pointer" 
             />
             全役職を選択
           </label>
@@ -501,7 +495,7 @@ export default function App() {
             {ROLES.map(role => {
               const isChecked = selectedRoles.includes(role);
               return (
-                <label key={role} className={`flex items-center font-bold text-base border-4 border-black px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-[4px_4px_0_0_#000] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0_0_#000]'}`}>
+                <label key={role} className={`flex items-center font-bold text-base border-2 border-slate-200 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-200 shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}>
                   <input 
                     type="checkbox" 
                     checked={isChecked} 
@@ -509,7 +503,7 @@ export default function App() {
                       if (e.target.checked) setSelectedRoles(prev => [...prev, role]);
                       else setSelectedRoles(prev => prev.filter(r => r !== role));
                     }} 
-                    className="mr-3 w-5 h-5 border-2 border-black rounded accent-indigo-600 cursor-pointer" 
+                    className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
                   />
                   {role}
                 </label>
@@ -519,14 +513,14 @@ export default function App() {
         </div>
 
         {/* ブロック2: 店舗による絞り込み */}
-        <div className="bg-white border-4 border-black rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
-          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-4 border-black pb-2">2. 配信するエリア・店舗</h4>
+        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm">
+          <h4 className="text-sm font-black text-indigo-600 uppercase mb-4 tracking-widest border-b-2 border-slate-200 pb-2">2. 配信するエリア・店舗</h4>
           <label className="flex items-center font-black text-xl cursor-pointer w-max hover:opacity-70 transition-opacity mb-6">
             <input 
               type="checkbox" 
               checked={isAllStoresSelected} 
               onChange={handleSelectAllStores}
-              className="mr-3 w-6 h-6 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
+              className="mr-3 w-6 h-6 border-2 border-slate-200 rounded accent-indigo-600 cursor-pointer" 
             />
             全店舗を選択
           </label>
@@ -537,7 +531,7 @@ export default function App() {
               if (storesInArea.length === 0) return null;
               const isAllAreaSelected = storesInArea.every(s => selectedStores.includes(s.storeName));
               return (
-                <details key={area} className="group bg-white border-4 border-black rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+                <details key={area} className="group bg-white border-2 border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <summary className="flex items-center justify-between p-4 font-black text-xl cursor-pointer hover:bg-indigo-50 transition-colors list-none select-none">
                     <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <input 
@@ -548,19 +542,19 @@ export default function App() {
                           if (e.target.checked) setSelectedStores(prev => Array.from(new Set([...prev, ...areaStoreNames])));
                           else setSelectedStores(prev => prev.filter(s => !areaStoreNames.includes(s)));
                         }}
-                        className="mr-3 w-6 h-6 border-4 border-black rounded accent-indigo-600 cursor-pointer" 
+                        className="mr-3 w-6 h-6 border-2 border-slate-200 rounded accent-indigo-600 cursor-pointer" 
                       />
                       {area}
                     </label>
-                    <div className="w-8 h-8 rounded-full border-4 border-black bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-[2px_2px_0_0_#000]">
+                    <div className="w-8 h-8 rounded-full border-2 border-slate-200 bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-sm">
                       <Icon name="chevronDown" />
                     </div>
                   </summary>
-                  <div className="p-4 border-t-4 border-black bg-gray-50 flex flex-wrap gap-2">
+                  <div className="p-4 border-t-2 border-slate-200 bg-gray-50 flex flex-wrap gap-2">
                     {storesInArea.map(store => {
                       const isChecked = selectedStores.includes(store.storeName);
                       return (
-                        <label key={store.storeName} className={`flex items-center font-bold text-sm border-2 border-black px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-100 shadow-[2px_2px_0_0_#000] -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}>
+                        <label key={store.storeName} className={`flex items-center font-bold text-sm border-2 border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-indigo-100 shadow-sm -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}>
                           <input 
                             type="checkbox" 
                             checked={isChecked} 
@@ -568,7 +562,7 @@ export default function App() {
                               if (e.target.checked) setSelectedStores(prev => [...prev, store.storeName]);
                               else setSelectedStores(prev => prev.filter(s => s !== store.storeName));
                             }} 
-                            className="mr-2 w-4 h-4 border-2 border-black rounded accent-indigo-600 cursor-pointer" 
+                            className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-indigo-600 cursor-pointer" 
                           />
                           {store.storeName}
                         </label>
@@ -587,7 +581,7 @@ export default function App() {
 
 
   if (authStep === 'loading') return (
-    <div className="h-screen flex items-center justify-center bg-[#f0f0f0] flex-col gap-4 text-black">
+    <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4 text-black">
       <div className="text-indigo-600 scale-150"><Icon name="loader" /></div>
       <p className="font-black tracking-widest text-sm uppercase animate-pulse mt-4">システムを起動しています...</p>
     </div>
@@ -599,14 +593,14 @@ export default function App() {
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })}></div>
-          <div className="bg-white rounded-[2.5rem] border-4 border-black p-8 md:p-12 max-w-xl w-full relative z-10 shadow-[12px_12px_0_0_#000] animate-fade-in overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] border-2 border-slate-200 p-8 md:p-12 max-w-xl w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
             {confirmModal.step === 'confirm' && (
               <div className="text-center">
-                <div className="w-24 h-24 bg-rose-50 border-4 border-black text-rose-500 rounded-full mx-auto flex items-center justify-center mb-8 shadow-[4px_4px_0_0_#000]"><Icon name="alertTriangle" /></div>
+                <div className="w-24 h-24 bg-rose-50 border-2 border-slate-200 text-rose-500 rounded-full mx-auto flex items-center justify-center mb-8 shadow-sm"><Icon name="alertTriangle" /></div>
                 <h3 className="text-3xl font-black text-black mb-2 tracking-tighter">タスクを完了しますか？</h3>
                 <p className="text-lg font-bold text-gray-600 mb-8">内容を確認して、よろしければ実行してください。</p>
-                <div className="bg-gray-50 p-6 rounded-2xl mb-8 text-center border-4 border-black shadow-[4px_4px_0_0_#000]">
-                  <p className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-3 border-b-2 border-black pb-3">対象タスク</p>
+                <div className="bg-gray-50 p-6 rounded-2xl mb-8 text-center border-2 border-slate-200 shadow-sm">
+                  <p className="text-sm font-black text-indigo-600 uppercase tracking-widest mb-3 border-b-2 border-slate-200 pb-3">対象タスク</p>
                   <p className="text-xl font-bold text-black leading-relaxed">{formatContent(confirmModal.task.content)}</p>
                 </div>
                 <div className="flex gap-4">
@@ -623,10 +617,10 @@ export default function App() {
             )}
             {confirmModal.step === 'result' && (
               <div className="text-center py-8 animate-fade-in relative">
-                <div className="w-40 h-40 bg-gradient-to-tr from-amber-300 via-yellow-300 to-orange-200 text-black border-4 border-black rounded-full mx-auto flex items-center justify-center mb-8 shadow-[8px_8px_0_0_#000] transform hover:scale-110 transition-transform"><span className="text-8xl font-black tracking-tighter drop-shadow-sm">{confirmModal.rank}</span><span className="text-2xl font-black mt-6 ml-1">位</span></div>
+                <div className="w-40 h-40 bg-gradient-to-tr from-amber-300 via-yellow-300 to-orange-200 text-black border-2 border-slate-200 rounded-full mx-auto flex items-center justify-center mb-8 shadow-lg transform hover:scale-110 transition-transform"><span className="text-8xl font-black tracking-tighter drop-shadow-sm">{confirmModal.rank}</span><span className="text-2xl font-black mt-6 ml-1">位</span></div>
                 <h3 className="text-4xl font-black text-black mb-4 tracking-tighter relative z-10">完了しました！</h3>
                 <p className="text-lg font-bold text-gray-600 mb-10 relative z-10">このタスクを全社で <span className="text-black font-black text-2xl mx-1">{confirmModal.rank}番目</span> にクリアしました！</p>
-                <div className="w-full bg-gray-100 border-4 border-black h-6 rounded-full overflow-hidden shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.1)]"><div className="bg-emerald-400 border-r-4 border-black h-full w-full animate-[progress_3.5s_ease-in-out]"></div></div>
+                <div className="w-full bg-gray-100 border-2 border-slate-200 h-6 rounded-full overflow-hidden shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.1)]"><div className="bg-emerald-400 border-r-2 border-emerald-500 h-full w-full animate-[progress_3.5s_ease-in-out]"></div></div>
               </div>
             )}
           </div>
@@ -635,9 +629,9 @@ export default function App() {
 
       {/* --- ログイン・登録画面 --- */}
       {authStep === 'login' && (
-        <div className="h-screen bg-[#f0f0f0] flex items-center justify-center p-6 relative overflow-hidden w-full">
-          <div className="bg-white border-4 border-black rounded-[2.5rem] p-12 max-w-lg w-full shadow-[12px_12px_0_0_#000] relative z-10">
-            <div className="w-24 h-24 bg-indigo-600 border-4 border-black rounded-3xl mx-auto flex items-center justify-center text-white mb-8 shadow-[6px_6px_0_0_#000]"><Icon name="list" /></div>
+        <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden w-full">
+          <div className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-12 max-w-lg w-full shadow-xl relative z-10">
+            <div className="w-24 h-24 bg-indigo-500 border-2 border-indigo-400/50 rounded-3xl mx-auto flex items-center justify-center text-white mb-8 shadow-md"><Icon name="list" /></div>
             <h2 className="text-5xl font-black text-black mb-4 text-center tracking-tighter italic">ToDo List</h2>
             <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">チームのタスクを一元管理。</p>
             <form onSubmit={handleLoginSearch} className="space-y-8">
@@ -650,14 +644,14 @@ export default function App() {
       )}
 
       {authStep === 'register' && (
-        <div className="h-screen bg-[#f0f0f0] flex flex-col p-6 relative overflow-y-auto w-full">
-          <div className="bg-white border-4 border-black rounded-[2.5rem] p-8 md:p-16 max-w-3xl w-full shadow-[12px_12px_0_0_#000] relative z-10 mx-auto my-auto animate-fade-in">
+        <div className="h-screen bg-slate-50 flex flex-col p-6 relative overflow-y-auto w-full">
+          <div className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-8 md:p-16 max-w-3xl w-full shadow-xl relative z-10 mx-auto my-auto animate-fade-in">
             <h2 className="text-4xl font-black text-black mb-4 text-center tracking-tighter">アカウント作成</h2>
             <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">初めてのログインですね。<br/>プロフィールを登録して開始してください。</p>
             <form onSubmit={handleRegisterSubmit} className="space-y-10">
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">メールアドレス (固定)</label>
-                <input type="email" value={tempUser?.email || inputEmail || ''} disabled className="w-full px-6 py-5 bg-gray-100 border-4 border-black rounded-2xl text-gray-500 font-bold cursor-not-allowed text-lg shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]" />
+                <input type="email" value={tempUser?.email || inputEmail || ''} disabled className="w-full px-6 py-5 bg-gray-100 border-2 border-slate-200 rounded-2xl text-gray-500 font-bold cursor-not-allowed text-lg shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -680,9 +674,9 @@ export default function App() {
 
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
-                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-4 border-black rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
                   {TEAMS.map(t => (
-                    <button key={t} type="button" onClick={() => toggleTeam(t)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-black transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-indigo-600 text-white shadow-[2px_2px_0_0_#000] -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                    <button key={t} type="button" onClick={() => toggleTeam(t)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                       {t}
                     </button>
                   ))}
@@ -690,9 +684,9 @@ export default function App() {
               </div>
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">エリア（複数選択可） <span className="text-rose-500">*</span></label>
-                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-4 border-black rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
                   {AREAS.map(a => (
-                    <button key={a} type="button" onClick={() => toggleArea(a)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-black transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-indigo-600 text-white shadow-[2px_2px_0_0_#000] -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                    <button key={a} type="button" onClick={() => toggleArea(a)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                       {a}
                     </button>
                   ))}
@@ -701,15 +695,15 @@ export default function App() {
               {regData.area.length > 0 && (
                 <div>
                   <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
-                  <div className="p-8 bg-gray-50 border-4 border-black rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
+                  <div className="p-8 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
                     {regData.area.map(areaName => (
-                      <div key={areaName} className="border-b-4 border-gray-200 pb-6 last:border-0 last:pb-0">
-                        <p className="text-lg font-black text-black mb-4 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-indigo-500 border-2 border-black"></span>{areaName}</p>
+                      <div key={areaName} className="border-b-2 border-slate-200 pb-6 last:border-0 last:pb-0">
+                        <p className="text-lg font-black text-black mb-4 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-indigo-500 border-2 border-slate-300"></span>{areaName}</p>
                         <div className="flex flex-wrap gap-3 pl-6">
                           {getTerritories(areaName).map(terr => {
                              const isSelected = regData.territory[areaName]?.includes(terr);
                              return (
-                              <button key={terr} type="button" onClick={() => toggleTerritory(areaName, terr)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-black transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600 text-white shadow-[2px_2px_0_0_#000] -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                              <button key={terr} type="button" onClick={() => toggleTerritory(areaName, terr)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                                 {terr}
                               </button>
                             );
@@ -723,19 +717,19 @@ export default function App() {
               {regData.area.length > 0 && (
                 <div>
                   <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">管轄店舗 <span className="text-xs font-bold text-gray-500 ml-2">※管轄外の店舗のみチェックを外してください</span></label>
-                  <div className="p-8 bg-gray-50 border-4 border-black rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
+                  <div className="p-8 bg-gray-50 border-2 border-slate-200 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
                     {regData.area.map(areaName => {
                       const selectedTerrs = regData.territory[areaName] || [];
                       const storesInArea = allStores.filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
                       if (storesInArea.length === 0) return null;
                       return (
-                        <div key={areaName} className="border-b-4 border-gray-200 pb-6 last:border-0 last:pb-0">
+                        <div key={areaName} className="border-b-2 border-slate-200 pb-6 last:border-0 last:pb-0">
                            <p className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">{areaName} の店舗</p>
                            <div className="flex flex-wrap gap-3 pl-6">
                              {storesInArea.map(store => {
                                 const isSelected = regData.stores.includes(store.storeName);
                                 return (
-                                  <button key={store.storeName} type="button" onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-black transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600 text-white shadow-[2px_2px_0_0_#000] -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
+                                  <button key={store.storeName} type="button" onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-indigo-600 text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
                                     {store.storeName}
                                   </button>
                                 )
@@ -757,14 +751,14 @@ export default function App() {
       )}
 
       {authStep === 'confirm' && (
-        <div className="h-screen bg-[#f0f0f0] flex items-center justify-center p-6 relative overflow-hidden w-full">
-          <div className="bg-white border-4 border-black rounded-[2.5rem] p-12 max-w-lg w-full text-center shadow-[12px_12px_0_0_#000] relative z-10">
-            <div className="w-32 h-32 bg-gray-100 border-4 border-black rounded-full mx-auto flex items-center justify-center text-black mb-8 shadow-[4px_4px_0_0_#000]">
+        <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden w-full">
+          <div className="bg-white border-2 border-slate-200 rounded-[2.5rem] p-12 max-w-lg w-full text-center shadow-xl relative z-10">
+            <div className="w-32 h-32 bg-gray-100 border-2 border-slate-200 rounded-full mx-auto flex items-center justify-center text-black mb-8 shadow-sm">
               <div className="scale-150"><Icon name="user" /></div>
             </div>
             <p className="text-indigo-600 font-black text-sm uppercase tracking-widest mb-3">{tempUser?.role || tempUser?.team}</p>
             <h2 className="text-5xl font-black text-black mb-8 tracking-tighter">{tempUser?.name}</h2>
-            <div className="bg-gray-50 border-4 border-black rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+            <div className="bg-gray-50 border-2 border-slate-200 rounded-2xl p-6 mb-10 shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
               <p className="text-xs text-gray-500 font-black uppercase mb-4 tracking-widest">担当エリア</p>
               {tempUser?.territory ? (
                 <div className="space-y-2">
@@ -786,12 +780,12 @@ export default function App() {
 
       {/* --- メイン画面 --- */}
       {authStep === 'ready' && (
-        <div className="flex flex-col h-screen bg-[#f0f0f0] font-sans text-black overflow-hidden w-full">
+        <div className="flex flex-col h-screen bg-slate-50 font-sans text-black overflow-hidden w-full">
           
-          <header className="h-20 bg-white border-b-4 border-black flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
+          <header className="h-20 bg-white border-b-2 border-slate-200 flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
             <div className="flex items-center gap-6">
                <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-xl shadow-[4px_4px_0_0_rgba(0,0,0,0.2)]">
+                 <div className="w-10 h-10 bg-indigo-500 text-white flex items-center justify-center rounded-xl shadow-sm">
                     <Icon name="check" />
                  </div>
                  <div className="flex flex-col">
@@ -820,12 +814,12 @@ export default function App() {
             </div>
 
             <div className="relative">
-              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-4 border-black px-4 py-2 rounded-xl shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
+              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-2 border-slate-200 px-4 py-2 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
                   <div className="flex flex-col items-end text-right hidden sm:flex">
                       <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 leading-none mb-1">ACCOUNT</span>
                       <span className="text-sm font-black text-black leading-none max-w-[120px] truncate">{currentUser?.name}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-gray-100 text-black flex items-center justify-center font-bold border-2 border-black shadow-[2px_2px_0_0_#000]">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold border-2 border-slate-200 shadow-sm">
                      <Icon name="user" />
                   </div>
               </button>
@@ -833,9 +827,9 @@ export default function App() {
               {isAccountMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-4 w-80 bg-white border-4 border-black rounded-2xl shadow-[8px_8px_0_0_#000] z-50 overflow-hidden animate-fade-in">
-                    <div className="p-6 border-b-4 border-black bg-white">
-                      <div className="w-20 h-20 rounded-2xl bg-gray-100 border-4 border-black flex items-center justify-center text-black mb-4 shadow-[4px_4px_0_0_#000] mx-auto">
+                  <div className="absolute right-0 mt-4 w-80 bg-white border-2 border-slate-200 rounded-2xl shadow-lg z-50 overflow-hidden animate-fade-in">
+                    <div className="p-6 border-b-2 border-slate-200 bg-white">
+                      <div className="w-20 h-20 rounded-2xl bg-gray-100 border-2 border-slate-200 flex items-center justify-center text-black mb-4 shadow-sm mx-auto">
                         <div className="scale-150"><Icon name="user" /></div>
                       </div>
                       <p className="text-center text-2xl font-black text-black tracking-tighter">{currentUser?.name}</p>
@@ -860,8 +854,8 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                    <div className="p-4 border-t-4 border-black bg-gray-50">
-                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-4 border-black font-black py-3 rounded-xl shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
+                    <div className="p-4 border-t-2 border-slate-200 bg-gray-50">
+                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-2 border-slate-200 font-black py-3 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 active:shadow-none transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-widest">
                         <Icon name="logout" /> ログアウト
                       </button>
                     </div>
@@ -871,7 +865,7 @@ export default function App() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-[#f0f0f0] w-full">
+          <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-slate-50 w-full">
             <div className="max-w-[1920px] mx-auto w-full px-2 md:px-4 pb-20">
               
               {/* === HOME === */}
@@ -884,11 +878,11 @@ export default function App() {
                     </div>
 
                     <div className="flex gap-4 w-full lg:w-auto flex-shrink-0">
-                       <div className="bg-white p-5 rounded-2xl border-4 border-black flex-1 lg:w-72 shadow-[4px_4px_0_0_#000]">
+                       <div className="bg-white p-5 rounded-2xl border-2 border-slate-200 flex-1 lg:w-72 shadow-sm">
                          <p className="text-xs font-black text-indigo-600 uppercase mb-3 tracking-widest text-center lg:text-left">あなたのタスク完了率</p>
                          <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-gray-100 border-2 border-black rounded-full h-3 overflow-hidden shadow-[inset_2px_2px_0_0_rgba(0,0,0,0.1)]">
-                              <div className="bg-emerald-400 border-r-2 border-black h-full w-full transition-all duration-1000 ease-out" style={{ width: `${requestedTasksProgress}%` }}></div>
+                            <div className="flex-1 bg-gray-100 border-2 border-slate-300 rounded-full h-3 overflow-hidden shadow-[inset_2px_2px_0_0_rgba(0,0,0,0.1)]">
+                              <div className="bg-emerald-400 border-r-2 border-emerald-500 h-full w-full transition-all duration-1000 ease-out" style={{ width: `${requestedTasksProgress}%` }}></div>
                             </div>
                             <span className="text-xl font-black text-black">{requestedTasksProgress}%</span>
                          </div>
@@ -898,25 +892,25 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6 w-full">
                     <button onClick={() => setActiveTab('request')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="plus" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="plus" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">新規投稿</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
                     </button>
                     <button onClick={() => setActiveTab('repost')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="history" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="history" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">再投稿</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
                     </button>
                     <button onClick={() => setActiveTab('scheduled')} className={brutalCard + " text-left hover:bg-indigo-50 !p-6"}>
-                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="repeat" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="repeat" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">定期配信</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
                     </button>
                     <button onClick={() => setActiveTab('checklist')} className={brutalCard + " text-left hover:bg-indigo-50 relative overflow-hidden !p-6"}>
-                      <div className="w-14 h-14 bg-white border-4 border-black text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-[4px_4px_0_0_#000] [&>svg]:scale-75"><Icon name="list" /></div>
+                      <div className="w-14 h-14 bg-white border-2 border-slate-200 text-indigo-600 rounded-xl flex items-center justify-center mb-4 shadow-sm [&>svg]:scale-75"><Icon name="list" /></div>
                       <h4 className="text-xl font-black text-black mb-2 tracking-tighter">リストチェック</h4>
                       <p className="text-gray-600 text-sm font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
-                      {activeTasksCount > 0 && <div className="absolute top-4 right-4 bg-rose-500 border-2 border-black text-white text-xs font-black px-3 py-1.5 rounded-full shadow-[4px_4px_0_0_#000] animate-pulse tracking-widest">未完了 {activeTasksCount}</div>}
+                      {activeTasksCount > 0 && <div className="absolute top-4 right-4 bg-rose-500 border-2 border-rose-400 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm animate-pulse tracking-widest">未完了 {activeTasksCount}</div>}
                     </button>
                   </div>
                 </div>
@@ -949,7 +943,7 @@ export default function App() {
                                   <button type="button" onClick={() => {
                                     const newUrls = requestForm.urls.filter((_, index) => index !== i);
                                     setRequestForm({ ...requestForm, urls: newUrls });
-                                  }} className="w-16 bg-rose-500 text-white border-4 border-black shadow-[4px_4px_0_0_#000] rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
+                                  }} className="w-16 bg-rose-500 text-white border-2 border-slate-200 shadow-sm rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
                                 )}
                               </div>
                             ))}
@@ -964,10 +958,10 @@ export default function App() {
                         <div>
                           <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
                           {requestImages.length < 3 && (
-                            <div className="bg-white border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
+                            <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                <div className="w-16 h-16 bg-white border-4 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
+                                <div className="w-16 h-16 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
                                 <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                               </div>
                             </div>
@@ -975,9 +969,9 @@ export default function App() {
                           {requestImages.length > 0 && (
                             <div className="flex flex-wrap gap-4 mt-6">
                               {requestImages.map((img, i) => (
-                                <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-4 border-black shadow-[4px_4px_0_0_#000]">
+                                <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm">
                                   <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-4 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-200 p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
                                 </div>
                               ))}
                             </div>
@@ -990,7 +984,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="border-t-4 border-black pt-8 w-full mt-4">
+                    <div className="border-t-2 border-slate-200 pt-8 w-full mt-4">
                       <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-8 text-3xl"}>
                         {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="send" />}
                         <span className="tracking-widest ml-4">{isSubmitting ? '処理中...' : 'この内容で配信する'}</span>
@@ -1003,18 +997,18 @@ export default function App() {
               {/* === 再投稿 (履歴) === */}
               {activeTab === 'repost' && (
                 <div className={`${brutalCard} animate-fade-in w-full mt-4`}>
-                  <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-4 border-black pb-8">過去に送信したタスクの情報を引き継いで、新しく作成します。</p>
+                  <p className="text-lg font-bold text-gray-600 mb-10 text-center border-b-2 border-slate-200 pb-8">過去に送信したタスクの情報を引き継いで、新しく作成します。</p>
                   
                   <div className="space-y-6 w-full">
                     {sentTasks.length === 0 ? (
                       <p className="text-center text-gray-500 font-black py-20 text-xl">送信履歴がありません</p>
                     ) : sentTasks.map(task => (
-                      <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-[6px_6px_0_0_#000] w-full">
+                      <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 hover:bg-indigo-50 transition-colors shadow-md w-full">
                          <div className="flex-1 text-center md:text-left w-full">
                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
                              <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest uppercase">過去の配信</span>
                              <span className="text-base text-gray-600 font-black">{task.createdAt}</span>
-                             {task.targetTags && <span className="text-xs font-black text-black bg-white border-2 border-black px-3 py-1.5 rounded-lg shadow-[2px_2px_0_0_#000]">宛先: {task.targetTags}</span>}
+                             {task.targetTags && <span className="text-xs font-black text-black bg-white border-2 border-slate-300 px-3 py-1.5 rounded-lg shadow-sm">宛先: {task.targetTags}</span>}
                            </div>
                            <p className="text-black text-xl font-bold leading-relaxed">{formatContent(task.content)}</p>
                          </div>
@@ -1034,8 +1028,8 @@ export default function App() {
                     <p className="text-lg font-bold text-gray-600 mb-10 text-center">毎月の決まった日に、システムが自動でタスクを配信します。</p>
                     
                     <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-12 w-full">
-                      <div className="bg-indigo-50 border-4 border-black p-8 rounded-2xl shadow-[4px_4px_0_0_#000] w-full">
-                        <label className="text-sm font-black text-black uppercase mb-4 block tracking-widest border-b-4 border-black pb-2">配信スケジュールの設定</label>
+                      <div className="bg-indigo-50 border-2 border-slate-200 p-8 rounded-2xl shadow-sm w-full">
+                        <label className="text-sm font-black text-black uppercase mb-4 block tracking-widest border-b-2 border-slate-200 pb-2">配信スケジュールの設定</label>
                         <div className="flex flex-col md:flex-row gap-6 mt-6">
                           <div className="flex-1">
                             <label className="text-xs font-black text-gray-600 mb-2 block">毎月何日に配信しますか？</label>
@@ -1061,7 +1055,7 @@ export default function App() {
                             </div>
                           </div>
                         </div>
-                        <div className="mt-8 p-4 bg-white border-4 border-black rounded-xl text-center shadow-[2px_2px_0_0_#000]">
+                        <div className="mt-8 p-4 bg-white border-2 border-slate-200 rounded-xl text-center shadow-sm">
                           <p className="text-sm font-black text-gray-500">システム登録日 (初回設定日): {todayForMin}</p>
                         </div>
                       </div>
@@ -1083,7 +1077,7 @@ export default function App() {
                                     <button type="button" onClick={() => {
                                       const newUrls = scheduleForm.urls.filter((_, index) => index !== i);
                                       setScheduleForm({ ...scheduleForm, urls: newUrls });
-                                    }} className="w-16 bg-rose-500 text-white border-4 border-black shadow-[4px_4px_0_0_#000] rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
+                                    }} className="w-16 bg-rose-500 text-white border-2 border-slate-200 shadow-sm rounded-xl flex items-center justify-center hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"><Icon name="trash" /></button>
                                   )}
                                 </div>
                               ))}
@@ -1098,10 +1092,10 @@ export default function App() {
                           <div>
                             <label className="text-sm font-black text-indigo-600 uppercase mb-3 block tracking-widest">参考画像 (任意 / 最大3枚)</label>
                             {scheduleImages.length < 3 && (
-                              <div className="bg-white border-4 border-dashed border-black rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
+                              <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
                                 <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                                 <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                  <div className="w-16 h-16 bg-white border-4 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0_0_#000]"><Icon name="image" /></div>
+                                  <div className="w-16 h-16 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
                                   <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                                 </div>
                               </div>
@@ -1109,9 +1103,9 @@ export default function App() {
                             {scheduleImages.length > 0 && (
                               <div className="flex flex-wrap gap-4 mt-6">
                                 {scheduleImages.map((img, i) => (
-                                  <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-4 border-black shadow-[4px_4px_0_0_#000]">
+                                  <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm">
                                     <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                    <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-4 border-black p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
+                                    <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-200 p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
                                   </div>
                                 ))}
                               </div>
@@ -1125,7 +1119,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="border-t-4 border-black pt-8 w-full mt-4">
+                      <div className="border-t-2 border-slate-200 pt-8 w-full mt-4">
                         <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-8 text-3xl"}>
                           {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="repeat" />}
                           <span className="tracking-widest ml-4">{isSubmitting ? '処理中...' : 'スケジュールを登録する'}</span>
@@ -1135,21 +1129,21 @@ export default function App() {
                   </div>
 
                   <div className={`${brutalCard} w-full`}>
-                    <h3 className="text-3xl font-black text-black mb-8 tracking-tighter text-center border-b-4 border-black pb-6">稼働中の定期配信</h3>
+                    <h3 className="text-3xl font-black text-black mb-8 tracking-tighter text-center border-b-2 border-slate-200 pb-6">稼働中の定期配信</h3>
                     <div className="space-y-6 w-full">
                       {scheduledTasks.length === 0 ? (
                         <p className="text-center text-gray-500 font-black py-10 text-xl">登録されている定期配信はありません</p>
                       ) : scheduledTasks.map(task => (
-                        <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-4 border-black flex flex-col md:flex-row justify-between items-center gap-8 shadow-[6px_6px_0_0_#000] w-full">
+                        <div key={task.id} className="bg-gray-50 p-8 rounded-2xl border-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-8 shadow-md w-full">
                            <div className="flex-1 text-center md:text-left w-full">
                              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
                                <span className="bg-black text-white text-xs font-black px-4 py-2 rounded-lg tracking-widest flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
-                               <span className="text-sm text-black font-black bg-white border-4 border-black px-4 py-2 rounded-lg shadow-[2px_2px_0_0_#000]">期限: 毎月 {task.deadlineOffset}</span>
-                               {task.targetTags && <span className="text-sm text-black font-black bg-white border-4 border-black px-4 py-2 rounded-lg shadow-[2px_2px_0_0_#000]">宛先: {task.targetTags}</span>}
+                               <span className="text-sm text-black font-black bg-white border-2 border-slate-200 px-4 py-2 rounded-lg shadow-sm">期限: 毎月 {task.deadlineOffset}</span>
+                               {task.targetTags && <span className="text-sm text-black font-black bg-white border-2 border-slate-200 px-4 py-2 rounded-lg shadow-sm">宛先: {task.targetTags}</span>}
                              </div>
                              <p className="text-black text-xl font-bold leading-relaxed">{formatContent(task.content)}</p>
                            </div>
-                           <button onClick={() => handleDeleteSchedule(task.id)} className="w-full md:w-auto bg-rose-50 border-4 border-black hover:bg-rose-500 hover:text-white text-rose-600 px-8 py-4 rounded-2xl font-black transition-all flex-shrink-0 flex items-center justify-center gap-2 shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-none text-lg">
+                           <button onClick={() => handleDeleteSchedule(task.id)} className="w-full md:w-auto bg-rose-50 border-2 border-slate-200 hover:bg-rose-500 hover:text-white text-rose-600 px-8 py-4 rounded-2xl font-black transition-all flex-shrink-0 flex items-center justify-center gap-2 shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none text-lg">
                              <Icon name="trash" /> 停止 (削除)
                            </button>
                         </div>
@@ -1164,25 +1158,25 @@ export default function App() {
                 <div className="animate-fade-in w-full mt-4">
                   
                   <div className="flex flex-col sm:flex-row gap-4 mb-8 w-full max-w-2xl">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-[6px_6px_0_0_#000] hover:-translate-y-1 hover:shadow-[8px_8px_0_0_#000]'}`}>
-                      未実施 <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
+                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-2 border-slate-200 font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'active' ? 'bg-indigo-600 text-white translate-x-1 translate-y-1 shadow-none' : 'bg-white text-black shadow-md hover:-translate-y-1 hover:shadow-lg'}`}>
+                      未実施 <span className={`px-3 py-1 rounded-full text-sm border-2 border-slate-300 ${taskTab === 'active' ? 'bg-white text-indigo-600' : 'bg-black text-white'}`}>{activeTasksCount}</span>
                     </button>
-                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-4 border-black font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'completed' ? 'bg-white text-black translate-x-1 translate-y-1 shadow-none' : 'bg-gray-200 text-gray-500 border-gray-300 hover:-translate-y-1 hover:shadow-[4px_4px_0_0_rgba(0,0,0,0.1)]'}`}>
-                      実施済み <span className={`px-3 py-1 rounded-full text-sm border-2 border-black ${taskTab === 'completed' ? 'bg-black text-white' : 'bg-gray-400 text-white border-transparent'}`}>{completedTasksCount}</span>
+                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3.5 px-6 text-base md:text-lg rounded-xl border-2 border-slate-200 font-black transition-all flex items-center justify-center gap-3 ${taskTab === 'completed' ? 'bg-white text-black translate-x-1 translate-y-1 shadow-none' : 'bg-gray-200 text-gray-500 border-gray-300 hover:-translate-y-1 hover:shadow-md'}`}>
+                      実施済み <span className={`px-3 py-1 rounded-full text-sm border-2 border-slate-300 ${taskTab === 'completed' ? 'bg-black text-white' : 'bg-gray-400 text-white border-transparent'}`}>{completedTasksCount}</span>
                     </button>
                   </div>
 
-                  <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-4 border-gray-200">
-                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-4 border-black transition-all flex items-center gap-2 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === 'ALL' ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                  <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-200">
+                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-2 border-slate-200 transition-all flex items-center gap-2 shadow-sm hover:-translate-y-1 hover:shadow-md ${taskFilter === 'ALL' ? 'bg-black text-white' : 'bg-white text-black'}`}>
                       全店
-                      {activeTasksCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-black ${taskFilter === 'ALL' ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{activeTasksCount}</span>}
+                      {activeTasksCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-slate-300 ${taskFilter === 'ALL' ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{activeTasksCount}</span>}
                     </button>
                     {currentUser?.stores?.map(s => {
                       const storeTaskCount = tasks.filter(t => !t.completed && t.targetTags && t.targetTags.includes(s)).length;
                       return (
-                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-4 border-black transition-all flex items-center gap-2 shadow-[4px_4px_0_0_#000] hover:-translate-y-1 hover:shadow-[6px_6px_0_0_#000] ${taskFilter === s ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-black border-2 border-slate-200 transition-all flex items-center gap-2 shadow-sm hover:-translate-y-1 hover:shadow-md ${taskFilter === s ? 'bg-black text-white' : 'bg-white text-black'}`}>
                           {s}
-                          {storeTaskCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-black ${taskFilter === s ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{storeTaskCount}</span>}
+                          {storeTaskCount > 0 && <span className={`text-[10px] px-2 py-0.5 rounded-full border-2 border-slate-300 ${taskFilter === s ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'}`}>{storeTaskCount}</span>}
                         </button>
                       );
                     })}
@@ -1190,7 +1184,7 @@ export default function App() {
                   
                   <div className="space-y-6 pb-24 w-full">
                     {tasksLoading ? (
-                      <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border-4 border-black rounded-2xl shadow-[8px_8px_0_0_#000] w-full"></div></div>
+                      <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border-2 border-slate-200 rounded-2xl shadow-lg w-full"></div></div>
                     ) : filteredTasks.length === 0 ? (
                       <div className="py-24 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.2em] w-full">
                         <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
@@ -1201,8 +1195,8 @@ export default function App() {
                         <div className="flex-1 w-full min-w-0">
                           
                           <div className="flex flex-wrap gap-2 mb-4 items-center">
-                            {task.targetTags && <span className="bg-rose-500 text-white border-2 border-black text-xs font-black px-3 py-1 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.targetTags}</span>}
-                            <span className="bg-white text-black border-2 border-black text-[10px] font-black px-2 py-1 rounded-lg tracking-widest shadow-[2px_2px_0_0_#000]">{task.type}</span>
+                            {task.targetTags && <span className="bg-rose-500 text-white border-2 border-slate-300 text-xs font-black px-3 py-1 rounded-lg tracking-widest shadow-sm">{task.targetTags}</span>}
+                            <span className="bg-white text-black border-2 border-slate-300 text-[10px] font-black px-2 py-1 rounded-lg tracking-widest shadow-sm">{task.type}</span>
                             <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
                           </div>
                           
@@ -1214,30 +1208,30 @@ export default function App() {
                             <div className="flex flex-col gap-6 border-t-4 border-gray-100 pt-6">
                               
                               <div className="flex flex-wrap gap-4 items-center">
-                                <div className="flex items-center gap-4 bg-rose-100 border-4 border-rose-600 rounded-2xl px-6 py-4 shadow-[6px_6px_0_0_#e11d48]">
-                                  <span className="text-sm font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border-4 border-rose-600">提出期限</span>
+                                <div className="flex items-center gap-4 bg-rose-100 border-2 border-rose-400 rounded-2xl px-6 py-4 shadow-md">
+                                  <span className="text-sm font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1 rounded-lg border-2 border-rose-400">提出期限</span>
                                   <span className="text-lg md:text-xl font-black text-rose-600 tracking-tight">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
                                 </div>
 
                                 {task.daysRemaining !== null && task.daysRemaining !== undefined && (
                                   <>
                                     {task.daysRemaining < 0 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-black text-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000] animate-pulse">
+                                      <div className="flex items-center justify-center px-6 py-4 bg-black text-white border-2 border-slate-200 rounded-2xl shadow-md animate-pulse">
                                         <span className="text-sm font-black leading-none tracking-widest">⚠ 超過</span>
                                       </div>
                                     )}
                                     {task.daysRemaining === 0 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-rose-500 text-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000]">
+                                      <div className="flex items-center justify-center px-6 py-4 bg-rose-500 text-white border-2 border-slate-200 rounded-2xl shadow-md">
                                         <span className="text-sm font-black leading-none tracking-widest">今日まで</span>
                                       </div>
                                     )}
                                     {task.daysRemaining === 1 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-orange-500 text-white border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000]">
+                                      <div className="flex items-center justify-center px-6 py-4 bg-orange-500 text-white border-2 border-slate-200 rounded-2xl shadow-md">
                                         <span className="text-sm font-black leading-none tracking-widest">明日まで</span>
                                       </div>
                                     )}
                                     {task.daysRemaining === 2 && (
-                                      <div className="flex items-center justify-center px-6 py-4 bg-amber-400 text-black border-4 border-black rounded-2xl shadow-[6px_6px_0_0_#000]">
+                                      <div className="flex items-center justify-center px-6 py-4 bg-amber-400 text-black border-2 border-slate-200 rounded-2xl shadow-md">
                                         <span className="text-sm font-black leading-none tracking-widest">残り2日</span>
                                       </div>
                                     )}
@@ -1247,12 +1241,12 @@ export default function App() {
 
                               <div className="flex flex-col gap-4 w-full mt-4">
                                 {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
-                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-4 border-black text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-gray-50 transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center justify-center gap-2 max-w-md">
+                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-2 border-slate-200 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
                                     <Icon name="link" /> リンクを開く
                                   </a>
                                 ))}
                                 {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
-                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-4 border-black text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-[4px_4px_0_0_#000] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0_0_#000] flex items-center justify-center gap-2 max-w-md">
+                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-2 border-slate-200 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
                                     <Icon name="image" /> 画像を開く
                                   </a>
                                 ))}
@@ -1263,11 +1257,11 @@ export default function App() {
                         
                         <div className="flex-shrink-0 border-t-4 xl:border-t-0 border-l-0 xl:border-l-4 border-gray-100 pt-6 xl:pt-0 xl:pl-8 flex items-center justify-center w-full xl:w-auto mt-6 xl:mt-0">
                           {!task.completed ? (
-                            <button onClick={() => openConfirmModal(task)} className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-[8px_8px_0_0_#000] group active:translate-x-2 active:translate-y-2 active:shadow-none">
+                            <button onClick={() => openConfirmModal(task)} className="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-slate-200 bg-white text-gray-300 hover:bg-emerald-400 hover:text-white transition-all flex items-center justify-center shadow-lg group active:translate-x-2 active:translate-y-2 active:shadow-none">
                               <span className="group-hover:scale-125 transition-transform scale-150"><Icon name="check" /></span>
                             </button>
                           ) : (
-                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-black bg-gray-200 text-gray-400 transition-all flex items-center justify-center shadow-inner">
+                            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-slate-200 bg-gray-200 text-gray-400 transition-all flex items-center justify-center shadow-inner">
                               <span className="scale-150"><Icon name="check" /></span>
                             </div>
                           )}
@@ -1292,7 +1286,7 @@ export default function App() {
           height: 100% !important; 
           text-align: left !important; 
         }
-        body { background: #f0f0f0; font-family: 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background: #f8fafc; font-family: 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
