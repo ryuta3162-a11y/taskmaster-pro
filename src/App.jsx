@@ -137,6 +137,10 @@ const api = {
     if (!isGAS) return setTimeout(() => res({status:'success', rank: 1}), 1500); 
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email);
   }),
+  uncompleteTask: (id, email) => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res({ success: true }), 400);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).uncompleteTask(id, email);
+  }),
   getSentTasks: (name) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getSentTasks(name);
@@ -646,6 +650,22 @@ export default function App() {
     } catch (e) { setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null }); }
   };
 
+  const handleUncompleteTask = async (task) => {
+    if (!currentUser?.email) return;
+    if (!window.confirm('このタスクを「未実施」に戻しますか？\n（あなたの完了記録だけが削除されます。他の方の記録は変わりません。）')) return;
+    try {
+      const res = await api.uncompleteTask(task.id, currentUser.email);
+      if (res && res.success === false) {
+        alert(res.message || '取り消しに失敗しました');
+        return;
+      }
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, completed: false } : t)));
+      refreshTasks();
+    } catch (e) {
+      alert('取り消しに失敗しました');
+    }
+  };
+
   const renderTargetSelector = (selectedStores, setSelectedStores, selectedRoles, setSelectedRoles, startNum = 1) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
     const handleSelectAllStores = (e) => {
@@ -788,7 +808,7 @@ export default function App() {
                 </div>
                 <div className="flex gap-4">
                   <button onClick={() => setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })} className={brutalBtnSecondary + " flex-1"}>キャンセル</button>
-                  <button onClick={executeCompleteTask} className={brutalBtnPrimary + " flex-[2]"}>完了して順位を見る</button>
+                  <button onClick={executeCompleteTask} className={brutalBtnPrimary + " flex-[2]"}>完了する</button>
                 </div>
               </div>
             )}
@@ -799,11 +819,21 @@ export default function App() {
               </div>
             )}
             {confirmModal.step === 'result' && (
-              <div className="text-center py-8 animate-fade-in relative">
-                <div className="w-40 h-40 bg-gradient-to-tr from-amber-300 via-yellow-300 to-orange-200 text-black border-2 border-slate-300 rounded-full mx-auto flex items-center justify-center mb-8 shadow-lg transform hover:scale-110 transition-transform"><span className="text-8xl font-black tracking-tighter drop-shadow-sm">{confirmModal.rank}</span><span className="text-2xl font-black mt-6 ml-1">位</span></div>
-                <h3 className="text-4xl font-black text-black mb-4 tracking-tighter relative z-10">完了しました！</h3>
-                <p className="text-lg font-bold text-gray-600 mb-10 relative z-10">このタスクを全社で <span className="text-black font-black text-2xl mx-1">{confirmModal.rank}番目</span> にクリアしました！</p>
-                <div className="w-full bg-gray-100 border-2 border-slate-300 h-6 rounded-full overflow-hidden shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.1)]"><div className="bg-emerald-400 border-r-2 border-emerald-500 h-full w-full animate-[progress_3.5s_ease-in-out]"></div></div>
+              <div className="text-center py-6 px-2 animate-fade-in max-w-md mx-auto">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200/90 text-emerald-600 mb-5 mx-auto shadow-sm">
+                  <Icon name="check" />
+                </div>
+                <p className="text-[10px] font-bold tracking-[0.32em] text-slate-400 uppercase mb-5">Completed</p>
+                <div className="flex items-baseline justify-center gap-1.5 mb-4">
+                  <span className="text-6xl sm:text-7xl font-black tabular-nums text-slate-900 tracking-tight leading-none font-mono">
+                    {confirmModal.rank}
+                  </span>
+                  <span className="text-2xl font-black text-slate-500 pb-1">位</span>
+                </div>
+                <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-2 px-1">
+                  <span className="tabular-nums">{confirmModal.rank}</span>
+                  番目にタスクを実行しました。
+                </p>
               </div>
             )}
           </div>
@@ -1104,43 +1134,40 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6 w-full">
-                    {/* 新規投稿：レッド系（新規・発信） */}
+                    {/* 新規投稿：アクセントテーマ統一（配信系3つ） */}
                     <button
                       type="button"
                       onClick={() => setActiveTab('request')}
-                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-rose-600 hover:border-t-rose-700"
+                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-600)] hover:border-t-[var(--acc-700)]"
                     >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-rose-200/90 bg-gradient-to-br from-white via-rose-50 to-rose-100/90 text-rose-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(225,29,72,0.15)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_5px_14px_rgba(225,29,72,0.22)] [&>svg]:scale-[0.85]">
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
                         <Icon name="plus" />
                       </div>
-                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">新規投稿</h4>
-                      <p className="text-slate-600 text-sm font-bold leading-relaxed">一斉配信とメール通知を実行します。</p>
+                      <h4 className="text-lg font-black text-slate-900 tracking-tight">新規投稿</h4>
                     </button>
-                    {/* 再投稿：ブルー系 */}
+                    {/* 再投稿：同アクセント（トップ帯だけ一段明るく） */}
                     <button
                       type="button"
                       onClick={() => setActiveTab('repost')}
-                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-blue-600 hover:border-t-blue-700"
+                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-500)] hover:border-t-[var(--acc-600)]"
                     >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-blue-200/80 bg-gradient-to-br from-white via-blue-50/95 to-blue-100/85 text-blue-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(37,99,235,0.14)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_5px_14px_rgba(37,99,235,0.2)] [&>svg]:scale-[0.85]">
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
                         <Icon name="history" />
                       </div>
-                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">再投稿</h4>
-                      <p className="text-slate-600 text-sm font-bold leading-relaxed">過去に配信したタスクを複製して再利用します。</p>
+                      <h4 className="text-lg font-black text-slate-900 tracking-tight">再投稿</h4>
                     </button>
-                    {/* 定期配信：アンバー／イエロー系 */}
+                    {/* 定期配信：同アクセント（トップ帯をやや濃く） */}
                     <button
                       type="button"
                       onClick={() => setActiveTab('scheduled')}
-                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-amber-500 hover:border-t-amber-600"
+                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-700)] hover:border-t-[var(--acc-900)]"
                     >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-amber-200/90 bg-gradient-to-br from-white via-amber-50 to-amber-100/85 text-amber-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_10px_rgba(245,158,11,0.18)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_5px_14px_rgba(245,158,11,0.25)] [&>svg]:scale-[0.85]">
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
                         <Icon name="repeat" />
                       </div>
-                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">定期配信</h4>
-                      <p className="text-slate-600 text-sm font-bold leading-relaxed">毎月・毎週のルーチンタスクを自動化します。</p>
+                      <h4 className="text-lg font-black text-slate-900 tracking-tight">定期配信</h4>
                     </button>
-                    {/* リストチェック：ブラック系（閲覧・確認） */}
+                    {/* リストチェック：ブラック固定（操作・確認の軸） */}
                     <button
                       type="button"
                       onClick={() => setActiveTab('checklist')}
@@ -1149,10 +1176,9 @@ export default function App() {
                       <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-slate-600 bg-gradient-to-br from-slate-700 via-slate-900 to-slate-950 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_16px_rgba(0,0,0,0.35)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_22px_rgba(0,0,0,0.4)] [&>svg]:scale-[0.85]">
                         <Icon name="list" />
                       </div>
-                      <h4 className="text-lg font-black text-slate-900 mb-2 tracking-tight">リストチェック</h4>
-                      <p className="text-slate-600 text-sm font-bold leading-relaxed">自分宛のタスクを確認し、完了報告を行います。</p>
+                      <h4 className="text-lg font-black text-slate-900 tracking-tight">リストチェック</h4>
                       {activeTasksCount > 0 && (
-                        <div className="absolute top-3 right-3 bg-rose-500 border-2 border-rose-400 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm tracking-widest">
+                        <div className="absolute top-3 right-3 bg-[var(--acc-600)] border-2 border-[var(--acc-500)] text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm tracking-widest">
                           未完了 {activeTasksCount}
                         </div>
                       )}
@@ -1548,8 +1574,17 @@ export default function App() {
                               <span className="group-hover:scale-110 transition-transform inline-flex"><Icon name="check" /></span>
                             </button>
                           ) : (
-                            <div className="w-14 h-14 rounded-xl border-2 border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center">
-                              <span className="inline-flex"><Icon name="check" /></span>
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-14 h-14 rounded-xl border-2 border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center">
+                                <span className="inline-flex"><Icon name="check" /></span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleUncompleteTask(task)}
+                                className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline underline-offset-2 whitespace-nowrap"
+                              >
+                                完了を取り消す
+                              </button>
                             </div>
                           )}
                         </div>

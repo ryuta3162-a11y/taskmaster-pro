@@ -115,6 +115,25 @@ function registerEmployee(empData) {
 // ==============================================================
 // 3. タスク取得と完了処理
 // ==============================================================
+
+/** メール比較用（大小文字・前後空白を統一） */
+function normalizeTaskEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+/** N列「ターゲット一覧」の文字列をメール配列に（カンマ・読点対応） */
+function parseTargetEmails(targetsStr) {
+  return String(targetsStr || '')
+    .split(/[,，]/)
+    .map(function (e) { return normalizeTaskEmail(e); })
+    .filter(Boolean);
+}
+
+/**
+ * 完了順位（rank）は「同一タスク行（同じID・同じ行）」の O列 JSON 配列の並び。
+ * 店舗ごとに別の申請行になっている場合、各行でそれぞれ 1 番目から数える（＝両方 1 になり得る）。
+ * 全社で 1→2 と出したい場合は、同一行の N列に複数メールをカンマ区切りで載せる。
+ */
 function getTasksForUser(userEmail) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -125,15 +144,23 @@ function getTasksForUser(userEmail) {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const userNorm = normalizeTaskEmail(userEmail);
 
     const tasks = [];
     values.forEach(row => {
       const targetsStr = String(row[13] || "");
-      if (targetsStr.includes(userEmail)) {
+      const targetList = parseTargetEmails(targetsStr);
+      var isTarget = targetList.indexOf(userNorm) >= 0;
+      if (!isTarget && targetsStr) {
+        isTarget = targetsStr.indexOf(String(userEmail || '').trim()) >= 0;
+      }
+      if (isTarget) {
         const completedDataStr = String(row[14] || "[]");
         let completedData = [];
         try { completedData = JSON.parse(completedDataStr); } catch(e) {}
-        const isCompleted = completedData.some(d => d.email === userEmail);
+        const isCompleted = completedData.some(function (d) {
+          return normalizeTaskEmail(d.email) === userNorm;
+        });
         
         let daysRemaining = null;
         let sortValue = 9999999999999;
@@ -169,22 +196,73 @@ function getTasksForUser(userEmail) {
 }
 
 function completeTask(taskId, userEmail) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('申請データ');
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === taskId) {
-      const rowNum = i + 1;
-      let completedData = [];
-      try { completedData = JSON.parse(values[i][14] || "[]"); } catch(e) {}
-      const existingIndex = completedData.findIndex(d => d.email === userEmail);
-      if (existingIndex >= 0) return { success: true, rank: existingIndex + 1 };
-      completedData.push({ email: userEmail, time: Utilities.formatDate(new Date(), "JST", "MM/dd HH:mm") });
-      sheet.getRange(rowNum, 15).setValue(JSON.stringify(completedData));
-      return { success: true, rank: completedData.length };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const userNorm = normalizeTaskEmail(userEmail);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('申請データ');
+    if (!sheet) return { success: false };
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(taskId)) {
+        const rowNum = i + 1;
+        let completedData = [];
+        try { completedData = JSON.parse(values[i][14] || "[]"); } catch(e) {}
+        if (!Array.isArray(completedData)) completedData = [];
+        const existingIndex = completedData.findIndex(function (d) {
+          return normalizeTaskEmail(d.email) === userNorm;
+        });
+        if (existingIndex >= 0) {
+          return { success: true, rank: existingIndex + 1 };
+        }
+        completedData.push({
+          email: userNorm,
+          time: Utilities.formatDate(new Date(), "JST", "MM/dd HH:mm")
+        });
+        sheet.getRange(rowNum, 15).setValue(JSON.stringify(completedData));
+        return { success: true, rank: completedData.length };
+      }
     }
+    return { success: false };
+  } finally {
+    lock.releaseLock();
   }
-  return { success: false };
+}
+
+/**
+ * 自分の完了記録だけを O列から削除（未実施に戻す）。他の人の記録はそのまま。
+ */
+function uncompleteTask(taskId, userEmail) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const userNorm = normalizeTaskEmail(userEmail);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('申請データ');
+    if (!sheet) return { success: false, message: 'シートが見つかりません' };
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(taskId)) {
+        const rowNum = i + 1;
+        let completedData = [];
+        try { completedData = JSON.parse(values[i][14] || '[]'); } catch (e) {}
+        if (!Array.isArray(completedData)) completedData = [];
+        const idx = completedData.findIndex(function (d) {
+          return normalizeTaskEmail(d.email) === userNorm;
+        });
+        if (idx < 0) {
+          return { success: false, message: '完了記録が見つかりません' };
+        }
+        completedData.splice(idx, 1);
+        sheet.getRange(rowNum, 15).setValue(JSON.stringify(completedData));
+        return { success: true };
+      }
+    }
+    return { success: false, message: 'タスクが見つかりません' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ==============================================================
@@ -277,22 +355,22 @@ function registerScheduledTask(taskData) {
         taskData.targetTags || '', targetsArr.join(','), '[]'
       ]);
 
-      const appUrl = ScriptApp.getService().getUrl() + "?tab=checklist";
-      const emailBody = `[ ToDo List ] 定期タスク（初回・今月分）\n` +
-                        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `■ 依頼者　　: ${taskData.sender}\n` +
-                        `■ 対象エリア: ${taskData.targetTags || "指定なし"}\n` +
-                        `■ 期限 (DL) : ${deadlineFormatted}\n` +
-                        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `[ 依頼内容 ]\n${taskData.content}\n\n` +
-                        `▼ 以下のリンクから確認・完了報告をしてください。\n${appUrl}`;
+      const appUrl = getTaskEmailLink_();
+      const emailBody = buildTaskEmailBody_(
+        taskData.sender,
+        taskData.targetTags,
+        deadlineFormatted,
+        taskData.content,
+        appUrl,
+        '定期（初回）'
+      );
 
       targetsArr.forEach(function (email) {
         if (!email) return;
         try {
           MailApp.sendEmail({
             to: String(email).trim(),
-            subject: "【TODOリスト】定期タスク（初回・今月分）が届きました",
+            subject: 'To-Do List',
             body: emailBody
           });
         } catch (e) {}
@@ -390,19 +468,52 @@ function deleteScheduledTask(id) {
 // ==============================================================
 // 5. タスク配信と通知処理
 // ==============================================================
+
+/** デプロイした Web アプリの URL（実行中のスクリプトに紐づく。Workspace では /a/macros/ドメイン/s/... の形式になる） */
+function getTaskWebAppUrl_() {
+  return ScriptApp.getService().getUrl();
+}
+
+/** メール・Chat 用：デプロイ URL（Workspace では /a/macros/ドメイン/s/... が返る）に tab=checklist を付与 */
+function getTaskEmailLink_() {
+  var u = getTaskWebAppUrl_();
+  if (!u) return u;
+  return u.indexOf('?') >= 0 ? u + '&tab=checklist' : u + '?tab=checklist';
+}
+
+/**
+ * メール本文（プレーン）— 日々見る前提で短く
+ * @param {string} senderLine 依頼者（定期の自動配信は末尾に「（自動配信）」など付与済み可）
+ * @param {string} subtitle 見出し末尾（例: 新規依頼 / 定期（初回） / 定期タスク）
+ */
+function buildTaskEmailBody_(senderLine, targetTags, deadline, content, appUrl, subtitle) {
+  var sub = subtitle || '新規依頼';
+  return (
+    'Task Force Team　To-Do List　' + sub + '\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '◇名前: ' + senderLine + '\n' +
+    '◇エリア: ' + (targetTags || '指定なし') + '\n' +
+    '◇DL : ' + deadline + '\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '[ 依頼内容 ]\n' +
+    content +
+    '\n\n' +
+    appUrl
+  );
+}
+
 function sendChatNotification(taskData, appUrl, isScheduled = false) {
   if (!CHAT_WEBHOOK_URL) return;
-  const title = isScheduled ? "定期タスクが自動配信されました" : "新しいタスクが届きました";
-  
-  const messageText = 
-    "*[ ToDo List ] " + title + "*\n" +
-    "━━━━━━━━━━━━━━━━━━━━━━\n" +
-    "■ 依頼者　　: " + taskData.sender + "\n" +
-    "■ 対象エリア: " + (taskData.targetTags || "指定なし") + "\n" +
-    "■ 期限 (DL) : " + taskData.deadline + "\n" +
-    "━━━━━━━━━━━━━━━━━━━━━━\n" +
-    "[ 依頼内容 ]\n" + taskData.content + "\n\n" +
-    "▼ 詳細の確認・完了報告はこちら\n" + appUrl;
+  const title = isScheduled ? '定期タスク' : '新規依頼';
+
+  const messageText =
+    '*Task Force Team　To-Do List　' + title + '*\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '◇名前: ' + taskData.sender + '\n' +
+    '◇エリア: ' + (taskData.targetTags || '指定なし') + '\n' +
+    '◇DL : ' + taskData.deadline + '\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '[ 依頼内容 ]\n' + taskData.content + '\n\n' + appUrl;
 
   const options = {
     "method": "post",
@@ -438,21 +549,21 @@ function createNewTask(taskData) {
   ];
   sheet.appendRow(row);
 
-  const appUrl = ScriptApp.getService().getUrl() + "?tab=checklist";
-  const emailBody = `[ ToDo List ] 新着タスク通知\n` +
-                    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `■ 依頼者　　: ${taskData.sender}\n` +
-                    `■ 対象エリア: ${taskData.targetTags || "指定なし"}\n` +
-                    `■ 期限 (DL) : ${taskData.deadline}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `[ 依頼内容 ]\n${taskData.content}\n\n` +
-                    `▼ 以下のリンクから確認・完了報告をしてください。\n${appUrl}`;
+  const appUrl = getTaskEmailLink_();
+  const emailBody = buildTaskEmailBody_(
+    taskData.sender,
+    taskData.targetTags,
+    taskData.deadline,
+    taskData.content,
+    appUrl,
+    '新規依頼'
+  );
 
   taskData.targets.forEach(email => {
     try {
       MailApp.sendEmail({
         to: email,
-        subject: "【TODOリスト】新しいタスクが届きました",
+        subject: 'To-Do List',
         body: emailBody
       });
     } catch(e) {}
@@ -477,8 +588,8 @@ function processScheduledTasksBatch() {
   const today = new Date();
   const currentDate = today.getDate(); 
   const currentHour = today.getHours(); 
-  const appUrl = ScriptApp.getService().getUrl() + "?tab=checklist";
-  
+  const appUrl = getTaskEmailLink_();
+
   values.forEach(row => {
     const cycle = String(row[3]); 
     let shouldRun = false;
@@ -515,21 +626,21 @@ function processScheduledTasksBatch() {
       ]);
       
       const taskData = { sender, targetTags, deadline: deadlineFormatted, content, targets };
-      const emailBody = `[ ToDo List ] 定期タスク自動配信\n` +
-                        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `■ 依頼者　　: ${sender} (自動配信)\n` +
-                        `■ 対象エリア: ${targetTags}\n` +
-                        `■ 期限 (DL) : ${deadlineFormatted}\n` +
-                        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `[ 依頼内容 ]\n${content}\n\n` +
-                        `▼ 以下のリンクから確認・完了報告をしてください。\n${appUrl}`;
+      const emailBody = buildTaskEmailBody_(
+        sender + '（自動配信）',
+        targetTags,
+        deadlineFormatted,
+        content,
+        appUrl,
+        '定期タスク'
+      );
 
       targets.forEach(email => {
         if(!email) return;
         try {
           MailApp.sendEmail({
             to: email.trim(),
-            subject: "【TODOリスト】定期タスクが届きました",
+            subject: 'To-Do List',
             body: emailBody
           });
         } catch(e) {}
