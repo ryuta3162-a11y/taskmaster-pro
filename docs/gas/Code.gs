@@ -10,6 +10,13 @@ const CHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAuU_-lwY/mess
 const UPLOAD_FOLDER_NAME = 'TaskMaster_アップロード画像';
 
 function doGet(e) {
+  var page = e && e.parameter && e.parameter.page;
+  if (page === 'admin') {
+    return HtmlService.createHtmlOutputFromFile('admin')
+      .setTitle('ToDo 管理ダッシュボード')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('ToDo List')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
@@ -179,6 +186,87 @@ function parseTargetEmails(targetsStr) {
     .filter(Boolean);
 }
 
+/** 店舗データからエリア名一覧（ターゲットタグ解析用） */
+function getAreasListFromStores_(allStores) {
+  var seen = {};
+  var out = [];
+  (allStores || []).forEach(function (s) {
+    var a = String(s.area || '').trim();
+    if (a && !seen[a]) {
+      seen[a] = true;
+      out.push(a);
+    }
+  });
+  return out;
+}
+
+/**
+ * targetTags 文字列から「対象店舗名」の配列を復元（フロントの parseTargetTagsToSelection と同趣旨）
+ */
+function parseTargetStoresFromTags_(tagStr, allStores, areasList) {
+  var allStoreNames = (allStores || []).map(function (s) {
+    return s.storeName;
+  });
+  if (!tagStr || String(tagStr).trim() === '' || tagStr === '指定なし') {
+    return allStoreNames.slice();
+  }
+  var s = String(tagStr).trim();
+  var storePart = s;
+  var roleBracket = s.match(/\s*\[([^\]]+)\]\s*$/);
+  if (roleBracket) {
+    storePart = s.slice(0, s.lastIndexOf('[')).trim();
+  }
+  if (!storePart || storePart === '全店') {
+    return allStoreNames.slice();
+  }
+  var parts = storePart.split(/,\s*/).map(function (x) {
+    return x.trim();
+  }).filter(Boolean);
+  var selected = [];
+  parts.forEach(function (p) {
+    if (areasList.indexOf(p) >= 0) {
+      allStores.filter(function (st) {
+        return st.area === p;
+      }).forEach(function (st) {
+        if (selected.indexOf(st.storeName) < 0) selected.push(st.storeName);
+      });
+    } else if (allStoreNames.indexOf(p) >= 0) {
+      selected.push(p);
+    }
+  });
+  return selected.length ? selected : allStoreNames.slice();
+}
+
+/** O列: 旧形式は配列。店舗依頼は {"v":2,"mode":"store","stores":{...}} */
+function parseCompletionPayload_(str) {
+  var s = String(str || '').trim();
+  if (!s) return { people: [], stores: {} };
+  try {
+    var j = JSON.parse(s);
+    if (Array.isArray(j)) {
+      return { people: j, stores: {} };
+    }
+    if (j && j.v === 2 && j.mode === 'store' && j.stores) {
+      return { people: [], stores: j.stores };
+    }
+  } catch (e) {}
+  return { people: [], stores: {} };
+}
+
+function getRequestKindFromRow_(row) {
+  var k = String(row[15] || '').trim().toLowerCase();
+  if (k === 'store') return 'store';
+  return 'employee';
+}
+
+function serializeEmployeeCompletion_(peopleArr) {
+  return JSON.stringify(peopleArr || []);
+}
+
+function serializeStoreCompletion_(storesObj) {
+  return JSON.stringify({ v: 2, mode: 'store', stores: storesObj || {} });
+}
+
 /**
  * 完了順位（rank）は「同一タスク行（同じID・同じ行）」の O列 JSON 配列の並び。
  * 店舗ごとに別の申請行になっている場合、各行でそれぞれ 1 番目から数える（＝両方 1 になり得る）。
@@ -190,28 +278,54 @@ function getTasksForUser(userEmail) {
     const sheet = ss.getSheetByName('申請データ') || ss.insertSheet('申請データ');
     const values = sheet.getDataRange().getValues();
     if (values.length <= 1) return [];
-    values.shift(); 
-    
+    values.shift();
+
+    const allStores = getStoreData();
+    const areasList = getAreasListFromStores_(allStores);
+    const employees = getEmployees();
+    var empByNorm = {};
+    employees.forEach(function (e) {
+      empByNorm[normalizeTaskEmail(e.email)] = e;
+    });
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const userNorm = normalizeTaskEmail(userEmail);
+    const myEmp = empByNorm[userNorm];
+    const myStores = myEmp && myEmp.stores ? myEmp.stores : [];
 
     const tasks = [];
-    values.forEach(row => {
-      const targetsStr = String(row[13] || "");
+    values.forEach(function (row) {
+      const targetsStr = String(row[13] || '');
       const targetList = parseTargetEmails(targetsStr);
       var isTarget = targetList.indexOf(userNorm) >= 0;
       if (!isTarget && targetsStr) {
         isTarget = targetsStr.indexOf(String(userEmail || '').trim()) >= 0;
       }
       if (isTarget) {
-        const completedDataStr = String(row[14] || "[]");
-        let completedData = [];
-        try { completedData = JSON.parse(completedDataStr); } catch(e) {}
-        const isCompleted = completedData.some(function (d) {
-          return normalizeTaskEmail(d.email) === userNorm;
-        });
-        
+        const completedDataStr = String(row[14] || '[]');
+        const payload = parseCompletionPayload_(completedDataStr);
+        const requestKind = getRequestKindFromRow_(row);
+
+        var isCompleted = false;
+        var taskStores = parseTargetStoresFromTags_(String(row[12] || ''), allStores, areasList);
+        if (requestKind === 'store') {
+          var relevant = myStores.filter(function (s) {
+            return taskStores.indexOf(s) >= 0;
+          });
+          if (relevant.length === 0) {
+            isCompleted = false;
+          } else {
+            isCompleted = relevant.every(function (s) {
+              return payload.stores && payload.stores[s];
+            });
+          }
+        } else {
+          isCompleted = (payload.people || []).some(function (d) {
+            return normalizeTaskEmail(d.email) === userNorm;
+          });
+        }
+
         let daysRemaining = null;
         let sortValue = 9999999999999;
         const deadlineVal = row[3];
@@ -220,32 +334,50 @@ function getTasksForUser(userEmail) {
           const deadlineDate = new Date(deadlineVal);
           deadlineDate.setHours(0, 0, 0, 0);
           const diffTime = deadlineDate.getTime() - today.getTime();
-          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           sortValue = deadlineDate.getTime();
         }
 
-        tasks.push({
-          id: String(row[0] || ""),
-          type: String(row[2] || "タスク"),
-          deadline: deadlineVal ? Utilities.formatDate(new Date(deadlineVal), "JST", "yyyy-MM-dd") : "",
+        var taskRow = {
+          id: String(row[0] || ''),
+          type: String(row[2] || 'タスク'),
+          deadline: deadlineVal ? Utilities.formatDate(new Date(deadlineVal), 'JST', 'yyyy-MM-dd') : '',
           daysRemaining: daysRemaining,
           sortValue: sortValue,
-          sender: String(row[4] || "不明"),
-          content: String(row[5] || ""),
-          urls: [String(row[6]||""), String(row[7]||""), String(row[8]||"")].filter(Boolean),
-          images: [String(row[9]||""), String(row[10]||""), String(row[11]||"")].filter(Boolean),
-          targetTags: String(row[12] || ""),
+          sender: String(row[4] || '不明'),
+          content: String(row[5] || ''),
+          urls: [String(row[6] || ''), String(row[7] || ''), String(row[8] || '')].filter(Boolean),
+          images: [String(row[9] || ''), String(row[10] || ''), String(row[11] || '')].filter(Boolean),
+          targetTags: String(row[12] || ''),
+          requestKind: requestKind,
           completed: isCompleted
-        });
+        };
+        if (requestKind === 'store') {
+          taskRow.targetStoreNames = taskStores;
+          taskRow.storeCompletions = payload.stores || {};
+        } else {
+          taskRow.employeeCompletions = (payload.people || []).map(function (p) {
+            return { email: String(p.email || ''), time: String(p.time || '') };
+          });
+        }
+        tasks.push(taskRow);
       }
     });
 
-    tasks.sort((a, b) => a.sortValue - b.sortValue);
+    tasks.sort(function (a, b) {
+      return a.sortValue - b.sortValue;
+    });
     return tasks;
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
-function completeTask(taskId, userEmail) {
+/**
+ * 店舗依頼: 1 回の呼び出しで完了するのは 1 店舗のみ（テンポ内の進捗を店舗単位で分ける）。
+ * optStoreName: 管轄が複数店舗あるときは必須。1 店舗のみのときは省略可。
+ */
+function completeTask(taskId, userEmail, optStoreName) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -253,12 +385,60 @@ function completeTask(taskId, userEmail) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('申請データ');
     if (!sheet) return { success: false };
+    const allStores = getStoreData();
+    const areasList = getAreasListFromStores_(allStores);
+    const employees = getEmployees();
+    var myEmp = null;
+    for (var ei = 0; ei < employees.length; ei++) {
+      if (normalizeTaskEmail(employees[ei].email) === userNorm) {
+        myEmp = employees[ei];
+        break;
+      }
+    }
+    const userStores = myEmp && myEmp.stores ? myEmp.stores : [];
+
     const values = sheet.getDataRange().getValues();
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][0]) === String(taskId)) {
         const rowNum = i + 1;
-        let completedData = [];
-        try { completedData = JSON.parse(values[i][14] || "[]"); } catch(e) {}
+        const requestKind = getRequestKindFromRow_(values[i]);
+        const completedDataStr = String(values[i][14] || '[]');
+        const payload = parseCompletionPayload_(completedDataStr);
+
+        if (requestKind === 'store') {
+          var taskStores = parseTargetStoresFromTags_(String(values[i][12] || ''), allStores, areasList);
+          var toMark = userStores.filter(function (s) {
+            return taskStores.indexOf(s) >= 0;
+          });
+          if (toMark.length === 0) {
+            return { success: false, message: '管轄店舗がこの依頼の対象外です' };
+          }
+          var stores = payload.stores || {};
+          var timeStr = Utilities.formatDate(new Date(), 'JST', 'MM/dd HH:mm');
+          var pick = null;
+          if (toMark.length === 1) {
+            pick = toMark[0];
+          } else {
+            var req = String(optStoreName || '').trim();
+            if (!req || toMark.indexOf(req) < 0) {
+              return {
+                success: false,
+                needStore: true,
+                message: '完了する店舗を指定してください',
+                stores: toMark
+              };
+            }
+            pick = req;
+          }
+          if (stores[pick]) {
+            return { success: true, rank: 1 };
+          }
+          stores[pick] = { at: timeStr, by: userNorm };
+          sheet.getRange(rowNum, 15).setValue(serializeStoreCompletion_(stores));
+          return { success: true, rank: 1 };
+        }
+
+        var completedData = payload.people || [];
         if (!Array.isArray(completedData)) completedData = [];
         const existingIndex = completedData.findIndex(function (d) {
           return normalizeTaskEmail(d.email) === userNorm;
@@ -268,9 +448,9 @@ function completeTask(taskId, userEmail) {
         }
         completedData.push({
           email: userNorm,
-          time: Utilities.formatDate(new Date(), "JST", "MM/dd HH:mm")
+          time: Utilities.formatDate(new Date(), 'JST', 'MM/dd HH:mm')
         });
-        sheet.getRange(rowNum, 15).setValue(JSON.stringify(completedData));
+        sheet.getRange(rowNum, 15).setValue(serializeEmployeeCompletion_(completedData));
         return { success: true, rank: completedData.length };
       }
     }
@@ -282,8 +462,9 @@ function completeTask(taskId, userEmail) {
 
 /**
  * 自分の完了記録だけを O列から削除（未実施に戻す）。他の人の記録はそのまま。
+ * 店舗依頼: optStoreName でその店舗 1 件だけ取り消す（複数店舗を一括削除しない）。
  */
-function uncompleteTask(taskId, userEmail) {
+function uncompleteTask(taskId, userEmail, optStoreName) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -291,12 +472,44 @@ function uncompleteTask(taskId, userEmail) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('申請データ');
     if (!sheet) return { success: false, message: 'シートが見つかりません' };
+    const allStores = getStoreData();
+    const areasList = getAreasListFromStores_(allStores);
+    const employees = getEmployees();
+    var myEmp = null;
+    for (var ei = 0; ei < employees.length; ei++) {
+      if (normalizeTaskEmail(employees[ei].email) === userNorm) {
+        myEmp = employees[ei];
+        break;
+      }
+    }
+    const userStores = myEmp && myEmp.stores ? myEmp.stores : [];
+
     const values = sheet.getDataRange().getValues();
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][0]) === String(taskId)) {
         const rowNum = i + 1;
-        let completedData = [];
-        try { completedData = JSON.parse(values[i][14] || '[]'); } catch (e) {}
+        const requestKind = getRequestKindFromRow_(values[i]);
+        const payload = parseCompletionPayload_(String(values[i][14] || '[]'));
+
+        if (requestKind === 'store') {
+          var taskStores = parseTargetStoresFromTags_(String(values[i][12] || ''), allStores, areasList);
+          var stores = payload.stores || {};
+          var pick = String(optStoreName || '').trim();
+          if (!pick) {
+            return { success: false, message: '取り消す店舗を指定してください' };
+          }
+          if (taskStores.indexOf(pick) < 0 || userStores.indexOf(pick) < 0) {
+            return { success: false, message: '対象店舗が無効です' };
+          }
+          if (!stores[pick] || normalizeTaskEmail(stores[pick].by) !== userNorm) {
+            return { success: false, message: 'この店舗のあなたの完了記録がありません' };
+          }
+          delete stores[pick];
+          sheet.getRange(rowNum, 15).setValue(serializeStoreCompletion_(stores));
+          return { success: true };
+        }
+
+        var completedData = payload.people || [];
         if (!Array.isArray(completedData)) completedData = [];
         const idx = completedData.findIndex(function (d) {
           return normalizeTaskEmail(d.email) === userNorm;
@@ -305,7 +518,7 @@ function uncompleteTask(taskId, userEmail) {
           return { success: false, message: '完了記録が見つかりません' };
         }
         completedData.splice(idx, 1);
-        sheet.getRange(rowNum, 15).setValue(JSON.stringify(completedData));
+        sheet.getRange(rowNum, 15).setValue(serializeEmployeeCompletion_(completedData));
         return { success: true };
       }
     }
@@ -336,7 +549,8 @@ function getSentTasks(userName) {
       images: [String(row[9]||""), String(row[10]||""), String(row[11]||"")].filter(Boolean),
       targetTags: String(row[12] || ""),
       /** 配信先メール（再投稿で役職・店舗を正確に復元するため） */
-      targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean)
+      targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
+      requestKind: String(row[15] || '').toLowerCase() === 'store' ? 'store' : 'employee'
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }
@@ -380,13 +594,14 @@ function registerScheduledTask(taskData) {
     let sheet = ss.getSheetByName('定期配信データ');
     if (!sheet) {
       sheet = ss.insertSheet('定期配信データ');
-      sheet.appendRow(['ID', '作成日', '作成者', 'サイクル', '期限設定', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '配信先タグ', '配信先アドレス']);
+      sheet.appendRow(['ID', '作成日', '作成者', 'サイクル', '期限設定', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '配信先タグ', '配信先アドレス', '依頼単位']);
     }
     const newId = 's_' + new Date().getTime();
-    
+    var reqKind = taskData.requestKind === 'store' ? 'store' : 'employee';
+
     const row = [
-      newId, new Date(), taskData.sender, taskData.cycle, taskData.deadlineOffset, 
-      taskData.content, u1, u2, u3, i1, i2, i3, taskData.targetTags || '', taskData.targets.join(',')
+      newId, new Date(), taskData.sender, taskData.cycle, taskData.deadlineOffset,
+      taskData.content, u1, u2, u3, i1, i2, i3, taskData.targetTags || '', taskData.targets.join(','), reqKind
     ];
     sheet.appendRow(row);
 
@@ -396,14 +611,15 @@ function registerScheduledTask(taskData) {
       let reqSheet = ss.getSheetByName('申請データ');
       if (!reqSheet) {
         reqSheet = ss.insertSheet('申請データ');
-        reqSheet.appendRow(['ID', '日時', 'タスク種別', '期限', '申請者', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '対象エリア', 'ターゲット一覧', '完了データ']);
+        reqSheet.appendRow(['ID', '日時', 'タスク種別', '期限', '申請者', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '対象エリア', 'ターゲット一覧', '完了データ', '依頼単位']);
       }
       const newTaskId = 't_' + new Date().getTime();
       const targetsArr = taskData.targets || [];
+      var initialO = reqKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
       reqSheet.appendRow([
         newTaskId, new Date(), '定期タスク（初回）', deadlineFormatted, taskData.sender, taskData.content,
         u1, u2, u3, i1, i2, i3,
-        taskData.targetTags || '', targetsArr.join(','), '[]'
+        taskData.targetTags || '', targetsArr.join(','), initialO, reqKind
       ]);
 
       const appUrl = getTaskEmailLink_();
@@ -456,7 +672,8 @@ function getScheduledTasks(userName) {
       urls: [String(row[6]||""), String(row[7]||""), String(row[8]||"")].filter(Boolean),
       images: [String(row[9]||""), String(row[10]||""), String(row[11]||"")].filter(Boolean),
       targetTags: String(row[12]),
-      targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean)
+      targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
+      requestKind: String(row[14] || '').toLowerCase() === 'store' ? 'store' : 'employee'
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }
@@ -483,14 +700,16 @@ function updateScheduledTask(id, taskData) {
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][0]) === id) {
         const rowNum = i + 1;
-        sheet.getRange(rowNum, 4, rowNum, 14).setValues([[
+        var rk = taskData.requestKind === 'store' ? 'store' : 'employee';
+        sheet.getRange(rowNum, 4, rowNum, 15).setValues([[
           taskData.cycle,
           taskData.deadlineOffset,
           taskData.content,
           u1, u2, u3,
           i1, i2, i3,
           taskData.targetTags || '',
-          taskData.targets.join(',')
+          taskData.targets.join(','),
+          rk
         ]]);
         return { status: 'success', driveErrors: driveResult.errors };
       }
@@ -591,14 +810,17 @@ function createNewTask(taskData) {
   let sheet = ss.getSheetByName('申請データ');
   if (!sheet) {
     sheet = ss.insertSheet('申請データ');
-    sheet.appendRow(['ID', '日時', 'タスク種別', '期限', '申請者', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '対象エリア', 'ターゲット一覧', '完了データ']);
+    sheet.appendRow(['ID', '日時', 'タスク種別', '期限', '申請者', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '対象エリア', 'ターゲット一覧', '完了データ', '依頼単位']);
   }
+
+  var reqKind = taskData.requestKind === 'store' ? 'store' : 'employee';
+  var initialO = reqKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
 
   const newId = 't_' + new Date().getTime();
   const row = [
-    newId, new Date(), taskData.type, taskData.deadline, taskData.sender, taskData.content, 
-    u1, u2, u3, i1, i2, i3, 
-    taskData.targetTags || '', taskData.targets.join(','), '[]'
+    newId, new Date(), taskData.type, taskData.deadline, taskData.sender, taskData.content,
+    u1, u2, u3, i1, i2, i3,
+    taskData.targetTags || '', taskData.targets.join(','), initialO, reqKind
   ];
   sheet.appendRow(row);
 
@@ -668,14 +890,16 @@ function processScheduledTasksBatch() {
       const i1 = String(row[9]); const i2 = String(row[10]); const i3 = String(row[11]);
       const targetTags = String(row[12]);
       const targets = String(row[13]).split(',');
-      
+      var requestKind = String(row[14] || 'employee').toLowerCase() === 'store' ? 'store' : 'employee';
+      var initialO = requestKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
+
       const reqSheet = ss.getSheetByName('申請データ') || ss.insertSheet('申請データ');
       const newId = 't_' + new Date().getTime() + Math.floor(Math.random()*1000);
-      
+
       reqSheet.appendRow([
-        newId, new Date(), '定期タスク', deadlineFormatted, sender, content, 
-        u1, u2, u3, i1, i2, i3, 
-        targetTags, targets.join(','), '[]'
+        newId, new Date(), '定期タスク', deadlineFormatted, sender, content,
+        u1, u2, u3, i1, i2, i3,
+        targetTags, targets.join(','), initialO, requestKind
       ]);
       
       const taskData = { sender, targetTags, deadline: deadlineFormatted, content, targets };
@@ -701,4 +925,442 @@ function processScheduledTasksBatch() {
       sendChatNotification(taskData, appUrl, true);
     }
   });
+}
+
+// ==============================================================
+// 管理ダッシュボード（DX 等・スプレッドシート共有者向け）
+// スクリプトプロパティ ADMIN_DASHBOARD_EMAILS にカンマ区切りでメールを登録。
+// 未設定時はスプレッドシートの所有者のみ許可。
+// ==============================================================
+
+function getAdminEmailWhitelist_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('ADMIN_DASHBOARD_EMAILS');
+  if (!raw || !String(raw).trim()) {
+    return [];
+  }
+  return String(raw)
+    .split(/[,，]/)
+    .map(function (e) {
+      return normalizeTaskEmail(e);
+    })
+    .filter(Boolean);
+}
+
+function isAdminUser_(email) {
+  var norm = normalizeTaskEmail(email);
+  if (!norm) return false;
+  var list = getAdminEmailWhitelist_();
+  if (list.length === 0) {
+    try {
+      var owner = SpreadsheetApp.getActiveSpreadsheet().getOwner().getEmail();
+      return normalizeTaskEmail(owner) === norm;
+    } catch (err) {
+      return false;
+    }
+  }
+  return list.indexOf(norm) >= 0;
+}
+
+/**
+ * ユーザーがターゲットの行のうち、当該ユーザー視点で未完了のタスク一覧（管理者用）
+ */
+function getIncompleteTasksForUserRows_(values, userNorm, userEmailRaw, userStores, allStores, areasList) {
+  var out = [];
+  values.forEach(function (row) {
+    var id = String(row[0] || '').trim();
+    if (!id) return;
+    var targetsStr = String(row[13] || '');
+    var targetList = parseTargetEmails(targetsStr);
+    var isTarget =
+      targetList.indexOf(userNorm) >= 0 || targetsStr.indexOf(String(userEmailRaw || '').trim()) >= 0;
+    if (!isTarget) return;
+
+    var payload = parseCompletionPayload_(String(row[14] || '[]'));
+    var requestKind = getRequestKindFromRow_(row);
+    var taskStores = parseTargetStoresFromTags_(String(row[12] || ''), allStores, areasList);
+
+    var incomplete = false;
+    if (requestKind === 'store') {
+      var relevant = (userStores || []).filter(function (s) {
+        return taskStores.indexOf(s) >= 0;
+      });
+      if (relevant.length === 0) return;
+      incomplete = !relevant.every(function (s) {
+        return payload.stores && payload.stores[s];
+      });
+    } else {
+      var done = (payload.people || []).some(function (d) {
+        return normalizeTaskEmail(d.email) === userNorm;
+      });
+      incomplete = !done;
+    }
+    if (!incomplete) return;
+
+    var deadlineVal = row[3];
+    var deadlineStr = '';
+    if (deadlineVal) {
+      try {
+        deadlineStr = Utilities.formatDate(new Date(deadlineVal), 'JST', 'yyyy-MM-dd');
+      } catch (e1) {
+        deadlineStr = String(deadlineVal);
+      }
+    }
+    var overdue = false;
+    if (deadlineVal) {
+      var d = new Date(deadlineVal);
+      d.setHours(0, 0, 0, 0);
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (d.getTime() < today.getTime()) overdue = true;
+    }
+    out.push({
+      id: id,
+      sender: String(row[4] || ''),
+      contentPreview:
+        String(row[5] || '').length > 80 ? String(row[5]).substring(0, 80) + '…' : String(row[5] || ''),
+      deadline: deadlineStr,
+      requestKind: requestKind === 'store' ? 'store' : 'employee',
+      requestKindLabel: requestKind === 'store' ? '店舗依頼' : '社員依頼',
+      overdue: overdue
+    });
+  });
+  return out;
+}
+
+function countAssignedTasksForUser_(values, userNorm, userEmailRaw) {
+  var n = 0;
+  values.forEach(function (row) {
+    var targetsStr = String(row[13] || '');
+    var targetList = parseTargetEmails(targetsStr);
+    var isTarget =
+      targetList.indexOf(userNorm) >= 0 || targetsStr.indexOf(String(userEmailRaw || '').trim()) >= 0;
+    if (isTarget) n++;
+  });
+  return n;
+}
+
+function buildAdminReminderBody_(displayName, incompleteTasks, checklistUrl) {
+  var lines = [];
+  lines.push(displayName + ' 様');
+  lines.push('');
+  lines.push('未完了の To-Do が ' + incompleteTasks.length + ' 件あります。リストチェックからご対応をお願いします。');
+  lines.push('');
+  incompleteTasks.forEach(function (t, i) {
+    var mark = t.overdue ? '【期限超過】' : '';
+    lines.push(
+      i + 1 + '. ' + mark + '[' + t.requestKindLabel + '] 期限:' + (t.deadline || '—') + ' / ' + t.sender
+    );
+    lines.push('   ' + String(t.contentPreview || '').replace(/\n/g, ' '));
+    lines.push('');
+  });
+  lines.push('▼ リストチェックを開く');
+  lines.push(checklistUrl || '');
+  return lines.join('\n');
+}
+
+/**
+ * 依頼行ごとの進捗（管理者集計用）
+ */
+function computeTaskProgressAdmin_(row, allStores, areasList) {
+  var requestKind = getRequestKindFromRow_(row);
+  var payload = parseCompletionPayload_(String(row[14] || '[]'));
+  var targetEmails = parseTargetEmails(String(row[13] || ''));
+  var taskStores = parseTargetStoresFromTags_(String(row[12] || ''), allStores, areasList);
+
+  if (requestKind === 'store') {
+    var total = taskStores.length;
+    var done = 0;
+    for (var i = 0; i < taskStores.length; i++) {
+      var s = taskStores[i];
+      if (payload.stores && payload.stores[s]) done++;
+    }
+    var pct = total ? Math.round((done / total) * 100) : 0;
+    var complete = total > 0 && done === total;
+    return {
+      complete: complete,
+      progressPct: pct,
+      done: done,
+      total: total,
+      label: done + '/' + total + '店舗',
+      kind: 'store'
+    };
+  }
+  var totalP = targetEmails.length;
+  var doneP = (payload.people || []).length;
+  var pctP = totalP ? Math.round((doneP / totalP) * 100) : doneP > 0 ? 100 : 0;
+  var completeP = totalP ? doneP >= totalP : doneP > 0;
+  return {
+    complete: completeP,
+    progressPct: pctP,
+    done: doneP,
+    total: totalP,
+    label: totalP ? doneP + '/' + totalP + '名' : doneP + '名',
+    kind: 'employee'
+  };
+}
+
+/**
+ * 管理用ダッシュボードデータ（一覧・集計）
+ * @return {{ ok: boolean, message?: string, generatedAt?: string, spreadsheetUrl?: string, viewerEmail?: string, summary?: object, tasks?: object[] }}
+ */
+function getAdminDashboardData() {
+  try {
+    var email = Session.getActiveUser().getEmail();
+    if (!email) {
+      return {
+        ok: false,
+        message: 'Google アカウントでログインした状態で開いてください。'
+      };
+    }
+    if (!isAdminUser_(email)) {
+      return {
+        ok: false,
+        message: 'このダッシュボードを閲覧する権限がありません。管理者に依頼してください。'
+      };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('申請データ');
+    var appUrlBase = getTaskWebAppUrl_() || '';
+    var checklistUrlBase = getTaskEmailLink_() || appUrlBase;
+    var emptyUserProgress = {
+      userRows: [],
+      usersWithIncomplete: [],
+      usersAllClear: [],
+      usersNoAssignments: [],
+      stats: { totalRegistered: 0, withIncomplete: 0, allClearCount: 0, noAssignmentsCount: 0 }
+    };
+    if (!sheet) {
+      return {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        spreadsheetUrl: ss.getUrl(),
+        appUrl: appUrlBase,
+        checklistUrl: checklistUrlBase,
+        viewerEmail: email,
+        summary: {
+          totalTasks: 0,
+          completed: 0,
+          open: 0,
+          overdueOpen: 0,
+          employeeOpen: 0,
+          storeOpen: 0
+        },
+        tasks: [],
+        userProgress: emptyUserProgress
+      };
+    }
+
+    var allStores = getStoreData();
+    var areasList = getAreasListFromStores_(allStores);
+    var values = sheet.getDataRange().getValues();
+    if (values.length <= 1) {
+      return {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        spreadsheetUrl: ss.getUrl(),
+        appUrl: appUrlBase,
+        checklistUrl: checklistUrlBase,
+        viewerEmail: email,
+        summary: {
+          totalTasks: 0,
+          completed: 0,
+          open: 0,
+          overdueOpen: 0,
+          employeeOpen: 0,
+          storeOpen: 0
+        },
+        tasks: [],
+        userProgress: emptyUserProgress
+      };
+    }
+    values.shift();
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    var summary = {
+      totalTasks: 0,
+      completed: 0,
+      open: 0,
+      overdueOpen: 0,
+      employeeOpen: 0,
+      storeOpen: 0
+    };
+
+    var tasks = [];
+
+    values.forEach(function (row) {
+      var id = String(row[0] || '').trim();
+      if (!id) return;
+
+      var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+      var deadlineVal = row[3];
+      var overdue = false;
+      if (deadlineVal && !progress.complete) {
+        var d = new Date(deadlineVal);
+        d.setHours(0, 0, 0, 0);
+        if (d.getTime() < today.getTime()) overdue = true;
+      }
+
+      summary.totalTasks++;
+      if (progress.complete) {
+        summary.completed++;
+      } else {
+        summary.open++;
+        if (overdue) summary.overdueOpen++;
+        if (progress.kind === 'employee') summary.employeeOpen++;
+        else summary.storeOpen++;
+      }
+
+      var content = String(row[5] || '');
+      var preview = content.length > 100 ? content.substring(0, 100) + '…' : content;
+
+      var deadlineStr = '';
+      if (deadlineVal) {
+        try {
+          deadlineStr = Utilities.formatDate(new Date(deadlineVal), 'JST', 'yyyy-MM-dd');
+        } catch (e1) {
+          deadlineStr = String(deadlineVal);
+        }
+      }
+
+      var statusLabel = progress.complete ? '完了' : overdue ? '期限超過' : '進行中';
+
+      tasks.push({
+        id: id,
+        requestKind: progress.kind,
+        requestKindLabel: progress.kind === 'store' ? '店舗依頼' : '社員依頼',
+        type: String(row[2] || ''),
+        sender: String(row[4] || ''),
+        contentPreview: preview,
+        deadline: deadlineStr,
+        targetTags: String(row[12] || ''),
+        progressLabel: progress.label,
+        progressPct: progress.progressPct,
+        complete: progress.complete,
+        overdue: overdue,
+        statusLabel: statusLabel
+      });
+    });
+
+    tasks.sort(function (a, b) {
+      if (a.complete !== b.complete) return a.complete ? 1 : -1;
+      if (a.overdue !== b.overdue) return b.overdue ? 1 : -1;
+      return String(a.deadline).localeCompare(String(b.deadline));
+    });
+
+    var employees = getEmployees();
+    var userRows = [];
+    employees.forEach(function (emp) {
+      var userNorm = normalizeTaskEmail(emp.email);
+      if (!userNorm) return;
+      var inc = getIncompleteTasksForUserRows_(values, userNorm, emp.email, emp.stores || [], allStores, areasList);
+      var assigned = countAssignedTasksForUser_(values, userNorm, emp.email);
+      userRows.push({
+        name: String(emp.name || '').trim() || userNorm,
+        email: String(emp.email || '').trim(),
+        assignedCount: assigned,
+        incompleteCount: inc.length,
+        incompleteTasks: inc,
+        allClear: assigned > 0 && inc.length === 0
+      });
+    });
+    userRows.sort(function (a, b) {
+      if (b.incompleteCount !== a.incompleteCount) return b.incompleteCount - a.incompleteCount;
+      return String(a.name).localeCompare(String(b.name), 'ja');
+    });
+
+    var usersWithIncomplete = userRows.filter(function (u) {
+      return u.incompleteCount > 0;
+    });
+    var usersAllClear = userRows.filter(function (u) {
+      return u.allClear;
+    });
+    var usersNoAssignments = userRows.filter(function (u) {
+      return u.assignedCount === 0;
+    });
+
+    return {
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      spreadsheetUrl: ss.getUrl(),
+      appUrl: appUrlBase,
+      checklistUrl: checklistUrlBase,
+      viewerEmail: email,
+      summary: summary,
+      tasks: tasks,
+      userProgress: {
+        userRows: userRows,
+        usersWithIncomplete: usersWithIncomplete,
+        usersAllClear: usersAllClear,
+        usersNoAssignments: usersNoAssignments,
+        stats: {
+          totalRegistered: userRows.length,
+          withIncomplete: usersWithIncomplete.length,
+          allClearCount: usersAllClear.length,
+          noAssignmentsCount: usersNoAssignments.length
+        }
+      }
+    };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
+}
+
+/**
+ * 管理者：指定ユーザーの未完了タスク一覧をメール送信
+ */
+function sendAdminReminderEmail(targetEmail) {
+  try {
+    var adminEmail = Session.getActiveUser().getEmail();
+    if (!adminEmail) {
+      return { ok: false, message: 'Google アカウントでログインした状態で実行してください。' };
+    }
+    if (!isAdminUser_(adminEmail)) {
+      return { ok: false, message: '権限がありません。' };
+    }
+    var norm = normalizeTaskEmail(targetEmail);
+    if (!norm) {
+      return { ok: false, message: 'メールアドレスが不正です。' };
+    }
+    var employees = getEmployees();
+    var emp = null;
+    for (var ei = 0; ei < employees.length; ei++) {
+      if (normalizeTaskEmail(employees[ei].email) === norm) {
+        emp = employees[ei];
+        break;
+      }
+    }
+    if (!emp) {
+      return { ok: false, message: '従業員データに該当するメールがありません。' };
+    }
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('申請データ');
+    if (!sheet) {
+      return { ok: false, message: '申請データシートがありません。' };
+    }
+    var values = sheet.getDataRange().getValues();
+    if (values.length <= 1) {
+      return { ok: true, message: '未完了タスクはありません。', skipped: true, count: 0 };
+    }
+    values.shift();
+    var allStores = getStoreData();
+    var areasList = getAreasListFromStores_(allStores);
+    var incomplete = getIncompleteTasksForUserRows_(values, norm, emp.email, emp.stores || [], allStores, areasList);
+    if (incomplete.length === 0) {
+      return { ok: true, message: '未完了タスクはありません（送信しませんでした）。', skipped: true, count: 0 };
+    }
+    var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
+    var displayName = String(emp.name || '').trim() || norm;
+    var body = buildAdminReminderBody_(displayName, incomplete, checklistUrl);
+    MailApp.sendEmail({
+      to: String(emp.email).trim(),
+      subject: '【To-Do List】未完了タスクのリマインド（管理者からの送信）',
+      body: body
+    });
+    return { ok: true, message: 'リマインドメールを送信しました。', count: incomplete.length };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
 }

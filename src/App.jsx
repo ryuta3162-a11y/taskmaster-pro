@@ -105,6 +105,35 @@ function deriveStoresAndRolesFromTargets(targetEmails, allEmployees, allStoreNam
     roles: roles.length ? roles : rolesList
   };
 }
+
+/**
+ * チェックリストの店舗タブ・件数バッジ用。
+ * targetTags が「全店 [CL]」のように店名を列挙しない場合でも一致させる（従来は includes(店名) のみで 0 件になっていた）。
+ * requestKind が employee のとき「全店」系タグは個別店舗フィルタに一致しない（社員依頼は全店チップのみで絞る）。
+ */
+function taskMatchesStoreFilter(targetTagsStr, filterKey, allStores, requestKind) {
+  if (filterKey === 'ALL') return true;
+  const tg = String(targetTagsStr || '').trim();
+  if (!tg || tg === '指定なし') return true;
+  if (requestKind === 'employee' && (tg === '全店' || /^\s*全店(\s|\[)/.test(tg))) return false;
+  if (tg === '全店' || /^\s*全店(\s|\[)/.test(tg)) return true;
+  if (tg.includes(filterKey)) return true;
+  const storeRow = allStores.find((st) => st.storeName === filterKey);
+  if (storeRow && tg.indexOf(storeRow.area) >= 0) return true;
+  return false;
+}
+
+function resolveEmployeeName(email, allEmployees) {
+  if (email == null || email === '') return '—';
+  const norm = String(email).trim().toLowerCase();
+  const found = allEmployees.find((emp) => String(emp.email || '').trim().toLowerCase() === norm);
+  return found?.name || String(email);
+}
+
+function emailsMatch(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
 const getTerritories = (area) => {
   if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
   if (['第1エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
@@ -134,13 +163,13 @@ const api = {
     if (!isGAS) return setTimeout(() => res({ status: 'success', id: 'mock', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).createNewTask(data);
   }),
-  completeTask: (id, email) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({status:'success', rank: 1}), 1500); 
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email);
+  completeTask: (id, email, storeName) => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res({ success: true }), 1500);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email, storeName);
   }),
-  uncompleteTask: (id, email) => new Promise((res, rej) => {
+  uncompleteTask: (id, email, storeName) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({ success: true }), 400);
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).uncompleteTask(id, email);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).uncompleteTask(id, email, storeName);
   }),
   getSentTasks: (name) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
@@ -195,6 +224,9 @@ const MAX_ATTACHMENTS = 3;
  */
 const MAX_PDF_BYTES = 25 * 1024 * 1024;
 const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
+
+/** GAS・列「依頼単位」と一致: employee=社員ごと / store=店舗単位で1回 */
+const REQUEST_KIND = { employee: 'employee', store: 'store' };
 
 function isPdfFile(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
@@ -257,14 +289,20 @@ export default function App() {
   const [tasksLoading, setTasksLoading] = useState(false);
   const [taskFilter, setTaskFilter] = useState('ALL');
   const [taskTab, setTaskTab] = useState('active');
+  /** リストチェック: すべて / 社員依頼 / 店舗依頼 */
+  const [checklistKindFilter, setChecklistKindFilter] = useState('all');
 
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm', rank: null });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm' });
+  /** 店舗依頼: 担当店舗をまとめて完了する確認 */
+  const [storeBulkModal, setStoreBulkModal] = useState({ isOpen: false, task: null, step: 'confirm' });
+  const [completingStoreKey, setCompletingStoreKey] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [requestSelectedStores, setRequestSelectedStores] = useState([]);
   const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES); 
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
-  const [requestImages, setRequestImages] = useState([]); 
+  const [requestImages, setRequestImages] = useState([]);
+  const [requestKind, setRequestKind] = useState(REQUEST_KIND.employee);
 
   const [sentTasks, setSentTasks] = useState([]);
   const [scheduledTasks, setScheduledTasks] = useState([]);
@@ -277,7 +315,8 @@ export default function App() {
   const [scheduleEditingId, setScheduleEditingId] = useState(null);
   const [scheduleImages, setScheduleImages] = useState([]); 
   const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
-  const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES); 
+  const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES);
+  const [scheduleRequestKind, setScheduleRequestKind] = useState(REQUEST_KIND.employee);
 
   const activeTasksCount = tasks.filter(t => !t.completed).length;
   const completedTasksCount = tasks.filter(t => t.completed).length;
@@ -323,13 +362,40 @@ export default function App() {
 
   useEffect(() => { if (authStep === 'ready') refreshTasks(); }, [authStep, currentUser, activeTab]);
 
+  useEffect(() => {
+    if (checklistKindFilter === 'employee') setTaskFilter('ALL');
+  }, [checklistKindFilter]);
+
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
-      const storeMatch = taskFilter === 'ALL' || t.targetTags === '全店' || (t.targetTags && t.targetTags.includes(taskFilter));
+    return tasks.filter((t) => {
+      const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+      const storeMatch = taskMatchesStoreFilter(t.targetTags, taskFilter, allStores, rk);
       const statusMatch = taskTab === 'active' ? !t.completed : t.completed;
-      return storeMatch && statusMatch;
+      const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
+      return storeMatch && statusMatch && kindMatch;
     });
-  }, [tasks, taskFilter, taskTab]);
+  }, [tasks, taskFilter, taskTab, allStores, checklistKindFilter]);
+
+  const checklistTabTasks = useMemo(() => {
+    return tasks.filter((t) => (taskTab === 'active' ? !t.completed : t.completed));
+  }, [tasks, taskTab]);
+
+  const checklistKindCounts = useMemo(() => {
+    const all = checklistTabTasks.length;
+    const emp = checklistTabTasks.filter((t) => (t.requestKind === REQUEST_KIND.store ? 'store' : 'employee') === 'employee').length;
+    const sto = checklistTabTasks.filter((t) => t.requestKind === REQUEST_KIND.store).length;
+    return { all, employee: emp, store: sto };
+  }, [checklistTabTasks]);
+
+  /** 未実施/実施済みタブ + 依頼種別フィルタまで反映したタスク（店舗チップの件数用） */
+  const tasksMatchingChecklistKind = useMemo(() => {
+    return tasks.filter((t) => {
+      const statusOk = taskTab === 'active' ? !t.completed : t.completed;
+      if (!statusOk) return false;
+      const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+      return checklistKindFilter === 'all' || checklistKindFilter === rk;
+    });
+  }, [tasks, taskTab, checklistKindFilter]);
 
   const handleLoginSearch = (e) => {
     e.preventDefault();
@@ -529,23 +595,37 @@ export default function App() {
 
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!requestSelectedStores.length) return alert('配信先の店舗を少なくとも1つ選択してください。');
     if (!requestSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
-    
+    if (requestKind === REQUEST_KIND.store && !requestSelectedStores.length) {
+      return alert('配信先の店舗を少なくとも1つ選択してください。');
+    }
+
     setIsSubmitting(true);
     const targetEmails = new Set();
-    
-    allEmployees.forEach(emp => {
-      const storeMatch = emp.stores && emp.stores.some(s => requestSelectedStores.includes(s));
-      const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
-      
-      if (storeMatch && roleMatch) {
-        targetEmails.add(emp.email); 
-      }
-    });
+
+    if (requestKind === REQUEST_KIND.employee) {
+      allEmployees.forEach((emp) => {
+        const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
+        if (roleMatch) targetEmails.add(emp.email);
+      });
+    } else {
+      allEmployees.forEach((emp) => {
+        const storeMatch = emp.stores && emp.stores.some((s) => requestSelectedStores.includes(s));
+        const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
+        if (storeMatch && roleMatch) targetEmails.add(emp.email);
+      });
+    }
 
     const validUrls = requestForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr = generateTargetTags(requestSelectedStores, requestSelectedRoles);
+    const finalTagsStr =
+      requestKind === REQUEST_KIND.employee
+        ? generateTargetTags(allStores.map((s) => s.storeName), requestSelectedRoles)
+        : generateTargetTags(requestSelectedStores, requestSelectedRoles);
+
+    if (targetEmails.size === 0) {
+      setIsSubmitting(false);
+      return alert('配信先となる社員がいません。役職・店舗の組み合わせを見直してください。');
+    }
 
     try {
       const result = await api.createTask({
@@ -556,6 +636,7 @@ export default function App() {
         sender: currentUser ? currentUser.name : "管理者",
         targets: Array.from(targetEmails),
         targetTags: finalTagsStr,
+        requestKind,
         images: requestImages.map((img) =>
           img.reuseUrl
             ? { name: img.name, type: img.type || 'image/jpeg', reuseUrl: img.reuseUrl }
@@ -569,6 +650,7 @@ export default function App() {
       alert(okMsg);
       setRequestForm({ content: '', deadline: '', urls: [''] });
       setRequestImages([]);
+      setRequestKind(REQUEST_KIND.employee);
       setRequestSelectedStores(allStores.map(s => s.storeName));
       setRequestSelectedRoles(ROLES);
       setActiveTab('home');
@@ -613,6 +695,7 @@ export default function App() {
 
     setRequestForm({ content: task.content, deadline: deadlineInput, urls: storedUrls });
     setRequestImages(repostImages);
+    setRequestKind(task.requestKind === REQUEST_KIND.store ? REQUEST_KIND.store : REQUEST_KIND.employee);
     setRequestSelectedStores(stores);
     setRequestSelectedRoles(roles);
     setActiveTab('request');
@@ -620,22 +703,35 @@ export default function App() {
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    if (!scheduleSelectedStores.length) return alert('配信先の店舗を少なくとも1つ選択してください。');
     if (!scheduleSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
-    
+    if (scheduleRequestKind === REQUEST_KIND.store && !scheduleSelectedStores.length) {
+      return alert('配信先の店舗を少なくとも1つ選択してください。');
+    }
+
     setIsSubmitting(true);
     const targetEmails = new Set();
-    allEmployees.forEach(emp => {
-      const storeMatch = emp.stores && emp.stores.some(s => scheduleSelectedStores.includes(s));
-      const roleMatch = (!emp.role && scheduleSelectedRoles.length === ROLES.length) || scheduleSelectedRoles.includes(emp.role);
-      
-      if (storeMatch && roleMatch) {
-        targetEmails.add(emp.email); 
-      }
-    });
+    if (scheduleRequestKind === REQUEST_KIND.employee) {
+      allEmployees.forEach((emp) => {
+        const roleMatch = (!emp.role && scheduleSelectedRoles.length === ROLES.length) || scheduleSelectedRoles.includes(emp.role);
+        if (roleMatch) targetEmails.add(emp.email);
+      });
+    } else {
+      allEmployees.forEach((emp) => {
+        const storeMatch = emp.stores && emp.stores.some((s) => scheduleSelectedStores.includes(s));
+        const roleMatch = (!emp.role && scheduleSelectedRoles.length === ROLES.length) || scheduleSelectedRoles.includes(emp.role);
+        if (storeMatch && roleMatch) targetEmails.add(emp.email);
+      });
+    }
 
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr = generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles);
+    const finalTagsStr =
+      scheduleRequestKind === REQUEST_KIND.employee
+        ? generateTargetTags(allStores.map((s) => s.storeName), scheduleSelectedRoles)
+        : generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles);
+    if (targetEmails.size === 0) {
+      setIsSubmitting(false);
+      return alert('配信先となる社員がいません。役職・店舗の組み合わせを見直してください。');
+    }
     const cycleString = `毎月 ${scheduleDate}日 ${SCHEDULE_DELIVERY_TIME}`;
     const scheduleImagePayload = scheduleImages.map((img) =>
       img.reuseUrl
@@ -653,6 +749,7 @@ export default function App() {
           urls: validUrls,
           targetTags: finalTagsStr,
           targets: Array.from(targetEmails),
+          requestKind: scheduleRequestKind,
           images: scheduleImagePayload
         });
         let msg = '保存しました。次回の定期配信からこの内容で送信されます。';
@@ -669,6 +766,7 @@ export default function App() {
           urls: validUrls,
           targetTags: finalTagsStr,
           targets: Array.from(targetEmails),
+          requestKind: scheduleRequestKind,
           images: scheduleImagePayload,
           skipInitialTask: scheduleSkipInitialMonth
         });
@@ -683,6 +781,7 @@ export default function App() {
       setScheduleSkipInitialMonth(false);
       setScheduleDate('1');
       setScheduleImages([]);
+      setScheduleRequestKind(REQUEST_KIND.employee);
       setScheduleSelectedStores(allStores.map(s => s.storeName));
       setScheduleSelectedRoles(ROLES);
       refreshTasks(); 
@@ -722,6 +821,7 @@ export default function App() {
     const { stores, roles } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
     setScheduleSelectedStores(stores);
     setScheduleSelectedRoles(roles);
+    setScheduleRequestKind(task.requestKind === REQUEST_KIND.store ? REQUEST_KIND.store : REQUEST_KIND.employee);
     setScheduleSkipInitialMonth(false);
     setActiveTab('scheduled');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -733,6 +833,7 @@ export default function App() {
     setScheduleSkipInitialMonth(false);
     setScheduleDate('1');
     setScheduleImages([]);
+    setScheduleRequestKind(REQUEST_KIND.employee);
     setScheduleSelectedStores(allStores.map((s) => s.storeName));
     setScheduleSelectedRoles(ROLES);
   };
@@ -744,22 +845,84 @@ export default function App() {
     }
   };
 
-  const openConfirmModal = (task) => { setConfirmModal({ isOpen: true, task: task, step: 'confirm', rank: null }); };
-
-  const executeCompleteTask = async () => {
-    setConfirmModal(prev => ({ ...prev, step: 'loading' }));
-    try {
-      const result = await api.completeTask(confirmModal.task.id, currentUser.email);
-      setConfirmModal(prev => ({ ...prev, step: 'result', rank: result.rank || 1 }));
-      setTimeout(() => {
-        setTasks(prev => prev.map(t => t.id === confirmModal.task.id ? { ...t, completed: true } : t));
-        setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null });
-        refreshTasks();
-      }, 3500);
-    } catch (e) { setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null }); }
+  const openConfirmModal = (task) => {
+    setConfirmModal({ isOpen: true, task: task, step: 'confirm' });
   };
 
-  const handleUncompleteTask = async (task) => {
+  /** 店舗依頼: チェックリストに出す店舗 = 依頼対象 ∩ 自分の管轄のみ（他店舗は非表示） */
+  const getMyStoreRowsForTask = (task) => {
+    if (task.requestKind !== REQUEST_KIND.store) return [];
+    const sc = task.storeCompletions || {};
+    const full =
+      task.targetStoreNames && task.targetStoreNames.length ? [...task.targetStoreNames] : Object.keys(sc).sort();
+    const myStores = currentUser?.stores || [];
+    return full.filter((s) => myStores.includes(s));
+  };
+
+  /** 店舗依頼: 自分がまだ完了していない担当店舗名（一覧・一括完了用） */
+  const getMyIncompleteStoreNames = (task) => {
+    if (task.requestKind !== REQUEST_KIND.store) return [];
+    const sc = task.storeCompletions || {};
+    return getMyStoreRowsForTask(task).filter((s) => !sc[s]);
+  };
+
+  const handleCompleteStoreCheckpoint = async (task, storeName) => {
+    if (!currentUser?.email) return;
+    const key = `${task.id}:${storeName}`;
+    setCompletingStoreKey(key);
+    try {
+      const result = await api.completeTask(task.id, currentUser.email, storeName);
+      if (result && result.success === false) {
+        alert(result.message || '完了に失敗しました');
+        return;
+      }
+      refreshTasks();
+    } catch (e) {
+      alert(formatGasError(e));
+    } finally {
+      setCompletingStoreKey((k) => (k === key ? null : k));
+    }
+  };
+
+  const executeCompleteTask = async () => {
+    setConfirmModal((prev) => ({ ...prev, step: 'loading' }));
+    try {
+      await api.completeTask(confirmModal.task.id, currentUser.email);
+      setConfirmModal({ isOpen: false, task: null, step: 'confirm' });
+      refreshTasks();
+    } catch (e) {
+      setConfirmModal({ isOpen: false, task: null, step: 'confirm' });
+    }
+  };
+
+  const executeStoreBulkComplete = async () => {
+    const task = storeBulkModal.task;
+    if (!task || !currentUser?.email) return;
+    const names = getMyIncompleteStoreNames(task);
+    if (names.length === 0) {
+      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' });
+      return;
+    }
+    setStoreBulkModal((prev) => ({ ...prev, step: 'loading' }));
+    try {
+      for (let i = 0; i < names.length; i++) {
+        const storeName = names[i];
+        const result = await api.completeTask(task.id, currentUser.email, storeName);
+        if (result && result.success === false) {
+          alert(result.message || '完了に失敗しました');
+          break;
+        }
+      }
+      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' });
+      refreshTasks();
+    } catch (e) {
+      alert(formatGasError(e));
+      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' });
+    }
+  };
+
+  /** 社員依頼: 自分の完了を 1 件取り消し */
+  const handleUncompleteEmployeeTask = async (task) => {
     if (!currentUser?.email) return;
     if (!window.confirm('このタスクを「未実施」に戻しますか？\n（あなたの完了記録だけが削除されます。他の方の記録は変わりません。）')) return;
     try {
@@ -775,118 +938,161 @@ export default function App() {
     }
   };
 
-  const renderTargetSelector = (selectedStores, setSelectedStores, selectedRoles, setSelectedRoles, startNum = 1) => {
+  /** 店舗依頼: 指定店舗の自分の完了だけ取り消し */
+  const handleUncompleteStoreTask = async (task, storeName) => {
+    if (!currentUser?.email) return;
+    const key = `${task.id}:${storeName}`;
+    setCompletingStoreKey(key);
+    try {
+      const res = await api.uncompleteTask(task.id, currentUser.email, storeName);
+      if (res && res.success === false) {
+        alert(res.message || '取り消しに失敗しました');
+        return;
+      }
+      refreshTasks();
+    } catch (e) {
+      alert(formatGasError(e));
+    } finally {
+      setCompletingStoreKey((k) => (k === key ? null : k));
+    }
+  };
+
+  const renderTargetSelector = (
+    selectedStores,
+    setSelectedStores,
+    selectedRoles,
+    setSelectedRoles,
+    startNum = 5,
+    mode = REQUEST_KIND.store
+  ) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
     const handleSelectAllStores = (e) => {
-      if (e.target.checked) setSelectedStores(allStores.map(s => s.storeName));
+      if (e.target.checked) setSelectedStores(allStores.map((s) => s.storeName));
       else setSelectedStores([]);
     };
-    
+
     const isAllRolesSelected = selectedRoles.length === ROLES.length;
     const handleSelectAllRoles = (e) => {
       if (e.target.checked) setSelectedRoles(ROLES);
       else setSelectedRoles([]);
     };
 
+    const blockRoles = (num) => (
+      <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">
+          {num}. 配信する役職
+        </h4>
+        <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
+          <input
+            type="checkbox"
+            checked={isAllRolesSelected}
+            onChange={handleSelectAllRoles}
+            className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+          />
+          全役職を選択
+        </label>
+        <div className="flex flex-wrap gap-3 pl-2">
+          {ROLES.map((role) => {
+            const isChecked = selectedRoles.includes(role);
+            return (
+              <label
+                key={role}
+                className={`flex items-center font-bold text-base border-2 border-slate-300 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-200)] shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedRoles((prev) => [...prev, role]);
+                    else setSelectedRoles((prev) => prev.filter((r) => r !== role));
+                  }}
+                  className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+                />
+                {role}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    const blockStores = (num) => (
+      <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">
+          {num}. 配信するエリア・店舗
+        </h4>
+        <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
+          <input
+            type="checkbox"
+            checked={isAllStoresSelected}
+            onChange={handleSelectAllStores}
+            className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+          />
+          全店舗を選択
+        </label>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-start pl-2">
+          {AREAS.map((area) => {
+            const storesInArea = allStores.filter((s) => s.area === area);
+            if (storesInArea.length === 0) return null;
+            const isAllAreaSelected = storesInArea.every((s) => selectedStores.includes(s.storeName));
+            return (
+              <details key={area} className="group bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden">
+                <summary className="flex items-center justify-between p-3 font-bold text-base cursor-pointer hover:bg-[var(--acc-50)] transition-colors list-none select-none">
+                  <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isAllAreaSelected}
+                      onChange={(e) => {
+                        const areaStoreNames = storesInArea.map((s) => s.storeName);
+                        if (e.target.checked) setSelectedStores((prev) => Array.from(new Set([...prev, ...areaStoreNames])));
+                        else setSelectedStores((prev) => prev.filter((s) => !areaStoreNames.includes(s)));
+                      }}
+                      className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+                    />
+                    {area}
+                  </label>
+                  <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-sm">
+                    <Icon name="chevronDown" />
+                  </div>
+                </summary>
+                <div className="p-4 border-t-2 border-slate-300 bg-gray-50 flex flex-wrap gap-2">
+                  {storesInArea.map((store) => {
+                    const isChecked = selectedStores.includes(store.storeName);
+                    return (
+                      <label
+                        key={store.storeName}
+                        className={`flex items-center font-bold text-sm border-2 border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-100)] shadow-sm -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedStores((prev) => [...prev, store.storeName]);
+                            else setSelectedStores((prev) => prev.filter((s) => s !== store.storeName));
+                          }}
+                          className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+                        />
+                        {store.storeName}
+                      </label>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    if (mode === REQUEST_KIND.employee) {
+      return <div className="w-full flex flex-col gap-6">{blockRoles(startNum)}</div>;
+    }
+
     return (
       <div className="w-full flex flex-col gap-6">
-        
-        {/* ブロック1: 役職による絞り込み */}
-        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-          <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum}. 配信する役職</h4>
-          <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
-            <input 
-              type="checkbox" 
-              checked={isAllRolesSelected} 
-              onChange={handleSelectAllRoles}
-              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
-            />
-            全役職を選択
-          </label>
-          <div className="flex flex-wrap gap-3 pl-2">
-            {ROLES.map(role => {
-              const isChecked = selectedRoles.includes(role);
-              return (
-                <label key={role} className={`flex items-center font-bold text-base border-2 border-slate-300 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-200)] shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}>
-                  <input 
-                    type="checkbox" 
-                    checked={isChecked} 
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedRoles(prev => [...prev, role]);
-                      else setSelectedRoles(prev => prev.filter(r => r !== role));
-                    }} 
-                    className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
-                  />
-                  {role}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ブロック2: 店舗による絞り込み */}
-        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-          <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">{startNum + 1}. 配信するエリア・店舗</h4>
-          <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
-            <input 
-              type="checkbox" 
-              checked={isAllStoresSelected} 
-              onChange={handleSelectAllStores}
-              className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
-            />
-            全店舗を選択
-          </label>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-start pl-2">
-            {AREAS.map(area => {
-              const storesInArea = allStores.filter(s => s.area === area);
-              if (storesInArea.length === 0) return null;
-              const isAllAreaSelected = storesInArea.every(s => selectedStores.includes(s.storeName));
-              return (
-                <details key={area} className="group bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden">
-                  <summary className="flex items-center justify-between p-3 font-bold text-base cursor-pointer hover:bg-[var(--acc-50)] transition-colors list-none select-none">
-                    <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <input 
-                        type="checkbox" 
-                        checked={isAllAreaSelected} 
-                        onChange={(e) => {
-                          const areaStoreNames = storesInArea.map(s => s.storeName);
-                          if (e.target.checked) setSelectedStores(prev => Array.from(new Set([...prev, ...areaStoreNames])));
-                          else setSelectedStores(prev => prev.filter(s => !areaStoreNames.includes(s)));
-                        }}
-                        className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
-                      />
-                      {area}
-                    </label>
-                    <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-sm">
-                      <Icon name="chevronDown" />
-                    </div>
-                  </summary>
-                  <div className="p-4 border-t-2 border-slate-300 bg-gray-50 flex flex-wrap gap-2">
-                    {storesInArea.map(store => {
-                      const isChecked = selectedStores.includes(store.storeName);
-                      return (
-                        <label key={store.storeName} className={`flex items-center font-bold text-sm border-2 border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-100)] shadow-sm -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}>
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked} 
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedStores(prev => [...prev, store.storeName]);
-                              else setSelectedStores(prev => prev.filter(s => s !== store.storeName));
-                            }} 
-                            className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer" 
-                          />
-                          {store.storeName}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-        </div>
-
+        {blockStores(startNum)}
+        {blockRoles(startNum + 1)}
       </div>
     );
   };
@@ -904,7 +1110,7 @@ export default function App() {
       {/* --- モーダル群 --- */}
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => confirmModal.step === 'confirm' && setConfirmModal({ isOpen: false, task: null, step: 'confirm' })}></div>
           <div className="bg-white rounded-[2.5rem] border-2 border-slate-300 p-8 md:p-12 max-w-xl w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
             {confirmModal.step === 'confirm' && (
               <div className="text-center">
@@ -916,7 +1122,7 @@ export default function App() {
                   <p className="text-xl font-bold text-black leading-relaxed">{formatContent(confirmModal.task.content)}</p>
                 </div>
                 <div className="flex gap-4">
-                  <button onClick={() => setConfirmModal({ isOpen: false, task: null, step: 'confirm', rank: null })} className={brutalBtnSecondary + " flex-1"}>キャンセル</button>
+                  <button onClick={() => setConfirmModal({ isOpen: false, task: null, step: 'confirm' })} className={brutalBtnSecondary + " flex-1"}>キャンセル</button>
                   <button onClick={executeCompleteTask} className={brutalBtnPrimary + " flex-[2]"}>完了する</button>
                 </div>
               </div>
@@ -927,22 +1133,53 @@ export default function App() {
                 <h3 className="text-3xl font-black text-black tracking-tighter animate-pulse">記録中...</h3>
               </div>
             )}
-            {confirmModal.step === 'result' && (
-              <div className="text-center py-6 px-2 animate-fade-in max-w-md mx-auto">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200/90 text-emerald-600 mb-5 mx-auto shadow-sm">
-                  <Icon name="check" />
-                </div>
-                <p className="text-[10px] font-bold tracking-[0.32em] text-slate-400 uppercase mb-5">Completed</p>
-                <div className="flex items-baseline justify-center gap-1.5 mb-4">
-                  <span className="text-6xl sm:text-7xl font-black tabular-nums text-slate-900 tracking-tight leading-none font-mono">
-                    {confirmModal.rank}
-                  </span>
-                  <span className="text-2xl font-black text-slate-500 pb-1">位</span>
-                </div>
-                <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-2 px-1">
-                  <span className="tabular-nums">{confirmModal.rank}</span>
-                  番目にタスクを実行しました。
+          </div>
+        </div>
+      )}
+
+      {storeBulkModal.isOpen && storeBulkModal.task && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() => storeBulkModal.step === 'confirm' && setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' })}
+          ></div>
+          <div className="bg-white rounded-[2.5rem] border-2 border-slate-300 p-8 md:p-10 max-w-lg w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
+            {storeBulkModal.step === 'confirm' && (
+              <div>
+                <h3 className="text-2xl font-black text-black mb-2 tracking-tighter text-center">担当店舗をまとめて完了</h3>
+                <p className="text-sm font-bold text-slate-600 mb-6 text-center leading-relaxed">
+                  以下の店舗を、あなたの担当として完了にします。記録はテンポ内の全員に同じように表示されます。
                 </p>
+                <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-5 mb-6">
+                  <p className="text-xs font-bold text-slate-500 mb-3">完了にする店舗</p>
+                  <ul className="space-y-2 text-sm font-bold text-slate-900">
+                    {getMyIncompleteStoreNames(storeBulkModal.task).map((name) => (
+                      <li key={name} className="flex items-start gap-2 border-b border-slate-200 last:border-0 pb-2 last:pb-0">
+                        <span className="text-slate-400 shrink-0">・</span>
+                        <span className="break-words">{name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-sm font-black text-center text-slate-800 mb-6">この内容で全店舗（上記の担当分）を完了してよろしいですか？</p>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' })}
+                    className={brutalBtnSecondary + ' flex-1'}
+                  >
+                    キャンセル
+                  </button>
+                  <button type="button" onClick={executeStoreBulkComplete} className={brutalBtnPrimary + ' flex-[2]'}>
+                    完了する
+                  </button>
+                </div>
+              </div>
+            )}
+            {storeBulkModal.step === 'loading' && (
+              <div className="text-center py-12">
+                <div className="text-[var(--acc-600)] mb-8 flex justify-center scale-150"><Icon name="loader" /></div>
+                <h3 className="text-3xl font-black text-black tracking-tighter animate-pulse">記録中...</h3>
               </div>
             )}
           </div>
@@ -1276,13 +1513,13 @@ export default function App() {
                       </div>
                       <h4 className="text-lg font-black text-slate-900 tracking-tight">定期配信</h4>
                     </button>
-                    {/* リストチェック：ブラック固定（操作・確認の軸） */}
+                    {/* リストチェック：他メニューと同様にアクセントで統一 */}
                     <button
                       type="button"
                       onClick={() => setActiveTab('checklist')}
-                      className="group text-left relative overflow-hidden bg-white border-2 border-slate-400 rounded-2xl p-6 md:p-7 shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 border-t-[4px] border-t-slate-800 ring-1 ring-slate-900/5"
+                      className="group text-left relative overflow-hidden bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-600)] hover:border-t-[var(--acc-700)]"
                     >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-slate-600 bg-gradient-to-br from-slate-700 via-slate-900 to-slate-950 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_16px_rgba(0,0,0,0.35)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_8px_22px_rgba(0,0,0,0.4)] [&>svg]:scale-[0.85]">
+                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
                         <Icon name="list" />
                       </div>
                       <h4 className="text-lg font-black text-slate-900 tracking-tight">リストチェック</h4>
@@ -1304,6 +1541,19 @@ export default function App() {
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
                       {/* 左列：入力内容 (1〜4) */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b-2 border-slate-300 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${requestKind === REQUEST_KIND.employee ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                              <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.employee} onChange={() => setRequestKind(REQUEST_KIND.employee)} />
+                              <span className="font-black text-slate-900">社員への依頼</span>
+                            </label>
+                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${requestKind === REQUEST_KIND.store ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                              <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.store} onChange={() => setRequestKind(REQUEST_KIND.store)} />
+                              <span className="font-black text-slate-900">店舗への依頼</span>
+                            </label>
+                          </div>
+                        </div>
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
                           <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="具体的な指示内容を入力してください"></textarea>
@@ -1364,7 +1614,7 @@ export default function App() {
 
                       {/* 右列：配信先 (5〜6) */}
                       <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles, 5)}
+                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles, 5, requestKind)}
                       </div>
                     </div>
 
@@ -1446,6 +1696,19 @@ export default function App() {
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
                       {/* 左列：1〜4 */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
+                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b-2 border-slate-300 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${scheduleRequestKind === REQUEST_KIND.employee ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                              <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.employee} onChange={() => setScheduleRequestKind(REQUEST_KIND.employee)} />
+                              <span className="font-black text-slate-900">社員への依頼</span>
+                            </label>
+                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${scheduleRequestKind === REQUEST_KIND.store ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                              <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.store} onChange={() => setScheduleRequestKind(REQUEST_KIND.store)} />
+                              <span className="font-black text-slate-900">店舗への依頼</span>
+                            </label>
+                          </div>
+                        </div>
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
                           <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
                           <p className="text-sm text-slate-600 mb-4">配信時刻は<strong>午前10:00</strong>固定です（変更はシステム管理者向け設定です）。</p>
@@ -1544,7 +1807,7 @@ export default function App() {
 
                       {/* 右列：5〜6 */}
                       <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles, 5)}
+                        {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles, 5, scheduleRequestKind)}
                       </div>
                     </div>
 
@@ -1592,7 +1855,7 @@ export default function App() {
               {activeTab === 'checklist' && (
                 <div className="animate-fade-in w-full mt-4">
                   
-                  <div className="flex flex-col sm:flex-row gap-4 mb-8 w-full max-w-2xl">
+                  <div className="flex flex-col sm:flex-row gap-4 mb-6 w-full max-w-2xl">
                     <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
                       未実施 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'active' ? 'bg-white text-[var(--acc-600)]' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
                     </button>
@@ -1601,20 +1864,54 @@ export default function App() {
                     </button>
                   </div>
 
+                  <div className="flex flex-wrap gap-2 mb-6 w-full max-w-2xl">
+                    <button
+                      type="button"
+                      onClick={() => setChecklistKindFilter('all')}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'all' ? 'bg-[var(--acc-700)] text-white border-[var(--acc-900)] ring-1 ring-[var(--acc-400)]/40' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                    >
+                      すべて
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${checklistKindFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'}`}>{checklistKindCounts.all}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChecklistKindFilter('employee')}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'employee' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-700)] ring-1 ring-[var(--acc-400)]/35' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                    >
+                      社員依頼
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${checklistKindFilter === 'employee' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.employee}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChecklistKindFilter('store')}
+                      className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'store' ? 'bg-[var(--acc-900)] text-white border-black/20 ring-1 ring-[var(--acc-500)]/30' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                    >
+                      店舗依頼
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${checklistKindFilter === 'store' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.store}</span>
+                    </button>
+                  </div>
+
                   <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-300">
                     <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === 'ALL' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                       全店
-                      {activeTasksCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--acc-500)] text-white font-bold">{activeTasksCount}</span>}
+                      {tasksMatchingChecklistKind.length > 0 && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${taskTab === 'active' ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-500 text-white'}`}>{tasksMatchingChecklistKind.length}</span>
+                      )}
                     </button>
-                    {currentUser?.stores?.map(s => {
-                      const storeTaskCount = tasks.filter(t => !t.completed && t.targetTags && t.targetTags.includes(s)).length;
-                      return (
-                        <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === s ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
-                          {s}
-                          {storeTaskCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--acc-500)] text-white font-bold">{storeTaskCount}</span>}
-                        </button>
-                      );
-                    })}
+                    {checklistKindFilter !== 'employee' &&
+                      currentUser?.stores?.map((s) => {
+                        const storeTaskCount = tasksMatchingChecklistKind.filter(
+                          (t) =>
+                            t.requestKind === REQUEST_KIND.store &&
+                            taskMatchesStoreFilter(t.targetTags, s, allStores, 'store')
+                        ).length;
+                        return (
+                          <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === s ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                            {s}
+                            {storeTaskCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--acc-500)] text-white font-bold">{storeTaskCount}</span>}
+                          </button>
+                        );
+                      })}
                   </div>
                   
                   <div className="space-y-6 pb-24 w-full">
@@ -1630,6 +1927,15 @@ export default function App() {
                         <div className="flex-1 w-full min-w-0">
                           
                           <div className="flex flex-wrap gap-2 mb-3 items-center">
+                            {task.requestKind === REQUEST_KIND.store ? (
+                              <span className="text-white text-xs font-bold px-3 py-1 rounded-lg border-2 shadow-sm bg-[var(--acc-900)] border-[var(--acc-900)] ring-1 ring-black/10">
+                                店舗依頼
+                              </span>
+                            ) : (
+                              <span className="text-white text-xs font-bold px-3 py-1 rounded-lg border-2 shadow-sm bg-[var(--acc-600)] border-[var(--acc-700)] ring-1 ring-[var(--acc-400)]/35">
+                                社員依頼
+                              </span>
+                            )}
                             {task.targetTags && <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1 rounded-lg">{task.targetTags}</span>}
                             <span className="bg-slate-100 text-slate-700 border-2 border-slate-300 text-xs font-bold px-2 py-1 rounded-lg">{task.type}</span>
                             <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
@@ -1638,6 +1944,99 @@ export default function App() {
                           <h3 className={`text-lg md:text-xl font-black text-black leading-relaxed mb-6 break-words ${task.completed ? 'line-through opacity-40' : ''}`}>
                             {formatContent(task.content)}
                           </h3>
+
+                          {task.requestKind === REQUEST_KIND.store &&
+                            (() => {
+                              const sc = task.storeCompletions || {};
+                              const names = getMyStoreRowsForTask(task);
+                              if (!names.length) {
+                                return (
+                                  <p className="mb-4 text-xs font-bold text-slate-500 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
+                                    この依頼の対象のうち、あなたの管轄店舗はありません。
+                                  </p>
+                                );
+                              }
+                              const myStores = currentUser?.stores || [];
+                              return (
+                                <div className="mb-4 space-y-2">
+                                  <ul className="space-y-2">
+                                    {names.map((storeName) => {
+                                      const done = sc[storeName];
+                                      const mine = myStores.includes(storeName);
+                                      const rowKey = `${task.id}:${storeName}`;
+                                      const busy = completingStoreKey === rowKey;
+                                      const canComplete = mine && !done && !task.completed;
+                                      const canUndo =
+                                        mine && done && emailsMatch(done.by, currentUser?.email);
+                                      const interactive = canComplete || canUndo;
+                                      return (
+                                        <li
+                                          key={storeName}
+                                          className="flex flex-wrap items-center gap-3 text-sm border-2 border-slate-300 rounded-xl px-3 py-2.5 bg-white"
+                                        >
+                                          <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                            <span className="font-bold text-slate-900 min-w-0 break-words">{storeName}</span>
+                                            {done ? (
+                                              <span className="text-xs text-slate-600">
+                                                <span className="font-bold text-slate-900">完了</span>
+                                                {' · '}
+                                                {resolveEmployeeName(done.by, allEmployees)}
+                                                {done.at && <span className="text-slate-400">（{done.at}）</span>}
+                                              </span>
+                                            ) : (
+                                              <span className="text-xs font-bold text-slate-500">未完了</span>
+                                            )}
+                                          </div>
+                                          {mine && (
+                                            <input
+                                              type="checkbox"
+                                              title={
+                                                canUndo
+                                                  ? 'チェックを外すと完了を取り消します'
+                                                  : done
+                                                    ? '他の方が完了済み'
+                                                    : 'この店舗を完了にする'
+                                              }
+                                              className="h-5 w-5 shrink-0 rounded border-2 border-slate-900 bg-white accent-black disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                                              checked={!!done}
+                                              disabled={busy || !interactive}
+                                              onChange={(e) => {
+                                                if (busy) return;
+                                                if (canComplete && e.target.checked) {
+                                                  handleCompleteStoreCheckpoint(task, storeName);
+                                                } else if (canUndo && !e.target.checked) {
+                                                  if (
+                                                    window.confirm('この店舗の完了を取り消しますか？\n（あなたの記録だけが削除されます。）')
+                                                  ) {
+                                                    handleUncompleteStoreTask(task, storeName);
+                                                  }
+                                                }
+                                              }}
+                                            />
+                                          )}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </div>
+                              );
+                            })()}
+
+                          {task.completed &&
+                            task.requestKind !== REQUEST_KIND.store &&
+                            task.employeeCompletions &&
+                            task.employeeCompletions.length > 0 && (
+                              <div className="mb-4 text-xs text-slate-700 border-2 border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
+                                <span className="font-bold text-slate-800">実施済み: </span>
+                                {task.employeeCompletions.map((p, i) => (
+                                  <span key={`${p.email}-${i}`}>
+                                    {resolveEmployeeName(p.email, allEmployees)}
+                                    {p.time && <span className="text-slate-500">（{p.time}）</span>}
+                                    {i < task.employeeCompletions.length - 1 ? '、' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           
                           {!task.completed && (
                             <div className="flex flex-col gap-4 border-t-2 border-slate-200 pt-4">
@@ -1684,9 +2083,43 @@ export default function App() {
                         
                         <div className="flex-shrink-0 border-t-2 xl:border-t-0 border-l-0 xl:border-l-2 border-slate-200 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
                           {!task.completed ? (
-                            <button onClick={() => openConfirmModal(task)} className="w-14 h-14 rounded-xl border-2 border-slate-300 bg-white text-slate-300 hover:bg-emerald-500 hover:text-white hover:border-emerald-400 transition-all flex items-center justify-center shadow-sm hover:shadow-md group">
-                              <span className="group-hover:scale-110 transition-transform inline-flex"><Icon name="check" /></span>
-                            </button>
+                            task.requestKind === REQUEST_KIND.store ? (
+                              (() => {
+                                const pending = getMyIncompleteStoreNames(task);
+                                if (pending.length === 0) {
+                                  return (
+                                    <p className="text-[10px] font-bold text-slate-500 text-center max-w-[10rem] leading-snug">
+                                      担当の対象店舗がありません
+                                    </p>
+                                  );
+                                }
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => setStoreBulkModal({ isOpen: true, task, step: 'confirm' })}
+                                    className="px-4 py-3 rounded-xl border-2 border-slate-900 bg-white text-slate-900 text-xs font-black hover:bg-slate-900 hover:text-white transition-colors max-w-[11rem] text-center leading-snug shadow-sm"
+                                  >
+                                    全て完了にする
+                                  </button>
+                                );
+                              })()
+                            ) : (
+                              <button
+                                onClick={() => openConfirmModal(task)}
+                                className="w-14 h-14 rounded-xl border-2 border-slate-900 bg-white text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all flex items-center justify-center shadow-sm group"
+                              >
+                                <span className="group-hover:scale-110 transition-transform inline-flex"><Icon name="check" /></span>
+                              </button>
+                            )
+                          ) : task.requestKind === REQUEST_KIND.store ? (
+                            <div className="flex flex-col items-center gap-2 max-w-[10rem] text-center">
+                              <div className="w-14 h-14 rounded-xl border-2 border-[var(--acc-200)] bg-[var(--acc-50)] text-[var(--acc-700)] flex items-center justify-center">
+                                <span className="inline-flex"><Icon name="check" /></span>
+                              </div>
+                              <p className="text-[10px] font-bold text-slate-500 leading-snug">
+                                取り消しは左の店舗のチェックを外してください
+                              </p>
+                            </div>
                           ) : (
                             <div className="flex flex-col items-center gap-2">
                               <div className="w-14 h-14 rounded-xl border-2 border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center">
@@ -1694,7 +2127,7 @@ export default function App() {
                               </div>
                               <button
                                 type="button"
-                                onClick={() => handleUncompleteTask(task)}
+                                onClick={() => handleUncompleteEmployeeTask(task)}
                                 className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline underline-offset-2 whitespace-nowrap"
                               >
                                 完了を取り消す
