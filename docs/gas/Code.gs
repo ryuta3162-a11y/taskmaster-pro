@@ -30,35 +30,84 @@ function getOrCreateFolder(folderName) {
   }
 }
 
-function saveImagesToDrive(images, senderName) {
-  if (!images || images.length === 0) return [];
-  const folder = getOrCreateFolder(UPLOAD_FOLDER_NAME);
-  const imageUrls = [];
-  
-  images.forEach(img => {
+/** Drive ファイル名に使えない文字を除去・短縮 */
+function sanitizeDriveFileName_(name) {
+  var n = String(name || 'file').replace(/[/\\?*:|"<>]/g, '_').replace(/\s+/g, ' ').trim();
+  if (n.length > 180) n = n.slice(0, 180);
+  return n || 'file';
+}
+
+/** クライアントが data:URL ごと送った場合も base64 部分だけにする */
+function normalizeBase64Payload_(b64) {
+  var s = String(b64 || '').replace(/\s/g, '');
+  var comma = s.indexOf(',');
+  if (comma !== -1 && /base64/i.test(s.substring(0, comma))) {
+    s = s.substring(comma + 1);
+  }
+  return s;
+}
+
+/** base64 → Blob（画像・PDF ともバイナリを壊さない。失敗時は別方式を試す） */
+function base64ToBlob_(b64, mime, fileName) {
+  var clean = normalizeBase64Payload_(b64);
+  if (!clean) throw new Error('base64が空です');
+  var mt = mime || 'application/octet-stream';
+  if ((!mime || String(mime).trim() === '') && /\.pdf$/i.test(fileName)) {
+    mt = 'application/pdf';
+  }
+  var baseName = sanitizeDriveFileName_(fileName);
+  try {
+    var dec = Utilities.base64Decode(clean, Utilities.Charset.ISO_8859_1);
+    return Utilities.newBlob(dec, mt, baseName);
+  } catch (e1) {
     try {
-      // 再投稿など：既存の Drive URL をそのまま使う（再アップロードしない）
+      var dec2 = Utilities.base64Decode(clean);
+      return Utilities.newBlob(dec2, mt, baseName);
+    } catch (e2) {
+      throw new Error('デコード失敗: ' + e2.toString());
+    }
+  }
+}
+
+/**
+ * 添付を Drive に保存。入力と同じ順序で URL を返す（失敗した枠は空文字）。
+ * @return {{ urls: string[], errors: string[] }} errors は「ファイル名: 理由」形式
+ */
+function saveImagesToDrive(images, senderName) {
+  var urls = [];
+  var errors = [];
+  if (!images || images.length === 0) {
+    return { urls: urls, errors: errors };
+  }
+  var folder = getOrCreateFolder(UPLOAD_FOLDER_NAME);
+  var dateStr = Utilities.formatDate(new Date(), 'JST', 'yyyyMMdd_HHmmss');
+  var safeSender = sanitizeDriveFileName_(senderName || 'user').replace(/\./g, '_');
+
+  images.forEach(function (img, idx) {
+    var label = (img && img.name) ? img.name : ('添付' + (idx + 1));
+    try {
       if (img && img.reuseUrl) {
-        imageUrls.push(String(img.reuseUrl).trim());
+        urls.push(String(img.reuseUrl).trim());
         return;
       }
-      if (!img || !img.base64) return;
-      // 画像・PDFともバイナリを壊さないよう ISO-8859-1 でデコード（UTF-8 だと PDF 等が破損し得る）
-      const decoded = Utilities.base64Decode(img.base64, Utilities.Charset.ISO_8859_1);
-      const blob = Utilities.newBlob(decoded, img.type, img.name);
-      const dateStr = Utilities.formatDate(new Date(), "JST", "yyyyMMdd_HHmmss");
-      const uniqueFileName = `${dateStr}_${senderName}_${img.name}`;
-      const file = folder.createFile(blob).setName(uniqueFileName);
-      
+      if (!img || !img.base64) {
+        urls.push('');
+        errors.push(label + ': 添付データがありません');
+        return;
+      }
+      var blob = base64ToBlob_(img.base64, img.type, img.name);
+      var uniqueFileName = dateStr + '_' + idx + '_' + safeSender + '_' + sanitizeDriveFileName_(img.name);
+      var file = folder.createFile(blob).setName(uniqueFileName);
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      const directUrl = "https://drive.google.com/uc?export=view&id=" + file.getId();
-      imageUrls.push(directUrl);
+      var directUrl = 'https://drive.google.com/uc?export=view&id=' + file.getId();
+      urls.push(directUrl);
     } catch (e) {
-      console.error('画像保存エラー', e.toString());
+      urls.push('');
+      errors.push(label + ': ' + e.toString());
     }
   });
-  
-  return imageUrls;
+
+  return { urls: urls, errors: errors };
 }
 
 // ==============================================================
@@ -316,7 +365,8 @@ function computeDeadlineForScheduledOffset_(now, deadlineOffsetStr) {
 
 function registerScheduledTask(taskData) {
   try {
-    const uploadedUrls = saveImagesToDrive(taskData.images, taskData.sender);
+    var driveResult = saveImagesToDrive(taskData.images, taskData.sender);
+    var uploadedUrls = driveResult.urls;
     const manualUrls = taskData.urls || [];
 
     const u1 = manualUrls[0] || '';
@@ -384,7 +434,7 @@ function registerScheduledTask(taskData) {
       }, appUrl, true);
     }
 
-    return { status: 'success' };
+    return { status: 'success', driveErrors: driveResult.errors };
   } catch(e) { return { status: 'error', message: e.toString() }; }
 }
 
@@ -416,7 +466,8 @@ function getScheduledTasks(userName) {
  */
 function updateScheduledTask(id, taskData) {
   try {
-    const uploadedUrls = saveImagesToDrive(taskData.images, taskData.sender);
+    var driveResult = saveImagesToDrive(taskData.images, taskData.sender);
+    var uploadedUrls = driveResult.urls;
     const manualUrls = taskData.urls || [];
     const u1 = manualUrls[0] || '';
     const u2 = manualUrls[1] || '';
@@ -441,7 +492,7 @@ function updateScheduledTask(id, taskData) {
           taskData.targetTags || '',
           taskData.targets.join(',')
         ]]);
-        return { status: 'success' };
+        return { status: 'success', driveErrors: driveResult.errors };
       }
     }
     return { status: 'not found' };
@@ -525,7 +576,8 @@ function sendChatNotification(taskData, appUrl, isScheduled = false) {
 }
 
 function createNewTask(taskData) {
-  const uploadedUrls = saveImagesToDrive(taskData.images, taskData.sender);
+  var driveResult = saveImagesToDrive(taskData.images, taskData.sender);
+  var uploadedUrls = driveResult.urls;
   const manualUrls = taskData.urls || [];
   
   const u1 = manualUrls[0] || '';
@@ -571,7 +623,7 @@ function createNewTask(taskData) {
   });
 
   sendChatNotification(taskData, appUrl, false);
-  return { id: newId, status: 'success' };
+  return { id: newId, status: 'success', driveErrors: driveResult.errors };
 }
 
 // ==============================================================

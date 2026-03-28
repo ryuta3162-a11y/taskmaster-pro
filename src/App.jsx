@@ -131,7 +131,7 @@ const api = {
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getTasksForUser(email);
   }),
   createTask: (data) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
+    if (!isGAS) return setTimeout(() => res({ status: 'success', id: 'mock', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).createNewTask(data);
   }),
   completeTask: (id, email) => new Promise((res, rej) => {
@@ -151,7 +151,7 @@ const api = {
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getScheduledTasks(name);
   }),
   registerScheduledTask: (data) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
+    if (!isGAS) return setTimeout(() => res({ status: 'success', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).registerScheduledTask(data);
   }),
   deleteScheduledTask: (id) => new Promise((res, rej) => {
@@ -159,10 +159,21 @@ const api = {
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).deleteScheduledTask(id);
   }),
   updateScheduledTask: (id, data) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({ status: 'success' }), 1000);
+    if (!isGAS) return setTimeout(() => res({ status: 'success', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).updateScheduledTask(id, data);
   })
 };
+
+function formatGasError(err) {
+  if (err == null) return '不明なエラー';
+  if (typeof err === 'string') return err;
+  if (typeof err.message === 'string') return err.message;
+  try {
+    return String(err);
+  } catch (e) {
+    return '不明なエラー';
+  }
+}
 
 const formatContent = (text) => {
   if (!text) return null;
@@ -531,7 +542,7 @@ export default function App() {
     const finalTagsStr = generateTargetTags(requestSelectedStores, requestSelectedRoles);
 
     try {
-      await api.createTask({
+      const result = await api.createTask({
         type: '新規投稿',
         content: requestForm.content,
         deadline: requestForm.deadline,
@@ -545,14 +556,18 @@ export default function App() {
             : { name: img.name, type: img.type, base64: img.base64 }
         )
       });
-      alert('タスクを配信しました！対象者に通知されます。');
+      let okMsg = 'タスクを配信しました！対象者に通知されます。';
+      if (result.driveErrors && result.driveErrors.length) {
+        okMsg += '\n\n【添付ファイルの保存に失敗したものがあります】\n' + result.driveErrors.join('\n');
+      }
+      alert(okMsg);
       setRequestForm({ content: '', deadline: '', urls: [''] });
       setRequestImages([]);
       setRequestSelectedStores(allStores.map(s => s.storeName));
       setRequestSelectedRoles(ROLES);
       setActiveTab('home');
       refreshTasks();
-    } catch (error) { alert('送信失敗'); } finally { setIsSubmitting(false); }
+    } catch (error) { alert('送信失敗: ' + formatGasError(error)); } finally { setIsSubmitting(false); }
   };
 
   const handleRepostClick = (task) => {
@@ -624,7 +639,7 @@ export default function App() {
 
     try {
       if (scheduleEditingId) {
-        await api.updateScheduledTask(scheduleEditingId, {
+        const upd = await api.updateScheduledTask(scheduleEditingId, {
           sender: currentUser.name,
           cycle: cycleString,
           deadlineOffset: scheduleForm.deadlineOffset,
@@ -634,9 +649,13 @@ export default function App() {
           targets: Array.from(targetEmails),
           images: scheduleImagePayload
         });
-        alert('保存しました。次回の定期配信からこの内容で送信されます。');
+        let msg = '保存しました。次回の定期配信からこの内容で送信されます。';
+        if (upd.driveErrors && upd.driveErrors.length) {
+          msg += '\n\n【添付ファイルの保存に失敗したものがあります】\n' + upd.driveErrors.join('\n');
+        }
+        alert(msg);
       } else {
-        await api.registerScheduledTask({
+        const reg = await api.registerScheduledTask({
           sender: currentUser.name,
           cycle: cycleString,
           deadlineOffset: scheduleForm.deadlineOffset,
@@ -647,7 +666,11 @@ export default function App() {
           images: scheduleImagePayload,
           skipInitialTask: scheduleSkipInitialMonth
         });
-        alert('スケジュールを登録しました！');
+        let msg = 'スケジュールを登録しました！';
+        if (reg.driveErrors && reg.driveErrors.length) {
+          msg += '\n\n【添付ファイルの保存に失敗したものがあります】\n' + reg.driveErrors.join('\n');
+        }
+        alert(msg);
       }
       setScheduleEditingId(null);
       setScheduleForm({ deadlineOffset: '月末', content: '', urls: [''] });
@@ -657,7 +680,9 @@ export default function App() {
       setScheduleSelectedStores(allStores.map(s => s.storeName));
       setScheduleSelectedRoles(ROLES);
       refreshTasks(); 
-    } catch (error) { alert(scheduleEditingId ? '保存に失敗しました' : '登録失敗'); } finally { setIsSubmitting(false); }
+    } catch (error) {
+      alert((scheduleEditingId ? '保存に失敗しました: ' : '登録失敗: ') + formatGasError(error));
+    } finally { setIsSubmitting(false); }
   };
 
   const handleEditScheduleClick = (task) => {
