@@ -186,8 +186,14 @@ const formatContent = (text) => {
   ));
 };
 
-/** 添付1件あたりの上限（Drive / ペイロード負荷回避） */
-const MAX_PDF_BYTES = 12 * 1024 * 1024;
+/** 添付の合計件数（JPEG / PNG / PDF を混在しても 1 件として数える） */
+const MAX_ATTACHMENTS = 3;
+
+/**
+ * PDF 1 ファイルあたりの上限（バイト）。
+ * 大きくするとブラウザ→GAS の転送失敗・タイムアウトのリスクは上がる（目安は 25MB 前後まで）。
+ */
+const MAX_PDF_BYTES = 25 * 1024 * 1024;
 const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
 
 function isPdfFile(file) {
@@ -423,9 +429,9 @@ export default function App() {
 
     const append = (item) => {
       if (formType === 'request') {
-        setRequestImages((prev) => (prev.length < 3 ? [...prev, item] : prev));
+        setRequestImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
       } else {
-        setScheduleImages((prev) => (prev.length < 3 ? [...prev, item] : prev));
+        setScheduleImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
       }
     };
 
@@ -1331,8 +1337,8 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / 最大3件)</label>
-                          {requestImages.length < 3 && (
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
+                          {requestImages.length < MAX_ATTACHMENTS && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
@@ -1378,7 +1384,7 @@ export default function App() {
                   <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
                     <br />
-                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・参考画像・PDF・配信先を引き継いでタスク配信画面を開きます。期限だけ選び直してください。</span>
+                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・添付（JPEG・PNG・PDF 合計{MAX_ATTACHMENTS}件まで）・配信先を引き継いでタスク配信画面を開きます。期限だけ選び直してください。</span>
                   </p>
                   
                   <div className="space-y-6 w-full">
@@ -1510,8 +1516,8 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / 最大3件)</label>
-                          {scheduleImages.length < 3 && (
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
+                          {scheduleImages.length < MAX_ATTACHMENTS && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-3 text-slate-700 group-hover:scale-105 transition-transform">
