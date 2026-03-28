@@ -43,7 +43,8 @@ function saveImagesToDrive(images, senderName) {
         return;
       }
       if (!img || !img.base64) return;
-      const decoded = Utilities.base64Decode(img.base64, Utilities.Charset.UTF_8);
+      // 画像・PDFともバイナリを壊さないよう ISO-8859-1 でデコード（UTF-8 だと PDF 等が破損し得る）
+      const decoded = Utilities.base64Decode(img.base64, Utilities.Charset.ISO_8859_1);
       const blob = Utilities.newBlob(decoded, img.type, img.name);
       const dateStr = Utilities.formatDate(new Date(), "JST", "yyyyMMdd_HHmmss");
       const uniqueFileName = `${dateStr}_${senderName}_${img.name}`;

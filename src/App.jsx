@@ -28,7 +28,8 @@ const Icon = ({ name }) => {
     repeat: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>,
     plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
     trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
-    image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+    filePdf: <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>
   };
   return icons[name] || null;
 };
@@ -173,6 +174,46 @@ const formatContent = (text) => {
     </React.Fragment>
   ));
 };
+
+/** 添付1件あたりの上限（Drive / ペイロード負荷回避） */
+const MAX_PDF_BYTES = 12 * 1024 * 1024;
+const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
+
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+function AttachmentThumb({ img, onRemove, removeBtnClass, sizeClass = 'w-32 h-32' }) {
+  const [imgError, setImgError] = useState(false);
+  const showFileCard =
+    img.isPdf ||
+    (img.type && String(img.type).toLowerCase() === 'application/pdf') ||
+    (img.reuseUrl && imgError);
+
+  return (
+    <div className={`relative ${sizeClass} rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm bg-slate-50 flex flex-col`}>
+      {showFileCard ? (
+        <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center min-h-0">
+          <span className="inline-flex text-rose-600"><Icon name="filePdf" /></span>
+          <span className="text-[10px] font-bold text-slate-600 truncate w-full mt-1 leading-tight" title={img.name}>
+            {img.name || 'PDF'}
+          </span>
+          <span className="text-[9px] font-semibold text-slate-400 mt-0.5">PDF</span>
+        </div>
+      ) : (
+        <img
+          src={img.preview}
+          alt=""
+          className="w-full h-full object-cover min-h-0 flex-1"
+          onError={() => setImgError(true)}
+        />
+      )}
+      <button type="button" onClick={onRemove} className={removeBtnClass}>
+        <Icon name="x" />
+      </button>
+    </div>
+  );
+}
 
 export default function App() {
   const [authStep, setAuthStep] = useState('loading'); 
@@ -366,15 +407,51 @@ export default function App() {
   };
 
   const handleImageChange = (e, formType) => {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+
+    const append = (item) => {
+      if (formType === 'request') {
+        setRequestImages((prev) => (prev.length < 3 ? [...prev, item] : prev));
+      } else {
+        setScheduleImages((prev) => (prev.length < 3 ? [...prev, item] : prev));
+      }
+    };
+
+    files.forEach((file) => {
+      if (!file) return;
+
+      if (isPdfFile(file)) {
+        if (file.size > MAX_PDF_BYTES) {
+          alert(`PDFは${MAX_PDF_BYTES / (1024 * 1024)}MB以下にしてください: ${file.name}`);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          if (typeof dataUrl !== 'string') return;
+          const parts = dataUrl.split(',');
+          const base64 = parts[1];
+          if (!base64) return;
+          append({
+            name: file.name,
+            type: 'application/pdf',
+            base64,
+            preview: dataUrl,
+            isPdf: true
+          });
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
+        const el = new Image();
+        el.onload = () => {
           let canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
+          let width = el.width;
+          let height = el.height;
           const MAX_SIZE = 1200;
           if (width > height) {
             if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
@@ -383,19 +460,20 @@ export default function App() {
           }
           canvas.width = width;
           canvas.height = height;
-          let ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          let dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
-          const imageData = { name: file.name, type: 'image/jpeg', base64: dataUrl.split(',')[1], preview: dataUrl };
-          if (formType === 'request') {
-            setRequestImages(prev => prev.length < 3 ? [...prev, imageData] : prev);
-          } else {
-            setScheduleImages(prev => prev.length < 3 ? [...prev, imageData] : prev);
-          }
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(el, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          append({
+            name: file.name,
+            type: 'image/jpeg',
+            base64: dataUrl.split(',')[1],
+            preview: dataUrl
+          });
         };
-        img.src = reader.result;
+        el.onerror = () => alert(`画像として読み込めませんでした: ${file.name}`);
+        el.src = reader.result;
       };
-      if (file) reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
     });
   };
 
@@ -1228,23 +1306,25 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / 最大3件)</label>
                           {requestImages.length < 3 && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
-                              <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                              <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
                                 <div className="w-16 h-16 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
-                                <span className="text-base font-black">タップして画像を選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
+                                <span className="text-base font-black">タップして画像またはPDFを選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
                               </div>
                             </div>
                           )}
                           {requestImages.length > 0 && (
                             <div className="flex flex-wrap gap-4 mt-6">
                               {requestImages.map((img, i) => (
-                                <div key={i} className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm">
-                                  <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removeImage(i, 'request')} className="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-300 p-2 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
-                                </div>
+                                <AttachmentThumb
+                                  key={i}
+                                  img={img}
+                                  onRemove={() => removeImage(i, 'request')}
+                                  removeBtnClass="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-300 p-2 rounded-full hover:scale-110 transition-transform z-20"
+                                />
                               ))}
                             </div>
                           )}
@@ -1273,7 +1353,7 @@ export default function App() {
                   <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
                     <br />
-                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・参考画像・配信先を引き継いでタスク配信画面を開きます。期限だけ選び直してください。</span>
+                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・参考画像・PDF・配信先を引き継いでタスク配信画面を開きます。期限だけ選び直してください。</span>
                   </p>
                   
                   <div className="space-y-6 w-full">
@@ -1405,23 +1485,26 @@ export default function App() {
                         </div>
 
                         <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像 (任意 / 最大3枚)</label>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / 最大3件)</label>
                           {scheduleImages.length < 3 && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
-                              <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                              <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                               <div className="flex flex-col items-center gap-3 text-slate-700 group-hover:scale-105 transition-transform">
                                 <div className="w-14 h-14 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
-                                <span className="text-sm font-bold">タップして画像を選択</span>
+                                <span className="text-sm font-bold">タップして画像またはPDFを選択</span>
                               </div>
                             </div>
                           )}
                           {scheduleImages.length > 0 && (
                             <div className="flex flex-wrap gap-3 mt-4">
                               {scheduleImages.map((img, i) => (
-                                <div key={i} className="relative w-28 h-28 rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm">
-                                  <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removeImage(i, 'schedule')} className="absolute top-1 right-1 bg-rose-500 text-white border-2 border-slate-300 p-1.5 rounded-full hover:scale-110 transition-transform z-20"><Icon name="x" /></button>
-                                </div>
+                                <AttachmentThumb
+                                  key={i}
+                                  img={img}
+                                  sizeClass="w-28 h-28"
+                                  onRemove={() => removeImage(i, 'schedule')}
+                                  removeBtnClass="absolute top-1 right-1 bg-rose-500 text-white border-2 border-slate-300 p-1.5 rounded-full hover:scale-110 transition-transform z-20"
+                                />
                               ))}
                             </div>
                           )}
@@ -1560,7 +1643,7 @@ export default function App() {
                                 ))}
                                 {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
                                   <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-2 border-slate-300 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
-                                    <Icon name="image" /> 画像を開く
+                                    <Icon name="image" /> 添付を開く
                                   </a>
                                 ))}
                               </div>
