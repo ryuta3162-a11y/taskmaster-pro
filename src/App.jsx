@@ -1,11 +1,20 @@
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
 import { ACCENT_THEMES, applyAccentTheme, readStoredAccentId } from './accentThemes.js';
 
-// --- デザイン用定数（おしゃれ・シンプル・プロ仕様） ---
-const brutalCard = "bg-white border-2 border-slate-300 shadow-md rounded-2xl p-6 md:p-8 transition-all w-full";
-const brutalInput = "bg-white border-2 border-slate-300 shadow-sm rounded-xl p-4 font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[var(--acc-500)]/30 focus:border-[var(--acc-400)] transition-all w-full text-base";
-const brutalBtnPrimary = "bg-[var(--acc-500)] text-white border-2 border-[var(--acc-600)]/30 shadow-md rounded-2xl font-bold transition-all hover:bg-[var(--acc-600)] hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-3 py-5 text-xl";
-const brutalBtnSecondary = "bg-white text-slate-700 border-2 border-slate-300 shadow-sm rounded-2xl font-bold transition-all hover:bg-slate-50 hover:border-slate-400 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-lg";
+// --- デザイン用定数（スマホアプリ風・内容は従来どおり） ---
+const appCard = "bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.05] p-5 md:p-6 transition-all w-full";
+const appInput = "bg-slate-100/90 border-0 rounded-xl px-4 py-3.5 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--acc-500)]/35 transition-all w-full text-base";
+const appBtnPrimary = "bg-[var(--acc-500)] text-white rounded-2xl font-bold shadow-lg shadow-[var(--acc-500)]/25 transition-all hover:bg-[var(--acc-600)] active:scale-[0.98] flex items-center justify-center gap-3 py-4 text-lg";
+const appBtnSecondary = "bg-white text-slate-700 rounded-2xl font-semibold border border-black/[0.06] shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-base";
+const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
+const appSection = "bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.05] p-5 w-full";
+const appLabel = "text-base font-semibold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2";
+const appMenuIcon = "w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-[0.85]";
+// 既存クラス名との互換（置換漏れ防止）
+const brutalCard = appCard;
+const brutalInput = appInput;
+const brutalBtnPrimary = appBtnPrimary;
+const brutalBtnSecondary = appBtnSecondary;
 
 // --- アイコン部品 ---
 const Icon = ({ name }) => {
@@ -36,7 +45,9 @@ const Icon = ({ name }) => {
 
 // --- 入力規則データ（★ 役職を追加） ---
 const ROLES = ['GMG', 'A-SMG', 'SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
-const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ニュービジネス'];
+const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ヨガ＆ピラティスチーム'];
+/** 従業員データに旧名称が残っている場合の照合用 */
+const TEAM_LEGACY_ALIASES = { ニュービジネス: 'ヨガ＆ピラティスチーム' };
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
 
 /** 定期配信の実行時刻（GAS の processScheduledTasksBatch と一致させる） */
@@ -53,7 +64,8 @@ function parseEmployeeTeams(teamStr) {
   return String(teamStr || '')
     .split(/[,，]/)
     .map((t) => t.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((t) => TEAM_LEGACY_ALIASES[t] || t);
 }
 
 /** 未選択または全チーム選択時は true。それ以外は所属チームとの交差 */
@@ -79,7 +91,7 @@ function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList, tea
 
   const teamBracket = s.match(/\s*〈([^〉]+)〉\s*/);
   if (teamBracket) {
-    const teamNames = teamBracket[1].split(/,\s*/).map((t) => t.trim()).filter(Boolean);
+    const teamNames = teamBracket[1].split(/,\s*/).map((t) => TEAM_LEGACY_ALIASES[t.trim()] || t.trim()).filter(Boolean);
     const matched = teamsList.filter((t) => teamNames.includes(t));
     if (matched.length > 0) teams = matched;
     s = s.replace(teamBracket[0], '').trim();
@@ -1072,8 +1084,8 @@ export default function App() {
     );
 
     const blockTeams = (num) => (
-      <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">
+      <div className={appSection}>
+        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">
           {num}. 配信するチーム
         </h4>
         <p className="text-xs font-semibold text-slate-500 mb-3">複数選択可。全チームに送る場合は「全チームを選択」をオンにしてください。</p>
@@ -1112,8 +1124,8 @@ export default function App() {
     );
 
     const blockRoles = (num) => (
-      <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">
+      <div className={appSection}>
+        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">
           {num}. 配信する役職
         </h4>
         <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
@@ -1151,8 +1163,8 @@ export default function App() {
     );
 
     const blockStores = (num) => (
-      <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">
+      <div className={appSection}>
+        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">
           {num}. 配信するエリア・店舗
         </h4>
         <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
@@ -1330,12 +1342,12 @@ export default function App() {
 
       {/* --- ログイン・登録画面 --- */}
       {authStep === 'login' && (
-        <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden w-full">
-          <div className="bg-white border-2 border-slate-300 rounded-[2.5rem] p-12 max-w-lg w-full shadow-xl relative z-10">
-            <div className="w-24 h-24 bg-[var(--acc-500)] border-2 border-[var(--acc-400)]/50 rounded-3xl mx-auto flex items-center justify-center text-white mb-6 shadow-md"><Icon name="list" /></div>
+        <div className="min-h-[100dvh] bg-[#f2f2f7] flex items-center justify-center p-6 relative overflow-hidden w-full">
+          <div className={appCard + " max-w-md w-full relative z-10 !p-8 md:!p-10"}>
+            <div className="w-16 h-16 bg-[var(--acc-500)] rounded-2xl mx-auto flex items-center justify-center text-white mb-5 shadow-lg shadow-[var(--acc-500)]/30"><Icon name="list" /></div>
             <div className="text-center mb-8">
-              <p className="text-[10px] font-bold tracking-[0.28em] text-slate-500 uppercase mb-2">Task Force Team</p>
-              <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-2 tracking-tighter italic">To-Do List</h2>
+              <p className="text-[10px] font-semibold tracking-[0.28em] text-slate-500 uppercase mb-2">Task Force Team</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2 tracking-tight">To-Do List</h2>
             </div>
             <p className="text-gray-600 text-base font-bold mb-10 text-center leading-relaxed">チームのタスクを一元管理。</p>
             <form onSubmit={handleLoginSearch} className="space-y-8">
@@ -1348,9 +1360,9 @@ export default function App() {
       )}
 
       {authStep === 'register' && (
-        <div className="h-screen bg-slate-50 flex flex-col p-6 relative overflow-y-auto w-full">
-          <div className="bg-white border-2 border-slate-300 rounded-[2.5rem] p-8 md:p-16 max-w-3xl w-full shadow-xl relative z-10 mx-auto my-auto animate-fade-in">
-            <h2 className="text-4xl font-black text-black mb-4 text-center tracking-tighter">アカウント作成</h2>
+        <div className="min-h-[100dvh] bg-[#f2f2f7] flex flex-col p-6 relative overflow-y-auto w-full">
+          <div className={appCard + " max-w-3xl w-full relative z-10 mx-auto my-auto animate-fade-in !p-8 md:!p-12"}>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4 text-center tracking-tight">アカウント作成</h2>
             <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">初めてのログインですね。<br/>プロフィールを登録して開始してください。</p>
             <form onSubmit={handleRegisterSubmit} className="space-y-10">
               <div>
@@ -1484,46 +1496,42 @@ export default function App() {
 
       {/* --- メイン画面 --- */}
       {authStep === 'ready' && (
-        <div className="flex flex-col h-screen bg-slate-50 font-sans text-black overflow-hidden w-full">
+        <div className="flex flex-col h-[100dvh] bg-[#f2f2f7] font-sans text-slate-900 overflow-hidden w-full max-w-lg mx-auto md:max-w-none">
           
-          <header className="h-20 bg-white border-b-2 border-slate-300 flex items-center justify-between px-6 md:px-10 flex-shrink-0 z-40 w-full relative">
-            <div className="flex items-center gap-6">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-[var(--acc-500)] text-white flex items-center justify-center rounded-xl shadow-sm">
+          <header className="h-14 md:h-16 bg-white/90 backdrop-blur-xl border-b border-black/[0.06] flex items-center justify-between px-4 md:px-8 flex-shrink-0 z-40 w-full sticky top-0">
+            <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+               <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+                 <div className="w-9 h-9 bg-[var(--acc-500)] text-white flex items-center justify-center rounded-[10px] shadow-sm shrink-0">
                     <Icon name="check" />
                  </div>
-                 <div className="flex flex-col leading-tight gap-0.5">
-                    <span className="text-[8px] sm:text-[9px] font-bold tracking-[0.22em] text-slate-500 uppercase">Task Force Team</span>
-                    <h1 className="text-lg sm:text-xl font-black italic tracking-tight text-slate-900">To-Do List</h1>
+                 <div className="flex flex-col leading-tight gap-0 min-w-0 hidden sm:flex">
+                    <span className="text-[7px] sm:text-[8px] font-semibold tracking-[0.18em] text-slate-500 uppercase truncate">Task Force Team</span>
+                    <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">To-Do List</h1>
                  </div>
                </div>
                
                {activeTab !== 'home' && (
                  <>
-                   <div className="h-8 w-1 bg-gray-300 hidden md:block"></div>
-                   <button onClick={() => setActiveTab('home')} className="flex items-center gap-2 text-base font-black text-black hover:opacity-70 transition-opacity">
+                   <button onClick={() => setActiveTab('home')} className="flex items-center gap-1 text-sm font-semibold text-[var(--acc-600)] hover:opacity-80 transition-opacity shrink-0 ml-1">
                      <Icon name="chevronLeft" /> 戻る
                    </button>
-                   <h2 className="font-black text-black tracking-tighter uppercase text-xl md:text-2xl ml-2">
+                   <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0">
                      {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
                    </h2>
                  </>
                )}
                {activeTab === 'home' && (
-                 <>
-                   <div className="h-8 w-1 bg-gray-300 hidden md:block"></div>
-                   <h2 className="font-black text-slate-900 tracking-tight uppercase text-lg md:text-xl">Dashboard</h2>
-                 </>
+                 <h2 className="font-semibold text-slate-500 tracking-tight text-sm ml-1 hidden sm:block">Dashboard</h2>
                )}
             </div>
 
-            <div className="relative">
-              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center space-x-3 group bg-white border-2 border-slate-300 px-4 py-2 rounded-xl shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all active:translate-x-1 active:translate-y-1 relative z-50">
+            <div className="relative shrink-0">
+              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-2 group bg-slate-100/80 px-2.5 py-1.5 rounded-full border border-black/[0.05] transition-all active:scale-95 relative z-50">
                   <div className="flex flex-col items-end text-right hidden sm:flex">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[var(--acc-600)] leading-none mb-1">ACCOUNT</span>
-                      <span className="text-sm font-black text-black leading-none max-w-[120px] truncate">{currentUser?.name}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--acc-600)] leading-none mb-0.5">ACCOUNT</span>
+                      <span className="text-xs font-bold text-slate-900 leading-none max-w-[100px] truncate">{currentUser?.name}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold border-2 border-slate-300 shadow-sm">
+                  <div className="w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center font-bold shadow-sm">
                      <Icon name="user" />
                   </div>
               </button>
@@ -1531,9 +1539,9 @@ export default function App() {
               {isAccountMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-3 w-[min(14rem,88vw)] max-h-[min(88vh,34rem)] flex flex-col bg-white border-2 border-slate-300 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
-                    <div className="p-3.5 border-b-2 border-slate-200 bg-white shrink-0">
-                      <div className="w-12 h-12 rounded-xl bg-gray-100 border-2 border-slate-300 flex items-center justify-center text-black mb-2.5 shadow-sm mx-auto">
+                  <div className="absolute right-0 mt-2 w-[min(16rem,92vw)] max-h-[min(88vh,34rem)] flex flex-col bg-white rounded-2xl shadow-xl border border-black/[0.06] z-50 overflow-hidden animate-fade-in">
+                    <div className="p-3.5 border-b border-slate-100 bg-white shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-black mb-2.5 mx-auto">
                         <div className="scale-125"><Icon name="user" /></div>
                       </div>
                       <p className="text-center text-lg font-black text-slate-900 tracking-tight leading-tight">{currentUser?.name}</p>
@@ -1587,8 +1595,8 @@ export default function App() {
                         現在: <span className="text-[var(--acc-700)]">{ACCENT_THEMES.find((x) => x.id === accentId)?.label ?? '—'}</span>
                       </p>
                     </div>
-                    <div className="p-2.5 border-t-2 border-slate-300 bg-slate-50 shrink-0">
-                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 border-2 border-slate-300 font-black py-2 rounded-lg shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-widest">
+                    <div className="p-2.5 border-t border-slate-100 bg-slate-50/80 shrink-0">
+                      <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-xs">
                         <Icon name="logout" /> ログアウト
                       </button>
                     </div>
@@ -1598,14 +1606,13 @@ export default function App() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8 bg-slate-50 w-full">
-            <div className="max-w-[1920px] mx-auto w-full px-2 md:px-4 pb-20">
+          <main className="flex-1 overflow-auto p-4 md:p-6 bg-[#f2f2f7] w-full">
+            <div className="max-w-[1920px] mx-auto w-full px-1 md:px-4 pb-24">
               
               {/* === HOME === */}
               {activeTab === 'home' && (
-                <div className="animate-fade-in space-y-5 mt-3 w-full">
-                  {/* コンパクトな状況（主役は下の4メニュー） */}
-                  <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 px-1 border-b border-slate-200/90 pb-4">
+                <div className="animate-fade-in space-y-4 mt-1 w-full">
+                  <div className="bg-white rounded-2xl px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04]">
                     <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-slate-600">
                       <span>
                         未完了{' '}
@@ -1621,55 +1628,29 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6 w-full">
-                    {/* 新規投稿：アクセントテーマ統一（配信系3つ） */}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('request')}
-                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-600)] hover:border-t-[var(--acc-700)]"
-                    >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
-                        <Icon name="plus" />
-                      </div>
-                      <h4 className="text-lg font-black text-slate-900 tracking-tight">新規投稿</h4>
+                  <div className="flex flex-col gap-2.5 w-full md:grid md:grid-cols-2 xl:grid-cols-4 md:gap-3">
+                    <button type="button" onClick={() => setActiveTab('request')} className={appMenuTile}>
+                      <div className={appMenuIcon}><Icon name="plus" /></div>
+                      <h4 className="text-base font-semibold text-slate-900 flex-1">新規投稿</h4>
+                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    {/* 再投稿：同アクセント（トップ帯だけ一段明るく） */}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('repost')}
-                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-500)] hover:border-t-[var(--acc-600)]"
-                    >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
-                        <Icon name="history" />
-                      </div>
-                      <h4 className="text-lg font-black text-slate-900 tracking-tight">再投稿</h4>
+                    <button type="button" onClick={() => setActiveTab('repost')} className={appMenuTile}>
+                      <div className={appMenuIcon}><Icon name="history" /></div>
+                      <h4 className="text-base font-semibold text-slate-900 flex-1">再投稿</h4>
+                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    {/* 定期配信：同アクセント（トップ帯をやや濃く） */}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('scheduled')}
-                      className="group text-left bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-700)] hover:border-t-[var(--acc-900)]"
-                    >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
-                        <Icon name="repeat" />
-                      </div>
-                      <h4 className="text-lg font-black text-slate-900 tracking-tight">定期配信</h4>
+                    <button type="button" onClick={() => setActiveTab('scheduled')} className={appMenuTile}>
+                      <div className={appMenuIcon}><Icon name="repeat" /></div>
+                      <h4 className="text-base font-semibold text-slate-900 flex-1">定期配信</h4>
+                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    {/* リストチェック：他メニューと同様にアクセントで統一 */}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('checklist')}
-                      className="group text-left relative overflow-hidden bg-white border-2 border-slate-300 rounded-2xl p-6 md:p-7 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 border-t-[3px] border-t-[var(--acc-600)] hover:border-t-[var(--acc-700)]"
-                    >
-                      <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center border-2 border-[var(--acc-200)] bg-gradient-to-br from-white via-[var(--acc-50)] to-[var(--acc-100)] text-[var(--acc-900)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_3px_12px_-2px_rgba(0,0,0,0.07)] group-hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_6px_18px_-2px_rgba(0,0,0,0.1)] group-hover:ring-1 group-hover:ring-[var(--acc-300)] [&>svg]:scale-[0.85]">
-                        <Icon name="list" />
-                      </div>
-                      <h4 className="text-lg font-black text-slate-900 tracking-tight">リストチェック</h4>
+                    <button type="button" onClick={() => setActiveTab('checklist')} className={appMenuTile + ' relative'}>
+                      <div className={appMenuIcon}><Icon name="list" /></div>
+                      <h4 className="text-base font-semibold text-slate-900 flex-1">リストチェック</h4>
                       {activeTasksCount > 0 && (
-                        <div className="absolute top-3 right-3 bg-[var(--acc-600)] border-2 border-[var(--acc-500)] text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm tracking-widest">
-                          未完了 {activeTasksCount}
-                        </div>
+                        <span className="bg-[var(--acc-600)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">{activeTasksCount}</span>
                       )}
+                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
                   </div>
                 </div>
@@ -1682,9 +1663,9 @@ export default function App() {
                     {/* 入力フロー：1→2→3→4｜5→6→7（店舗依頼時）の見える区切り */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
                       {/* 左列：入力内容 (1〜4) */}
-                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b-2 border-slate-300 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
+                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b border-slate-200/80 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
                           <div className="flex flex-col sm:flex-row gap-3">
                             <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${requestKind === REQUEST_KIND.employee ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                               <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.employee} onChange={() => setRequestKind(REQUEST_KIND.employee)} />
@@ -1696,18 +1677,18 @@ export default function App() {
                             </label>
                           </div>
                         </div>
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="具体的な指示内容を入力してください"></textarea>
                         </div>
                         
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 期限 (DL) <span className="text-rose-500">*</span></label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">2. 期限 (DL) <span className="text-rose-500">*</span></label>
                           <input type="date" min={todayForMin} value={requestForm.deadline} onChange={e => setRequestForm({...requestForm, deadline: e.target.value})} required className={brutalInput} />
                         </div>
                         
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">3. URL (任意 / 最大3つ)</label>
                           <div className="space-y-3">
                             {requestForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
@@ -1728,8 +1709,8 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
                           {requestImages.length < MAX_ATTACHMENTS && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -1837,9 +1818,9 @@ export default function App() {
                   <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-6 w-full">
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
                       {/* 左列：1〜4 */}
-                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b-2 border-slate-300 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
+                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b border-slate-200/80 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
                           <div className="flex flex-col sm:flex-row gap-3">
                             <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${scheduleRequestKind === REQUEST_KIND.employee ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                               <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.employee} onChange={() => setScheduleRequestKind(REQUEST_KIND.employee)} />
@@ -1851,8 +1832,8 @@ export default function App() {
                             </label>
                           </div>
                         </div>
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
                           <p className="text-sm text-slate-600 mb-4">配信時刻は<strong>午前10:00</strong>固定です（変更はシステム管理者向け設定です）。</p>
                           <div className="flex flex-col sm:flex-row gap-4 mt-2">
                             <div className="flex-1">
@@ -1893,13 +1874,13 @@ export default function App() {
                           )}
                         </div>
 
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">2. 依頼内容 <span className="text-rose-500">*</span></label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">2. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
                         </div>
 
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">3. URL (任意 / 最大3つ)</label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">3. URL (任意 / 最大3つ)</label>
                           <div className="space-y-3">
                             {scheduleForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
@@ -1920,8 +1901,8 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
+                        <div className={appSection}>
+                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
                           {scheduleImages.length < MAX_ATTACHMENTS && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -2297,7 +2278,7 @@ export default function App() {
           height: 100% !important; 
           text-align: left !important; 
         }
-        body { background: #f8fafc; font-family: 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background: #f2f2f7; font-family: 'Noto Sans JP', sans-serif; -webkit-font-smoothing: antialiased; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

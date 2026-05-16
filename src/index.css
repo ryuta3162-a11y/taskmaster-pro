@@ -2,6 +2,13 @@
 
 /* アクセント（既定＝インディゴ）。accentThemes.js の applyAccentTheme で上書き */
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply antialiased text-slate-900;
+    background-color: #f2f2f7;
+  }
   :root {
     --acc-50: oklch(96.2% 0.018 272.314);
     --acc-100: oklch(93% 0.034 272.788);
