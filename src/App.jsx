@@ -7,12 +7,22 @@ const appInput = "bg-slate-100/90 border-0 rounded-xl px-4 py-3.5 font-medium te
 const appBtnPrimary = "bg-[var(--acc-500)] text-white rounded-2xl font-bold shadow-lg shadow-[var(--acc-500)]/25 transition-all hover:bg-[var(--acc-600)] active:scale-[0.98] flex items-center justify-center gap-3 py-4 text-lg";
 const appBtnSecondary = "bg-white text-slate-700 rounded-2xl font-semibold border border-black/[0.06] shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-base";
 const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
-const appSection = "bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.05] p-5 w-full";
+const appSection = "relative rounded-2xl w-full overflow-hidden border border-[var(--acc-200)]/45 bg-white/95 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.08)] ring-1 ring-[var(--acc-100)]/40 p-5 md:p-6";
 const appLabel = "text-base font-semibold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2";
 const appMenuIcon = "w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-[0.85]";
 const appChipBase = "inline-flex items-center justify-center min-h-[2.5rem] px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer select-none text-center leading-snug";
-const appChipOn = "bg-[var(--acc-500)] text-white shadow-sm shadow-[var(--acc-500)]/20 scale-[1.02]";
-const appChipOff = "bg-white text-slate-700 border border-black/[0.06] hover:border-[var(--acc-300)] hover:bg-[var(--acc-50)]/50";
+const appChipOn = "bg-gradient-to-br from-[var(--acc-500)] to-[var(--acc-700)] text-white shadow-md shadow-[var(--acc-500)]/30 ring-1 ring-white/25";
+const appChipOff = "bg-white/90 text-slate-700 border border-[var(--acc-200)]/60 hover:border-[var(--acc-400)] hover:bg-[var(--acc-50)]/60";
+const appChipArena = "rounded-xl border border-[var(--acc-200)]/45 bg-gradient-to-b from-slate-900/[0.03] via-white to-[var(--acc-50)]/25 p-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]";
+
+/** 新規登録は社内メールのみ（従業員データに既にある人はドメイン不問でログイン可） */
+const CORP_EMAIL_DOMAIN = '@okamoto-group.co.jp';
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+function isCorpEmail(email) {
+  return normalizeEmail(email).endsWith(CORP_EMAIL_DOMAIN);
+}
 // 既存クラス名との互換（置換漏れ防止）
 const brutalCard = appCard;
 const brutalInput = appInput;
@@ -336,6 +346,25 @@ function AttachmentThumb({ img, onRemove, removeBtnClass, sizeClass = 'w-32 h-32
   );
 }
 
+/** フィットネスクラブ × DX トーンのパネル枠 */
+function PanelFrame({ children, className = '' }) {
+  return (
+    <div className={`relative rounded-2xl overflow-hidden border border-[var(--acc-300)]/40 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.1)] ${className}`}>
+      <div className="absolute inset-0 bg-gradient-to-br from-[var(--acc-50)]/75 via-white to-slate-50/90 pointer-events-none" />
+      <div
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(90deg, var(--acc-500) 1px, transparent 1px), linear-gradient(var(--acc-500) 1px, transparent 1px)',
+          backgroundSize: '18px 18px',
+        }}
+      />
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400/90 via-[var(--acc-500)] to-[var(--acc-700)]" />
+      <div className="relative pl-4 pr-4 py-4 md:pl-5 md:pr-5">{children}</div>
+    </div>
+  );
+}
+
 /** 役職・チームなどの複数選択（チップ＋トグル） */
 function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeSelected }) {
   const allSelected = items.length > 0 && selected.length === items.length;
@@ -349,7 +378,7 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
   };
 
   return (
-    <div className={appSection}>
+    <PanelFrame>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. {title}</h4>
@@ -395,7 +424,7 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
           );
         })}
       </div>
-    </div>
+    </PanelFrame>
   );
 }
 
