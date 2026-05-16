@@ -24,7 +24,7 @@
 URL: https://docs.google.com/spreadsheets/d/1-ww_0rDYxmA6Mlrl1GUJtG_agE2z760cdvQ7oMIQqkc/edit
 
 【シート（最低限・3 つ】
-- 従業員データ
+- 従業員データ（管轄店舗は H列〜 最大50列 = BE列まで）
 - 定期配信データ
 - 申請データ
 

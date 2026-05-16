@@ -130,6 +130,20 @@ function saveImagesToDrive(images, senderName) {
 // ==============================================================
 // 2. ユーザー・店舗データの取得と登録（★役職列を追加）
 // ==============================================================
+/** 従業員シートの管轄店舗列: H列(7) から最大50店舗（H〜BE列） */
+var EMPLOYEE_STORE_COL_START = 7;
+var EMPLOYEE_STORE_COL_MAX = 50;
+
+function parseEmployeeStoresFromRow_(row) {
+  var end = Math.min(row.length, EMPLOYEE_STORE_COL_START + EMPLOYEE_STORE_COL_MAX);
+  var stores = [];
+  for (var i = EMPLOYEE_STORE_COL_START; i < end; i++) {
+    var s = String(row[i] || '').trim();
+    if (s) stores.push(s);
+  }
+  return stores;
+}
+
 function getEmployees() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -144,7 +158,7 @@ function getEmployees() {
       area: String(row[4] || "").trim(), 
       territory: String(row[5] || "").trim(), 
       role: String(row[6] || "").trim(), // ★G列(6)を「役職」として取得
-      stores: row.slice(7, 17).filter(Boolean).map(s => String(s).trim()) // ★店舗はH列(7)以降にずれる
+      stores: parseEmployeeStoresFromRow_(row)
     })).filter(emp => emp.email);
   } catch (e) { return []; }
 }
@@ -173,7 +187,11 @@ function registerEmployee(empData) {
     let row = [
       empData.name, empData.email, empData.team, 'なし', empData.area, empData.territory, empData.role
     ];
-    if (empData.stores && empData.stores.length > 0) row = row.concat(empData.stores);
+    var stores = (empData.stores || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
+    if (stores.length > EMPLOYEE_STORE_COL_MAX) {
+      return { status: 'error', message: '管轄店舗は最大' + EMPLOYEE_STORE_COL_MAX + '件まで登録できます。' };
+    }
+    if (stores.length > 0) row = row.concat(stores);
     sheet.appendRow(row);
     return { status: 'success' };
   } catch(e) { return { status: 'error', message: e.toString() }; }
@@ -1443,33 +1461,36 @@ function sendAdminTaskReminder(taskId, keys, mode) {
     var recipients = buildAdminTaskRecipients_(row, mode === 'store' ? 'store' : 'employee', employees, allStores, areasList);
     var keySet = {};
     keys.forEach(function (k) {
+      var nk = normalizeTaskEmail(k);
+      if (nk) keySet[nk] = true;
       keySet[String(k)] = true;
     });
 
-  var emailsToSend = [];
-  var emailMap = {};
+    var emailsToSend = [];
+    var emailMap = {};
 
-  if (mode === 'store') {
-    recipients.forEach(function (r) {
-      if (!keySet[r.key] || r.done) return;
-      (r.assignees || []).forEach(function (a) {
-        var em = normalizeTaskEmail(a.email);
-        if (!em) return;
-        if (!emailMap[em]) {
-          emailMap[em] = {
-            email: String(a.email).trim(),
-            name: a.name || a.email,
-            stores: [],
-          };
-        }
-        if (emailMap[em].stores.indexOf(r.storeName) < 0) {
-          emailMap[em].stores.push(r.storeName);
-        }
+    if (mode === 'store') {
+      recipients.forEach(function (r) {
+        if (r.done) return;
+        (r.assignees || []).forEach(function (a) {
+          var em = normalizeTaskEmail(a.email);
+          if (!em || (!keySet[em] && !keySet[String(a.email).trim()])) return;
+          if (!emailMap[em]) {
+            emailMap[em] = {
+              email: String(a.email).trim(),
+              name: a.name || a.email,
+              stores: [],
+            };
+          }
+          var sn = r.storeName || r.label;
+          if (sn && emailMap[em].stores.indexOf(sn) < 0) {
+            emailMap[em].stores.push(sn);
+          }
+        });
       });
-    });
-    Object.keys(emailMap).forEach(function (em) {
-      emailsToSend.push(emailMap[em]);
-    });
+      Object.keys(emailMap).forEach(function (em) {
+        emailsToSend.push(emailMap[em]);
+      });
   } else {
     var emailSeen = {};
     recipients.forEach(function (r) {

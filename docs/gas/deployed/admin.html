@@ -335,6 +335,25 @@
       background: rgba(255,255,255,.85);
     }
     .recipient.done { opacity: .55; background: #f8fafc; }
+    .assignee-row {
+      display: flex; align-items: flex-start; gap: .65rem;
+      padding: .65rem .75rem; border: 1px solid rgba(0,0,0,.05);
+      border-radius: .75rem; margin-bottom: .45rem; background: #fff;
+    }
+    .assignee-row input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .2rem; accent-color: var(--acc-600); flex-shrink: 0; }
+    .assignee-name { flex-shrink: 0; min-width: 5.5rem; max-width: 8rem; }
+    .assignee-name .recipient-name { font-size: .82rem; font-weight: 700; color: #0f172a; line-height: 1.35; }
+    .assignee-name .recipient-sub { font-size: .65rem; color: #64748b; margin-top: .1rem; word-break: break-all; }
+    .assignee-stores {
+      flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+      padding-top: .05rem;
+    }
+    .store-chip {
+      font-size: .72rem; font-weight: 600; color: var(--acc-900);
+      background: var(--acc-50); border: 1px solid var(--acc-200);
+      border-radius: .5rem; padding: .2rem .55rem; line-height: 1.3;
+    }
+    .assignee-arrow { color: #cbd5e1; font-size: .75rem; font-weight: 700; flex-shrink: 0; padding-top: .15rem; }
     .recipient input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--acc-600); flex-shrink: 0; }
     .recipient-name { font-size: .82rem; font-weight: 600; }
     .recipient-sub { font-size: .68rem; color: #64748b; margin-top: .15rem; }
@@ -490,6 +509,36 @@
 
       function selKey(taskId, key) { return taskId + '::' + key; }
 
+      function normEmail(email) {
+        return String(email || '').trim().toLowerCase();
+      }
+
+      /** 店舗依頼：未完了店舗を担当者ごとに集約 */
+      function groupStoreAssignees(recipients) {
+        var map = {};
+        (recipients || []).forEach(function (r) {
+          if (r.done) return;
+          (r.assignees || []).forEach(function (a) {
+            var em = normEmail(a.email);
+            if (!em) return;
+            if (!map[em]) {
+              map[em] = {
+                key: em,
+                email: String(a.email || '').trim(),
+                name: String(a.name || '').trim() || String(a.email || '').trim(),
+                stores: [],
+              };
+            }
+            if (map[em].stores.indexOf(r.storeName || r.label) < 0) {
+              map[em].stores.push(r.storeName || r.label);
+            }
+          });
+        });
+        return Object.keys(map)
+          .map(function (k) { return map[k]; })
+          .sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'ja'); });
+      }
+
       function getTasksForMode() {
         if (!lastData) return [];
         if (mode === 'employee') return lastData.employeeTasks || [];
@@ -550,11 +599,35 @@
         var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
         var recipients = task.recipients || [];
         h += '<div class="expand-toolbar">';
-        h += '<span class="hint">' + (mode === 'store' ? '未完了の店舗を選ぶと担当者へ送信' : '未実施の方を選んでリマインド') + '</span>';
+        h += '<span class="hint">' + (mode === 'store' ? '未完了の担当者を選ぶと、その人の未完了店舗をまとめて送信' : '未実施の方を選んでリマインド') + '</span>';
         h += '<button type="button" class="btn btn-sm" data-select-pending="' + esc(task.id) + '">未実施をすべて選択</button>';
         h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '">選択した人にリマインド</button>';
         h += '</div>';
-        if (!recipients.length) {
+
+        if (mode === 'store') {
+          var assignees = groupStoreAssignees(recipients);
+          if (!assignees.length) {
+            h += '<p class="hint">未完了の担当者はいません</p>';
+          } else {
+            assignees.forEach(function (a) {
+              var sk = selKey(task.id, a.key);
+              var checked = selected[sk] ? ' checked' : '';
+              h += '<label class="assignee-row">';
+              h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + ' />';
+              h += '<div class="assignee-name">';
+              h += '<div class="recipient-name">' + esc(a.name) + '</div>';
+              if (a.email) h += '<div class="recipient-sub">' + esc(a.email) + '</div>';
+              h += '</div>';
+              h += '<span class="assignee-arrow" aria-hidden="true">→</span>';
+              h += '<div class="assignee-stores">';
+              a.stores.forEach(function (sn) {
+                h += '<span class="store-chip">' + esc(sn) + '</span>';
+              });
+              h += '</div>';
+              h += '</label>';
+            });
+          }
+        } else if (!recipients.length) {
           h += '<p class="hint">対象データがありません</p>';
         } else {
           recipients.forEach(function (r) {
@@ -562,10 +635,7 @@
             var checked = selected[sk] ? ' checked' : '';
             var disabled = r.done ? ' disabled' : '';
             var cls = 'recipient' + (r.done ? ' done' : '');
-            var sub = '';
-            if (mode === 'store' && r.assignees && r.assignees.length) {
-              sub = '担当: ' + r.assignees.map(function (a) { return esc(a.name); }).join('、');
-            } else if (r.email) sub = esc(r.email);
+            var sub = r.email ? esc(r.email) : '';
             h += '<label class="' + cls + '">';
             h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + disabled + ' />';
             h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name) + '</div>';
@@ -649,9 +719,15 @@
             var tid = btn.getAttribute('data-select-pending');
             var task = getTasksForMode().find(function (t) { return t.id === tid; });
             if (!task) return;
-            (task.recipients || []).forEach(function (r) {
-              if (!r.done) selected[selKey(tid, r.key)] = true;
-            });
+            if (mode === 'store') {
+              groupStoreAssignees(task.recipients || []).forEach(function (a) {
+                selected[selKey(tid, a.key)] = true;
+              });
+            } else {
+              (task.recipients || []).forEach(function (r) {
+                if (!r.done) selected[selKey(tid, r.key)] = true;
+              });
+            }
             renderRoot();
           });
         });
@@ -669,17 +745,6 @@
               return;
             }
             var n = keys.length;
-            if (mode === 'store') {
-              var task = getTasksForMode().find(function (t) { return t.id === tid; });
-              var emailSet = {};
-              (task.recipients || []).forEach(function (r) {
-                if (keys.indexOf(r.key) < 0 || r.done) return;
-                (r.assignees || []).forEach(function (a) {
-                  if (a.email) emailSet[a.email] = true;
-                });
-              });
-              n = Object.keys(emailSet).length;
-            }
             if (!confirm(n + ' 名にリマインドを送信しますか？')) return;
             btn.disabled = true;
             google.script.run
