@@ -1506,16 +1506,18 @@ export default function App() {
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
             onClick={() => storeBulkModal.step === 'confirm' && setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' })}
           ></div>
-          <div className="bg-white rounded-[2.5rem] border-2 border-slate-300 p-8 md:p-10 max-w-lg w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] border-2 border-slate-300 p-6 sm:p-8 max-w-lg w-full max-h-[min(92dvh,40rem)] relative z-10 shadow-xl animate-fade-in overflow-hidden flex flex-col">
             {storeBulkModal.step === 'confirm' && (
-              <div>
-                <h3 className="text-2xl font-black text-black mb-2 tracking-tighter text-center">担当店舗をまとめて完了</h3>
-                <p className="text-sm font-bold text-slate-600 mb-6 text-center leading-relaxed">
+              <div className="flex flex-col min-h-0 flex-1">
+                <h3 className="text-2xl font-black text-black mb-2 tracking-tighter text-center shrink-0">担当店舗をまとめて完了</h3>
+                <p className="text-sm font-bold text-slate-600 mb-4 text-center leading-relaxed">
                   以下の店舗を、あなたの担当として完了にします。記録はテンポ内の全員に同じように表示されます。
                 </p>
-                <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-5 mb-6">
-                  <p className="text-xs font-bold text-slate-500 mb-3">完了にする店舗</p>
-                  <ul className="space-y-2 text-sm font-bold text-slate-900">
+                <div className="bg-slate-50 border-2 border-slate-300 rounded-2xl p-4 mb-4 flex flex-col min-h-0">
+                  <p className="text-xs font-bold text-slate-500 mb-2 shrink-0">
+                    完了にする店舗 <span className="tabular-nums">（{getMyIncompleteStoreNames(storeBulkModal.task).length}件）</span>
+                  </p>
+                  <ul className="space-y-2 text-sm font-bold text-slate-900 overflow-y-auto overscroll-contain max-h-[min(38vh,14rem)] pr-1">
                     {getMyIncompleteStoreNames(storeBulkModal.task).map((name) => (
                       <li key={name} className="flex items-start gap-2 border-b border-slate-200 last:border-0 pb-2 last:pb-0">
                         <span className="text-slate-400 shrink-0">・</span>
@@ -1524,18 +1526,20 @@ export default function App() {
                     ))}
                   </ul>
                 </div>
-                <p className="text-sm font-black text-center text-slate-800 mb-6">この内容で全店舗（上記の担当分）を完了してよろしいですか？</p>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' })}
-                    className={brutalBtnSecondary + ' flex-1'}
-                  >
-                    キャンセル
-                  </button>
-                  <button type="button" onClick={executeStoreBulkComplete} className={brutalBtnPrimary + ' flex-[2]'}>
-                    完了する
-                  </button>
+                <div className="shrink-0 mt-auto pt-1 border-t border-slate-200/80">
+                  <p className="text-sm font-black text-center text-slate-800 mb-4">この内容で全店舗（上記の担当分）を完了してよろしいですか？</p>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' })}
+                      className={brutalBtnSecondary + ' flex-1'}
+                    >
+                      キャンセル
+                    </button>
+                    <button type="button" onClick={executeStoreBulkComplete} className={brutalBtnPrimary + ' flex-[2]'}>
+                      完了する
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1558,7 +1562,7 @@ export default function App() {
           <div
             className={
               appCard +
-              ' login-card max-w-lg w-full relative z-10 !p-10 sm:!p-12 md:!p-14 border border-[var(--acc-200)]/40 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.18)] ring-1 ring-white/80'
+              ' login-card max-w-2xl w-full relative z-10 !p-10 sm:!p-12 md:!p-14 border border-[var(--acc-200)]/40 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.18)] ring-1 ring-white/80'
             }
           >
             <div className="login-pop login-delay-1 w-[5.25rem] h-[5.25rem] bg-gradient-to-br from-[var(--acc-400)] to-[var(--acc-700)] rounded-[1.15rem] mx-auto flex items-center justify-center text-white mb-7 shadow-xl shadow-[var(--acc-500)]/35 ring-4 ring-white/90 [&>svg]:scale-125">
@@ -1571,13 +1575,13 @@ export default function App() {
             <p className="login-pop login-delay-3 text-slate-700 text-lg sm:text-xl font-bold mb-7 text-center leading-relaxed">
               {checklistOnlyMode ? '未完了タスクの確認・完了用です' : 'TFチームのタスクを一元管理'}
             </p>
-            <div className="login-pop login-delay-4 rounded-2xl bg-gradient-to-b from-[var(--acc-50)]/80 to-white border border-[var(--acc-200)]/50 px-4 py-4 mb-9 text-center space-y-2">
-              <p className="text-sm sm:text-[0.95rem] text-slate-600 leading-relaxed">
+            <div className="login-pop login-delay-4 rounded-2xl bg-gradient-to-b from-[var(--acc-50)]/80 to-white border border-[var(--acc-200)]/50 px-5 sm:px-6 py-4 mb-9 text-center space-y-2">
+              <p className="text-sm sm:text-[0.95rem] text-slate-600 leading-relaxed sm:whitespace-nowrap">
                 必ず
                 <span className="font-bold text-[var(--acc-700)] mx-0.5">{CORP_EMAIL_DOMAIN}</span>
                 のメールで登録してください。
               </p>
-              <p className="text-sm sm:text-[0.95rem] text-slate-600 leading-relaxed">
+              <p className="text-sm sm:text-[0.95rem] text-slate-600 leading-relaxed sm:whitespace-nowrap">
                 登録済みの方は同じメールアドレスで再ログインできます。
               </p>
             </div>
@@ -2348,7 +2352,10 @@ export default function App() {
                               const myStores = currentUser?.stores || [];
                               return (
                                 <div className="mb-4 space-y-2">
-                                  <ul className="space-y-2">
+                                  {names.length > 6 && (
+                                    <p className="text-[10px] font-bold text-slate-500">担当店舗 {names.length}件（スクロールで確認）</p>
+                                  )}
+                                  <ul className="space-y-2 max-h-64 overflow-y-auto overscroll-contain pr-0.5">
                                     {names.map((storeName) => {
                                       const done = sc[storeName];
                                       const mine = myStores.includes(storeName);
