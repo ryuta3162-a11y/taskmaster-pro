@@ -365,6 +365,15 @@ function PanelFrame({ children, className = '' }) {
   );
 }
 
+/** 新規登録フォーム用チップ */
+function RegChip({ selected, onClick, children }) {
+  return (
+    <button type="button" onClick={onClick} className={`${appChipBase} ${selected ? appChipOn : appChipOff}`}>
+      {children}
+    </button>
+  );
+}
+
 /** 役職・チームなどの複数選択（チップ＋トグル） */
 function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeSelected }) {
   const allSelected = items.length > 0 && selected.length === items.length;
@@ -424,6 +433,7 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
             </button>
           );
         })}
+        </div>
       </div>
     </PanelFrame>
   );
@@ -579,8 +589,23 @@ export default function App() {
   const handleLoginSearch = (e) => {
     e.preventDefault();
     setLoginError('');
-    const user = allEmployees.find(emp => emp.email === inputEmail.trim());
-    if (user) { setTempUser(user); setAuthStep('confirm'); } else { setTempUser({ email: inputEmail.trim() }); setAuthStep('register'); }
+    const email = normalizeEmail(inputEmail);
+    if (!email) {
+      setLoginError('メールアドレスを入力してください。');
+      return;
+    }
+    const user = allEmployees.find((emp) => normalizeEmail(emp.email) === email);
+    if (user) {
+      setTempUser(user);
+      setAuthStep('confirm');
+    } else {
+      if (!isCorpEmail(email)) {
+        setLoginError(`新規登録は社内メール（${CORP_EMAIL_DOMAIN}）のみご利用いただけます。`);
+        return;
+      }
+      setTempUser({ email });
+      setAuthStep('register');
+    }
   };
 
   const handleConfirmLogin = () => {
@@ -627,6 +652,11 @@ export default function App() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
+    const newEmail = normalizeEmail(tempUser?.email || inputEmail);
+    if (!isCorpEmail(newEmail)) {
+      alert(`新規登録は社内メール（${CORP_EMAIL_DOMAIN}）のみご利用いただけます。`);
+      return;
+    }
     if (!regData.role) return alert('役職を選択してください。');
     if (regData.team.length === 0 || regData.area.length === 0) return alert('チーム名、エリアは選択必須です。');
     setIsSubmitting(true);
@@ -636,7 +666,6 @@ export default function App() {
     const validStoreNames = allStores.filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory)).map(s => s.storeName);
     const finalStores = regData.stores.filter(s => validStoreNames.includes(s));
     
-    const newEmail = tempUser?.email || inputEmail.trim();
     const newEmployee = { ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: newEmail, stores: finalStores, role: regData.role };
 
     try {
@@ -1161,7 +1190,7 @@ export default function App() {
     const recipientCount = recipientEmails.size;
 
     const blockRecipientPreview = () => (
-      <div className="rounded-2xl bg-gradient-to-br from-[var(--acc-50)] to-white border border-[var(--acc-200)]/50 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <PanelFrame className="ring-2 ring-[var(--acc-200)]/35">
         <p className="text-sm font-medium text-slate-600 text-center">この条件で配信される人数</p>
         <p className="text-center mt-1">
           <span className="text-4xl font-bold text-[var(--acc-600)] tabular-nums tracking-tight">{recipientCount}</span>
@@ -1172,7 +1201,7 @@ export default function App() {
             条件に一致する社員がいません。役職・チーム・店舗を見直してください。
           </p>
         )}
-      </div>
+      </PanelFrame>
     );
 
     const blockTeams = (num) => (
@@ -1203,7 +1232,7 @@ export default function App() {
       const allStoreNames = allStores.map((s) => s.storeName);
       const storeCount = selectedStores.length;
       return (
-      <div className={appSection}>
+      <PanelFrame>
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
             <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. 配信するエリア・店舗</h4>
@@ -1256,7 +1285,7 @@ export default function App() {
                     </span>
                   </span>
                 </summary>
-                <div className="p-3 border-t border-slate-100 bg-slate-50/50 grid grid-cols-2 gap-1.5">
+                <div className={`p-3 border-t border-slate-100/80 ${appChipArena} grid grid-cols-2 gap-1.5`}>
                   {storesInArea.map((store) => {
                     const on = selectedStores.includes(store.storeName);
                     return (
@@ -1273,7 +1302,7 @@ export default function App() {
                       </button>
                     );
                   })}
-                </div>
+                </PanelFrame>
               </details>
             );
           })}
@@ -1400,9 +1429,14 @@ export default function App() {
               <p className="text-[10px] font-semibold tracking-[0.28em] text-slate-500 uppercase mb-2">Task Force Team</p>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2 tracking-tight">To-Do List</h2>
             </div>
-            <p className="text-gray-600 text-base font-bold mb-10 text-center leading-relaxed">チームのタスクを一元管理。</p>
+            <p className="text-gray-600 text-base font-bold mb-6 text-center leading-relaxed">チームのタスクを一元管理。</p>
+            <p className="text-xs text-slate-500 text-center mb-8 leading-relaxed px-1">
+              初めての方は <span className="font-semibold text-[var(--acc-700)]">{CORP_EMAIL_DOMAIN}</span> のメールで登録してください。
+              <br />
+              登録済みの方は、登録時のメールアドレスでログインできます。
+            </p>
             <form onSubmit={handleLoginSearch} className="space-y-8">
-              <input type="email" required value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} className={brutalInput + " text-center"} placeholder="メールアドレスを入力" />
+              <input type="email" required value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} className={brutalInput + " text-center"} placeholder={`name${CORP_EMAIL_DOMAIN}`} />
               {loginError && <p className="text-rose-500 text-sm font-black text-center animate-bounce">{loginError}</p>}
               <button type="submit" className={brutalBtnPrimary + " w-full py-5 text-xl"}>ログイン / 新規登録</button>
             </form>
