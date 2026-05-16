@@ -10,6 +10,9 @@ const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_
 const appSection = "bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.05] p-5 w-full";
 const appLabel = "text-base font-semibold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2";
 const appMenuIcon = "w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-[0.85]";
+const appChipBase = "inline-flex items-center justify-center min-h-[2.5rem] px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer select-none text-center leading-snug";
+const appChipOn = "bg-[var(--acc-500)] text-white shadow-sm shadow-[var(--acc-500)]/20 scale-[1.02]";
+const appChipOff = "bg-white text-slate-700 border border-black/[0.06] hover:border-[var(--acc-300)] hover:bg-[var(--acc-50)]/50";
 // 既存クラス名との互換（置換漏れ防止）
 const brutalCard = appCard;
 const brutalInput = appInput;
@@ -333,6 +336,69 @@ function AttachmentThumb({ img, onRemove, removeBtnClass, sizeClass = 'w-32 h-32
   );
 }
 
+/** 役職・チームなどの複数選択（チップ＋トグル） */
+function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeSelected }) {
+  const allSelected = items.length > 0 && selected.length === items.length;
+  const count = selected.length;
+
+  const setAll = (on) => onChangeSelected(on ? [...items] : []);
+
+  const toggle = (item) => {
+    if (selected.includes(item)) onChangeSelected(selected.filter((x) => x !== item));
+    else onChangeSelected([...selected, item]);
+  };
+
+  return (
+    <div className={appSection}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. {title}</h4>
+          {hint && <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>}
+        </div>
+        <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full">
+          {count}/{items.length}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setAll(!allSelected)}
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-3 transition-all duration-200 ${
+          allSelected
+            ? 'bg-[var(--acc-500)] text-white shadow-md shadow-[var(--acc-500)]/25'
+            : 'bg-slate-100/80 text-slate-800 border border-black/[0.04]'
+        }`}
+      >
+        <span className="font-semibold text-sm">{allLabel}</span>
+        <span
+          className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${allSelected ? 'bg-white/25' : 'bg-slate-300/70'}`}
+          aria-hidden
+        >
+          <span
+            className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${allSelected ? 'left-[22px]' : 'left-0.5'}`}
+          />
+        </span>
+      </button>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        {items.map((item) => {
+          const on = selected.includes(item);
+          return (
+            <button
+              key={item}
+              type="button"
+              onClick={() => toggle(item)}
+              className={`${appChipBase} ${on ? appChipOn : appChipOff}`}
+            >
+              {item}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [authStep, setAuthStep] = useState('loading'); 
   const [inputEmail, setInputEmail] = useState('');
@@ -345,7 +411,19 @@ export default function App() {
   const [regData, setRegData] = useState({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
 
   const [activeTab, setActiveTab] = useState('home');
+  const [screenTransition, setScreenTransition] = useState('fade');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+
+  const navigateTab = (tab) => {
+    setScreenTransition(tab === 'home' ? 'back' : activeTab === 'home' ? 'forward' : 'fade');
+    setActiveTab(tab);
+    setIsAccountMenuOpen(false);
+  };
+
+  const screenAnimClass =
+    screenTransition === 'forward' ? 'app-screen-forward' : screenTransition === 'back' ? 'app-screen-back' : 'app-screen-fade';
+
+  const accountInitial = (currentUser?.name || '?').trim().charAt(0) || '?';
   const [accentId, setAccentId] = useState('indigo');
 
   useEffect(() => {
@@ -1040,22 +1118,6 @@ export default function App() {
     mode = REQUEST_KIND.store
   ) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
-    const handleSelectAllStores = (e) => {
-      if (e.target.checked) setSelectedStores(allStores.map((s) => s.storeName));
-      else setSelectedStores([]);
-    };
-
-    const isAllRolesSelected = selectedRoles.length === ROLES.length;
-    const handleSelectAllRoles = (e) => {
-      if (e.target.checked) setSelectedRoles(ROLES);
-      else setSelectedRoles([]);
-    };
-
-    const isAllTeamsSelected = selectedTeams.length === TEAMS.length;
-    const handleSelectAllTeams = (e) => {
-      if (e.target.checked) setSelectedTeams(TEAMS);
-      else setSelectedTeams([]);
-    };
 
     const recipientEmails = computeTargetRecipientEmails({
       requestKind: mode,
@@ -1069,14 +1131,14 @@ export default function App() {
     const recipientCount = recipientEmails.size;
 
     const blockRecipientPreview = () => (
-      <div className="bg-[var(--acc-50)] border-2 border-[var(--acc-300)] rounded-xl p-5 shadow-sm">
-        <p className="text-base font-black text-slate-900 text-center">
-          この条件で配信される人数
-          <span className="block text-3xl text-[var(--acc-600)] mt-2 tabular-nums">{recipientCount}</span>
-          <span className="text-sm font-bold text-slate-600">名</span>
+      <div className="rounded-2xl bg-gradient-to-br from-[var(--acc-50)] to-white border border-[var(--acc-200)]/50 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <p className="text-sm font-medium text-slate-600 text-center">この条件で配信される人数</p>
+        <p className="text-center mt-1">
+          <span className="text-4xl font-bold text-[var(--acc-600)] tabular-nums tracking-tight">{recipientCount}</span>
+          <span className="text-sm font-medium text-slate-500 ml-1">名</span>
         </p>
         {recipientCount === 0 && (
-          <p className="text-sm font-bold text-rose-600 text-center mt-3">
+          <p className="text-xs font-medium text-rose-600 text-center mt-3 leading-relaxed">
             条件に一致する社員がいません。役職・チーム・店舗を見直してください。
           </p>
         )}
@@ -1084,143 +1146,101 @@ export default function App() {
     );
 
     const blockTeams = (num) => (
-      <div className={appSection}>
-        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">
-          {num}. 配信するチーム
-        </h4>
-        <p className="text-xs font-semibold text-slate-500 mb-3">複数選択可。全チームに送る場合は「全チームを選択」をオンにしてください。</p>
-        <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
-          <input
-            type="checkbox"
-            checked={isAllTeamsSelected}
-            onChange={handleSelectAllTeams}
-            className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-          />
-          全チームを選択
-        </label>
-        <div className="flex flex-wrap gap-3 pl-2">
-          {TEAMS.map((team) => {
-            const isChecked = selectedTeams.includes(team);
-            return (
-              <label
-                key={team}
-                className={`flex items-center font-bold text-sm border-2 border-slate-300 px-4 py-2.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-200)] shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedTeams((prev) => [...prev, team]);
-                    else setSelectedTeams((prev) => prev.filter((t) => t !== team));
-                  }}
-                  className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-                />
-                {team}
-              </label>
-            );
-          })}
-        </div>
-      </div>
+      <SelectionBlock
+        num={num}
+        title="配信するチーム"
+        hint="タップで個別に切り替え。初期状態は全チームが選択されています。"
+        allLabel="全チームを選択"
+        items={TEAMS}
+        selected={selectedTeams}
+        onChangeSelected={setSelectedTeams}
+      />
     );
 
     const blockRoles = (num) => (
-      <div className={appSection}>
-        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">
-          {num}. 配信する役職
-        </h4>
-        <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
-          <input
-            type="checkbox"
-            checked={isAllRolesSelected}
-            onChange={handleSelectAllRoles}
-            className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-          />
-          全役職を選択
-        </label>
-        <div className="flex flex-wrap gap-3 pl-2">
-          {ROLES.map((role) => {
-            const isChecked = selectedRoles.includes(role);
-            return (
-              <label
-                key={role}
-                className={`flex items-center font-bold text-base border-2 border-slate-300 px-5 py-3 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-200)] shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={(e) => {
-                    if (e.target.checked) setSelectedRoles((prev) => [...prev, role]);
-                    else setSelectedRoles((prev) => prev.filter((r) => r !== role));
-                  }}
-                  className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-                />
-                {role}
-              </label>
-            );
-          })}
-        </div>
-      </div>
+      <SelectionBlock
+        num={num}
+        title="配信する役職"
+        hint="タップで個別に切り替え。初期状態は全役職が選択されています。"
+        allLabel="全役職を選択"
+        items={ROLES}
+        selected={selectedRoles}
+        onChangeSelected={setSelectedRoles}
+      />
     );
 
-    const blockStores = (num) => (
+    const blockStores = (num) => {
+      const allStoreNames = allStores.map((s) => s.storeName);
+      const storeCount = selectedStores.length;
+      return (
       <div className={appSection}>
-        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">
-          {num}. 配信するエリア・店舗
-        </h4>
-        <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-4">
-          <input
-            type="checkbox"
-            checked={isAllStoresSelected}
-            onChange={handleSelectAllStores}
-            className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-          />
-          全店舗を選択
-        </label>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-start pl-2">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. 配信するエリア・店舗</h4>
+            <p className="text-xs text-slate-500 leading-relaxed">エリア単位で開いて店舗を選択できます。</p>
+          </div>
+          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full">
+            {storeCount}/{allStoreNames.length}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSelectedStores(isAllStoresSelected ? [] : allStoreNames)}
+          className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-3 transition-all duration-200 ${
+            isAllStoresSelected
+              ? 'bg-[var(--acc-500)] text-white shadow-md shadow-[var(--acc-500)]/25'
+              : 'bg-slate-100/80 text-slate-800 border border-black/[0.04]'
+          }`}
+        >
+          <span className="font-semibold text-sm">全店舗を選択</span>
+          <span className={`relative w-11 h-6 rounded-full shrink-0 ${isAllStoresSelected ? 'bg-white/25' : 'bg-slate-300/70'}`}>
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isAllStoresSelected ? 'left-[22px]' : 'left-0.5'}`} />
+          </span>
+        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
           {AREAS.map((area) => {
             const storesInArea = allStores.filter((s) => s.area === area);
             if (storesInArea.length === 0) return null;
             const isAllAreaSelected = storesInArea.every((s) => selectedStores.includes(s.storeName));
+            const areaSelectedCount = storesInArea.filter((s) => selectedStores.includes(s.storeName)).length;
             return (
-              <details key={area} className="group bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden">
-                <summary className="flex items-center justify-between p-3 font-bold text-base cursor-pointer hover:bg-[var(--acc-50)] transition-colors list-none select-none">
-                  <label className="flex items-center cursor-pointer hover:opacity-70 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={isAllAreaSelected}
-                      onChange={(e) => {
+              <details key={area} className="group bg-white border border-black/[0.06] rounded-xl overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                <summary className="flex items-center justify-between gap-2 p-3 font-semibold text-sm cursor-pointer hover:bg-slate-50/80 transition-colors list-none select-none">
+                  <span className="truncate">{area}</span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] font-medium tabular-nums text-slate-500">{areaSelectedCount}/{storesInArea.length}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
                         const areaStoreNames = storesInArea.map((s) => s.storeName);
-                        if (e.target.checked) setSelectedStores((prev) => Array.from(new Set([...prev, ...areaStoreNames])));
-                        else setSelectedStores((prev) => prev.filter((s) => !areaStoreNames.includes(s)));
+                        if (isAllAreaSelected) setSelectedStores((prev) => prev.filter((s) => !areaStoreNames.includes(s)));
+                        else setSelectedStores((prev) => Array.from(new Set([...prev, ...areaStoreNames])));
                       }}
-                      className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-                    />
-                    {area}
-                  </label>
-                  <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center group-open:rotate-180 transition-transform shadow-sm">
-                    <Icon name="chevronDown" />
-                  </div>
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md transition-colors ${isAllAreaSelected ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-100 text-slate-600'}`}
+                    >
+                      {isAllAreaSelected ? '解除' : '全選択'}
+                    </button>
+                    <span className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center group-open:rotate-180 transition-transform [&>svg]:scale-75">
+                      <Icon name="chevronDown" />
+                    </span>
+                  </span>
                 </summary>
-                <div className="p-4 border-t-2 border-slate-300 bg-gray-50 flex flex-wrap gap-2">
+                <div className="p-3 border-t border-slate-100 bg-slate-50/50 grid grid-cols-2 gap-1.5">
                   {storesInArea.map((store) => {
-                    const isChecked = selectedStores.includes(store.storeName);
+                    const on = selectedStores.includes(store.storeName);
                     return (
-                      <label
+                      <button
                         key={store.storeName}
-                        className={`flex items-center font-bold text-sm border-2 border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-100)] shadow-sm -translate-y-[1px]' : 'bg-white hover:bg-gray-100 text-gray-500'}`}
+                        type="button"
+                        onClick={() => {
+                          if (on) setSelectedStores((prev) => prev.filter((s) => s !== store.storeName));
+                          else setSelectedStores((prev) => [...prev, store.storeName]);
+                        }}
+                        className={`${appChipBase} !min-h-[2rem] !text-xs ${on ? appChipOn : appChipOff}`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedStores((prev) => [...prev, store.storeName]);
-                            else setSelectedStores((prev) => prev.filter((s) => s !== store.storeName));
-                          }}
-                          className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
-                        />
                         {store.storeName}
-                      </label>
+                      </button>
                     );
                   })}
                 </div>
@@ -1229,7 +1249,8 @@ export default function App() {
           })}
         </div>
       </div>
-    );
+      );
+    };
 
     if (mode === REQUEST_KIND.employee) {
       return (
@@ -1512,7 +1533,7 @@ export default function App() {
                
                {activeTab !== 'home' && (
                  <>
-                   <button onClick={() => setActiveTab('home')} className="flex items-center gap-1 text-sm font-semibold text-[var(--acc-600)] hover:opacity-80 transition-opacity shrink-0 ml-1">
+                   <button onClick={() => navigateTab('home')} className="flex items-center gap-1 text-sm font-semibold text-[var(--acc-600)] hover:opacity-80 transition-opacity shrink-0 ml-1">
                      <Icon name="chevronLeft" /> 戻る
                    </button>
                    <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0">
@@ -1526,26 +1547,29 @@ export default function App() {
             </div>
 
             <div className="relative shrink-0">
-              <button onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)} className="flex items-center gap-2 group bg-slate-100/80 px-2.5 py-1.5 rounded-full border border-black/[0.05] transition-all active:scale-95 relative z-50">
-                  <div className="flex flex-col items-end text-right hidden sm:flex">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--acc-600)] leading-none mb-0.5">ACCOUNT</span>
-                      <span className="text-xs font-bold text-slate-900 leading-none max-w-[100px] truncate">{currentUser?.name}</span>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-white text-slate-700 flex items-center justify-center font-bold shadow-sm">
-                     <Icon name="user" />
-                  </div>
+              <button
+                type="button"
+                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+                className="relative z-50 w-9 h-9 rounded-full bg-gradient-to-br from-[var(--acc-500)] to-[var(--acc-700)] text-white text-sm font-bold flex items-center justify-center ring-2 ring-white shadow-md active:scale-95 transition-transform"
+                aria-label="アカウント"
+              >
+                {accountInitial}
               </button>
               
               {isAccountMenuOpen && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsAccountMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-[min(16rem,92vw)] max-h-[min(88vh,34rem)] flex flex-col bg-white rounded-2xl shadow-xl border border-black/[0.06] z-50 overflow-hidden animate-fade-in">
-                    <div className="p-3.5 border-b border-slate-100 bg-white shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-black mb-2.5 mx-auto">
-                        <div className="scale-125"><Icon name="user" /></div>
+                  <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]" onClick={() => setIsAccountMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-[min(18rem,92vw)] max-h-[min(88vh,36rem)] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-black/[0.06] z-50 overflow-hidden animate-fade-in">
+                    <div className="p-4 border-b border-slate-100 shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[var(--acc-500)] to-[var(--acc-700)] text-white font-bold flex items-center justify-center shrink-0">
+                          {accountInitial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 truncate">{currentUser?.name}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{currentUser?.email}</p>
+                        </div>
                       </div>
-                      <p className="text-center text-lg font-black text-slate-900 tracking-tight leading-tight">{currentUser?.name}</p>
-                      <p className="text-center text-[10px] font-bold text-slate-500 mt-0.5 break-all px-1">{currentUser?.email}</p>
                     </div>
                     <div className="px-3.5 py-3 space-y-3 bg-white overflow-y-auto overscroll-contain min-h-0 max-h-[min(42vh,220px)] border-b border-slate-100">
                       {currentUser?.role && (
@@ -1608,10 +1632,11 @@ export default function App() {
 
           <main className="flex-1 overflow-auto p-4 md:p-6 bg-[#f2f2f7] w-full">
             <div className="max-w-[1920px] mx-auto w-full px-1 md:px-4 pb-24">
+              <div key={activeTab} className={screenAnimClass}>
               
               {/* === HOME === */}
               {activeTab === 'home' && (
-                <div className="animate-fade-in space-y-4 mt-1 w-full">
+                <div className="space-y-4 mt-1 w-full">
                   <div className="bg-white rounded-2xl px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04]">
                     <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-slate-600">
                       <span>
@@ -1629,22 +1654,22 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-2.5 w-full md:grid md:grid-cols-2 xl:grid-cols-4 md:gap-3">
-                    <button type="button" onClick={() => setActiveTab('request')} className={appMenuTile}>
+                    <button type="button" onClick={() => navigateTab('request')} className={appMenuTile}>
                       <div className={appMenuIcon}><Icon name="plus" /></div>
                       <h4 className="text-base font-semibold text-slate-900 flex-1">新規投稿</h4>
                       <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    <button type="button" onClick={() => setActiveTab('repost')} className={appMenuTile}>
+                    <button type="button" onClick={() => navigateTab('repost')} className={appMenuTile}>
                       <div className={appMenuIcon}><Icon name="history" /></div>
                       <h4 className="text-base font-semibold text-slate-900 flex-1">再投稿</h4>
                       <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    <button type="button" onClick={() => setActiveTab('scheduled')} className={appMenuTile}>
+                    <button type="button" onClick={() => navigateTab('scheduled')} className={appMenuTile}>
                       <div className={appMenuIcon}><Icon name="repeat" /></div>
                       <h4 className="text-base font-semibold text-slate-900 flex-1">定期配信</h4>
                       <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    <button type="button" onClick={() => setActiveTab('checklist')} className={appMenuTile + ' relative'}>
+                    <button type="button" onClick={() => navigateTab('checklist')} className={appMenuTile + ' relative'}>
                       <div className={appMenuIcon}><Icon name="list" /></div>
                       <h4 className="text-base font-semibold text-slate-900 flex-1">リストチェック</h4>
                       {activeTasksCount > 0 && (
@@ -1658,7 +1683,7 @@ export default function App() {
               
               {/* === タスク配信 === */}
               {activeTab === 'request' && (
-                <div className="animate-fade-in w-full mt-4">
+                <div className="w-full mt-4">
                   <form onSubmit={handleTaskSubmit} className="flex flex-col gap-6 w-full">
                     {/* 入力フロー：1→2→3→4｜5→6→7（店舗依頼時）の見える区切り */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
@@ -2263,6 +2288,7 @@ export default function App() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </main>
         </div>
@@ -2283,7 +2309,12 @@ export default function App() {
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes screenForward { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes screenBack { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
         .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .app-screen-forward { animation: screenForward 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .app-screen-back { animation: screenBack 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .app-screen-fade { animation: fadeIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
         .text-center-last { text-align-last: center; }
         details > summary { list-style: none; }
