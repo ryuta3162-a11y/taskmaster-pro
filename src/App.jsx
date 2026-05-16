@@ -1302,12 +1302,12 @@ export default function App() {
                       </button>
                     );
                   })}
-                </PanelFrame>
+                </div>
               </details>
             );
           })}
         </div>
-      </div>
+      </PanelFrame>
       );
     };
 
@@ -1474,72 +1474,68 @@ export default function App() {
               </div>
 
               <div>
-                <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">チーム名（複数選択可） <span className="text-rose-500">*</span></label>
-                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+                <label className={appLabel}>チーム名（複数選択可） <span className="text-rose-500">*</span></label>
+                <PanelFrame className="mt-2">
+                <div className={`flex flex-wrap gap-2 ${appChipArena}`}>
                   {TEAMS.map(t => (
-                    <button key={t} type="button" onClick={() => toggleTeam(t)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.team.includes(t) ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
-                      {t}
-                    </button>
+                    <RegChip key={t} selected={regData.team.includes(t)} onClick={() => toggleTeam(t)}>{t}</RegChip>
                   ))}
                 </div>
+                </PanelFrame>
               </div>
               <div>
-                <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">エリア（複数選択可） <span className="text-rose-500">*</span></label>
-                <div className="flex flex-wrap gap-3 p-6 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)]">
+                <label className={appLabel}>エリア（複数選択可） <span className="text-rose-500">*</span></label>
+                <PanelFrame className="mt-2">
+                <div className={`flex flex-wrap gap-2 ${appChipArena}`}>
                   {AREAS.map(a => (
-                    <button key={a} type="button" onClick={() => toggleArea(a)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${regData.area.includes(a) ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
-                      {a}
-                    </button>
+                    <RegChip key={a} selected={regData.area.includes(a)} onClick={() => toggleArea(a)}>{a}</RegChip>
                   ))}
                 </div>
+                </PanelFrame>
               </div>
               {regData.area.length > 0 && (
                 <div>
-                  <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
-                  <div className="p-8 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
+                  <label className={appLabel}>テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
+                  <PanelFrame className="mt-2 space-y-6">
                     {regData.area.map(areaName => (
-                      <div key={areaName} className="border-b-2 border-slate-300 pb-6 last:border-0 last:pb-0">
-                        <p className="text-lg font-black text-black mb-4 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-[var(--acc-500)] border-2 border-slate-300"></span>{areaName}</p>
-                        <div className="flex flex-wrap gap-3 pl-6">
+                      <div key={areaName} className="border-b border-[var(--acc-200)]/40 pb-5 last:border-0 last:pb-0">
+                        <p className="text-sm font-semibold text-[var(--acc-700)] mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-gradient-to-br from-emerald-400 to-[var(--acc-500)]"></span>{areaName}</p>
+                        <div className={`flex flex-wrap gap-2 ${appChipArena}`}>
                           {getTerritories(areaName).map(terr => {
                              const isSelected = regData.territory[areaName]?.includes(terr);
                              return (
-                              <button key={terr} type="button" onClick={() => toggleTerritory(areaName, terr)} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
-                                {terr}
-                              </button>
+                              <RegChip key={terr} selected={isSelected} onClick={() => toggleTerritory(areaName, terr)}>{terr}</RegChip>
                             );
                           })}
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </PanelFrame>
                 </div>
               )}
               {regData.area.length > 0 && (
                 <div>
-                  <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">管轄店舗 <span className="text-xs font-bold text-gray-500 ml-2">※管轄外の店舗のみチェックを外してください</span></label>
-                  <div className="p-8 bg-gray-50 border-2 border-slate-300 rounded-2xl shadow-[inset_4px_4px_0_0_rgba(0,0,0,0.05)] space-y-8">
+                  <label className={appLabel}>管轄店舗 <span className="text-xs font-bold text-gray-500 ml-2">※管轄外の店舗のみチェックを外してください</span></label>
+                  <PanelFrame className="mt-2 space-y-6">
                     {regData.area.map(areaName => {
                       const selectedTerrs = regData.territory[areaName] || [];
                       const storesInArea = allStores.filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
                       if (storesInArea.length === 0) return null;
                       return (
-                        <div key={areaName} className="border-b-2 border-slate-300 pb-6 last:border-0 last:pb-0">
-                           <p className="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">{areaName} の店舗</p>
-                           <div className="flex flex-wrap gap-3 pl-6">
+                        <div key={areaName} className="border-b border-[var(--acc-200)]/40 pb-5 last:border-0 last:pb-0">
+                           <p className="text-sm font-semibold text-[var(--acc-700)] mb-3">{areaName} の店舗</p>
+                           <div className={`flex flex-wrap gap-2 ${appChipArena}`}>
                              {storesInArea.map(store => {
                                 const isSelected = regData.stores.includes(store.storeName);
                                 return (
-                                  <button key={store.storeName} type="button" onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }} className={`px-5 py-3 rounded-xl font-black text-sm border-2 border-slate-300 transition-all flex items-center gap-2 ${isSelected ? 'bg-[var(--acc-600)] text-white shadow-sm -translate-y-0.5' : 'bg-white text-black hover:bg-gray-100'}`}>
-                                    {store.storeName}
-                                  </button>
+                                  <RegChip key={store.storeName} selected={isSelected} onClick={() => { setRegData(prev => ({ ...prev, stores: isSelected ? prev.stores.filter(s => s !== store.storeName) : [...prev.stores, store.storeName] })) }}>{store.storeName}</RegChip>
                                 )
                              })}
                            </div>
                         </div>
                       )
                     })}
-                  </div>
+                  </PanelFrame>
                 </div>
               )}
               <div className="pt-8 flex gap-6">
