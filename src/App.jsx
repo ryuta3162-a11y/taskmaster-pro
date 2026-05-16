@@ -24,9 +24,12 @@ function isCorpEmail(email) {
   return normalizeEmail(email).endsWith(CORP_EMAIL_DOMAIN);
 }
 
-/** URL から起動モード（?page=checklist = リストチェック専用） */
-function readAppEntryFromUrl() {
-  const params = new URLSearchParams(window.location.search);
+/** クエリ文字列から起動モードを解釈（GAS iframe 用に複数経路で呼ぶ） */
+function parseAppEntryFromQueryString(queryString) {
+  if (!queryString) return null;
+  const raw = String(queryString).replace(/^\?/, '').replace(/^#/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
   const page = String(params.get('page') || '').toLowerCase();
   if (page === 'checklist') {
     return { checklistOnlyMode: true, initialTab: 'checklist' };
@@ -36,7 +39,79 @@ function readAppEntryFromUrl() {
   if (tab && allowed.includes(tab)) {
     return { checklistOnlyMode: false, initialTab: tab };
   }
+  return null;
+}
+
+/** URL から起動モード（?page=checklist = リストチェック専用） */
+function readAppEntryFromUrl() {
+  if (typeof window !== 'undefined' && window.__TM_ENTRY_PAGE__ === 'checklist') {
+    return { checklistOnlyMode: true, initialTab: 'checklist' };
+  }
+
+  const candidates = [];
+  if (typeof window !== 'undefined') {
+    if (window.location.search) candidates.push(window.location.search);
+    const hash = window.location.hash || '';
+    if (hash) {
+      candidates.push(hash);
+      const qInHash = hash.indexOf('?');
+      if (qInHash >= 0) candidates.push(hash.slice(qInHash));
+    }
+    try {
+      if (window.top && window.top !== window && window.top.location.search) {
+        candidates.push(window.top.location.search);
+      }
+    } catch {
+      /* GAS サンドボックスは親 URL を読めないことがある */
+    }
+    try {
+      if (window.parent && window.parent !== window && window.parent.location.search) {
+        candidates.push(window.parent.location.search);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  for (const q of candidates) {
+    const entry = parseAppEntryFromQueryString(q);
+    if (entry) return entry;
+  }
   return { checklistOnlyMode: false, initialTab: 'home' };
+}
+
+function applyAppEntry(entry, setChecklistOnlyMode, setActiveTab) {
+  if (!entry) return;
+  if (entry.checklistOnlyMode) {
+    setChecklistOnlyMode(true);
+    setActiveTab('checklist');
+    document.title = 'リストチェック - ToDo List';
+  } else if (entry.initialTab) {
+    setActiveTab(entry.initialTab);
+  }
+}
+
+/** GAS HtmlService: doGet で渡した page パラメータをサーバーから取得 */
+function fetchAppEntryFromGas(callback) {
+  if (typeof google === 'undefined' || !google.script || !google.script.url || typeof google.script.url.getLocation !== 'function') {
+    return;
+  }
+  try {
+    google.script.url.getLocation((loc) => {
+      const page = loc && loc.parameter && String(loc.parameter.page || '').toLowerCase();
+      if (page === 'checklist') {
+        callback({ checklistOnlyMode: true, initialTab: 'checklist' });
+        return;
+      }
+      const tab = loc && loc.parameter && loc.parameter.tab;
+      const allowed = ['home', 'request', 'repost', 'scheduled', 'checklist'];
+      if (tab && allowed.includes(tab)) {
+        callback({ checklistOnlyMode: false, initialTab: tab });
+      }
+    });
+  } catch {
+    /* ignore */
+  }
 }
 // 既存クラス名との互換（置換漏れ防止）
 const brutalCard = appCard;
@@ -466,7 +541,7 @@ export default function App() {
   const [regData, setRegData] = useState({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
 
   const [appEntry] = useState(() => readAppEntryFromUrl());
-  const [checklistOnlyMode] = useState(() => appEntry.checklistOnlyMode);
+  const [checklistOnlyMode, setChecklistOnlyMode] = useState(() => appEntry.checklistOnlyMode);
   const [activeTab, setActiveTab] = useState(() => appEntry.initialTab);
   const [screenTransition, setScreenTransition] = useState('fade');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -532,10 +607,9 @@ export default function App() {
   const todayForMin = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
 
   useEffect(() => {
-    if (checklistOnlyMode) {
-      document.title = 'リストチェック - ToDo List';
-    }
-  }, [checklistOnlyMode]);
+    applyAppEntry(readAppEntryFromUrl(), setChecklistOnlyMode, setActiveTab);
+    fetchAppEntryFromGas((entry) => applyAppEntry(entry, setChecklistOnlyMode, setActiveTab));
+  }, []);
 
   useEffect(() => {
     Promise.all([api.fetchEmployees(), api.fetchStoreData()]).then(([employees, stores]) => {

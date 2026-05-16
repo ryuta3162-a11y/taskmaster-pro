@@ -29,11 +29,15 @@
 `.../exec?tab=checklist` でもリストチェック画面を開けますが、**ホームに戻れる**通常モードです。  
 「依頼は使わない人向けに URL を分けたい」場合は **`?page=checklist`** を配布してください。
 
-## GAS 側の作業
+## GAS 側の作業（両方必要）
 
-- **新しい HTML ファイルは不要**（`index` のまま）
-- `Code.gs` の変更も不要（`doGet` は従来どおり `index` を返す）
-- React をビルドして `index.html` を GAS に反映すれば利用可能
+1. **`Code.gs`** … `docs/gas/Code.gs` を GAS に反映（`?page=checklist` のとき HTML に起動フラグを埋め込む）
+2. **`index.html`** … React をビルドして GAS の `index` に貼り付け（Actions「Build GAS index」でも可）
+3. **新バージョンで Web アプリを再デプロイ**
+
+※ GAS の iframe 内ではブラウザの `?page=checklist` が React に届かないことがあるため、**`Code.gs` と `index.html` の両方**が必要です。
+
+反映後、`?page=checklist` で開くとブラウザタブのタイトルが **「リストチェック」** になり、ホームの「新規投稿」などは出ません。
 
 ## 配布の例
 

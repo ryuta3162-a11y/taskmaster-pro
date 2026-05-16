@@ -17,8 +17,18 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
+  var title = page === 'checklist' ? 'リストチェック' : 'ToDo List';
+  if (page === 'checklist') {
+    var html = HtmlService.createHtmlOutputFromFile('index').getContent();
+    var boot = '<script>window.__TM_ENTRY_PAGE__="checklist";</script>';
+    html = html.indexOf('<head>') !== -1 ? html.replace('<head>', '<head>' + boot) : boot + html;
+    return HtmlService.createHtmlOutput(html)
+      .setTitle(title)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('ToDo List')
+    .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
