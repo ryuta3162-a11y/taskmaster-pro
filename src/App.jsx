@@ -48,16 +48,43 @@ function parseCycleDayFromString(cycleStr) {
   return m ? m[1] : '1';
 }
 
+/** 従業員データのチーム列（カンマ区切り可）を配列に */
+function parseEmployeeTeams(teamStr) {
+  return String(teamStr || '')
+    .split(/[,，]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+/** 未選択または全チーム選択時は true。それ以外は所属チームとの交差 */
+function employeeMatchesTeams(emp, selectedTeams, teamsList) {
+  if (!selectedTeams?.length || selectedTeams.length === teamsList.length) return true;
+  const empTeams = parseEmployeeTeams(emp.team);
+  if (empTeams.length === 0) return true;
+  return empTeams.some((t) => selectedTeams.includes(t));
+}
+
 /**
- * スプレッドシートに保存された targetTags 文字列から、配信先の店舗・役職を復元（再投稿用）
+ * スプレッドシートに保存された targetTags 文字列から、配信先の店舗・役職・チームを復元（再投稿用）
+ * チームは 〈DX, 販促〉 形式（無ければ全チーム）
  */
-function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList) {
+function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList, teamsList) {
   const allStoreNames = allStores.map((s) => s.storeName);
   if (!tagStr || String(tagStr).trim() === '' || tagStr === '指定なし') {
-    return { stores: [...allStoreNames], roles: [...rolesList] };
+    return { stores: [...allStoreNames], roles: [...rolesList], teams: [...teamsList] };
   }
-  const s = String(tagStr).trim();
+  let s = String(tagStr).trim();
   let roles = [...rolesList];
+  let teams = [...teamsList];
+
+  const teamBracket = s.match(/\s*〈([^〉]+)〉\s*/);
+  if (teamBracket) {
+    const teamNames = teamBracket[1].split(/,\s*/).map((t) => t.trim()).filter(Boolean);
+    const matched = teamsList.filter((t) => teamNames.includes(t));
+    if (matched.length > 0) teams = matched;
+    s = s.replace(teamBracket[0], '').trim();
+  }
+
   let storePart = s;
   const roleBracket = s.match(/\s*\[([^\]]+)\]\s*$/);
   if (roleBracket) {
@@ -67,7 +94,7 @@ function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList) {
     storePart = s.slice(0, s.lastIndexOf('[')).trim();
   }
   if (!storePart || storePart === '全店') {
-    return { stores: [...allStoreNames], roles };
+    return { stores: [...allStoreNames], roles, teams };
   }
   const parts = storePart.split(/,\s*/).map((x) => x.trim()).filter(Boolean);
   const selected = new Set();
@@ -80,30 +107,60 @@ function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList) {
   });
   const stores = Array.from(selected);
   if (stores.length === 0) {
-    return { stores: [...allStoreNames], roles };
+    return { stores: [...allStoreNames], roles, teams };
   }
-  return { stores, roles };
+  return { stores, roles, teams };
 }
 
-/** 配信先メール一覧から店舗・役職を復元（定期編集用・targetTags より正確な場合がある） */
-function deriveStoresAndRolesFromTargets(targetEmails, allEmployees, allStoreNamesList, rolesList) {
+/** 配信先メール一覧から店舗・役職・チームを復元（定期編集用・targetTags より正確な場合がある） */
+function deriveStoresAndRolesFromTargets(targetEmails, allEmployees, allStoreNamesList, rolesList, teamsList) {
   const emails = new Set((targetEmails || []).map((e) => String(e).trim()).filter(Boolean));
   if (emails.size === 0) return null;
   const storeSet = new Set();
   const roleSet = new Set();
+  const teamSet = new Set();
   allEmployees.forEach((emp) => {
     if (emails.has(emp.email)) {
       (emp.stores || []).forEach((s) => storeSet.add(s));
       if (emp.role) roleSet.add(emp.role);
+      parseEmployeeTeams(emp.team).forEach((t) => teamSet.add(t));
     }
   });
   const stores = allStoreNamesList.filter((s) => storeSet.has(s));
   const roles = rolesList.filter((r) => roleSet.has(r));
-  if (stores.length === 0 && roleSet.size === 0) return null;
+  const teams = teamsList.filter((t) => teamSet.has(t));
+  if (stores.length === 0 && roleSet.size === 0 && teamSet.size === 0) return null;
   return {
     stores: stores.length ? stores : allStoreNamesList,
-    roles: roles.length ? roles : rolesList
+    roles: roles.length ? roles : rolesList,
+    teams: teams.length ? teams : teamsList,
   };
+}
+
+/** 依頼・定期の配信先メール集合（役職・チーム・店舗条件） */
+function computeTargetRecipientEmails({
+  requestKind,
+  selectedStores,
+  selectedRoles,
+  selectedTeams,
+  allEmployees,
+  rolesList,
+  teamsList,
+}) {
+  const emails = new Set();
+  allEmployees.forEach((emp) => {
+    const roleMatch =
+      (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role);
+    const teamMatch = employeeMatchesTeams(emp, selectedTeams, teamsList);
+    if (!roleMatch || !teamMatch) return;
+    if (requestKind === REQUEST_KIND.employee) {
+      if (emp.email) emails.add(emp.email);
+    } else {
+      const storeMatch = emp.stores && emp.stores.some((s) => selectedStores.includes(s));
+      if (storeMatch && emp.email) emails.add(emp.email);
+    }
+  });
+  return emails;
 }
 
 /**
@@ -299,7 +356,8 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [requestSelectedStores, setRequestSelectedStores] = useState([]);
-  const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES); 
+  const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES);
+  const [requestSelectedTeams, setRequestSelectedTeams] = useState(TEAMS);
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]);
   const [requestKind, setRequestKind] = useState(REQUEST_KIND.employee);
@@ -316,6 +374,7 @@ export default function App() {
   const [scheduleImages, setScheduleImages] = useState([]); 
   const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
   const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES);
+  const [scheduleSelectedTeams, setScheduleSelectedTeams] = useState(TEAMS);
   const [scheduleRequestKind, setScheduleRequestKind] = useState(REQUEST_KIND.employee);
 
   const activeTasksCount = tasks.filter(t => !t.completed).length;
@@ -565,7 +624,7 @@ export default function App() {
     else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateTargetTags = (selectedStoreNames, selectedRoles) => {
+  const generateTargetTags = (selectedStoreNames, selectedRoles, selectedTeams) => {
     let storeTag = '';
     if (selectedStoreNames.length === 0) storeTag = '';
     else if (selectedStoreNames.length === allStores.length && allStores.length > 0) storeTag = '全店';
@@ -576,55 +635,55 @@ export default function App() {
         if (storesInArea.length === 0) return;
         const selectedInArea = storesInArea.filter(s => selectedStoreNames.includes(s));
         if (selectedInArea.length > 0) {
-          if (selectedInArea.length === storesInArea.length) tags.push(area); 
+          if (selectedInArea.length === storesInArea.length) tags.push(area);
           else tags.push(...selectedInArea);
         }
       });
       storeTag = tags.join(', ');
     }
 
-    let roleTag = '';
-    if (selectedRoles.length === ROLES.length) roleTag = ''; 
-    else roleTag = selectedRoles.join(', ');
+    let teamTag = '';
+    if (selectedTeams?.length > 0 && selectedTeams.length < TEAMS.length) {
+      teamTag = `〈${selectedTeams.join(', ')}〉`;
+    }
 
-    if (!storeTag && !roleTag) return '指定なし';
-    if (storeTag && !roleTag) return storeTag;
-    if (!storeTag && roleTag) return `全店 [${roleTag}]`;
-    return `${storeTag} [${roleTag}]`;
+    let roleTag = '';
+    if (selectedRoles.length === ROLES.length) roleTag = '';
+    else roleTag = `[${selectedRoles.join(', ')}]`;
+
+    const base = storeTag || (roleTag || teamTag ? '全店' : '');
+    if (!base && !teamTag && !roleTag) return '指定なし';
+    return `${base}${teamTag}${roleTag ? (teamTag ? ' ' : '') + roleTag : ''}`.trim();
   };
 
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (!requestSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
+    if (!requestSelectedTeams.length) return alert('配信先のチームを少なくとも1つ選択してください。');
     if (requestKind === REQUEST_KIND.store && !requestSelectedStores.length) {
       return alert('配信先の店舗を少なくとも1つ選択してください。');
     }
 
     setIsSubmitting(true);
-    const targetEmails = new Set();
-
-    if (requestKind === REQUEST_KIND.employee) {
-      allEmployees.forEach((emp) => {
-        const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
-        if (roleMatch) targetEmails.add(emp.email);
-      });
-    } else {
-      allEmployees.forEach((emp) => {
-        const storeMatch = emp.stores && emp.stores.some((s) => requestSelectedStores.includes(s));
-        const roleMatch = (!emp.role && requestSelectedRoles.length === ROLES.length) || requestSelectedRoles.includes(emp.role);
-        if (storeMatch && roleMatch) targetEmails.add(emp.email);
-      });
-    }
+    const targetEmails = computeTargetRecipientEmails({
+      requestKind,
+      selectedStores: requestSelectedStores,
+      selectedRoles: requestSelectedRoles,
+      selectedTeams: requestSelectedTeams,
+      allEmployees,
+      rolesList: ROLES,
+      teamsList: TEAMS,
+    });
 
     const validUrls = requestForm.urls.filter(u => u.trim() !== '');
     const finalTagsStr =
       requestKind === REQUEST_KIND.employee
-        ? generateTargetTags(allStores.map((s) => s.storeName), requestSelectedRoles)
-        : generateTargetTags(requestSelectedStores, requestSelectedRoles);
+        ? generateTargetTags(allStores.map((s) => s.storeName), requestSelectedRoles, requestSelectedTeams)
+        : generateTargetTags(requestSelectedStores, requestSelectedRoles, requestSelectedTeams);
 
     if (targetEmails.size === 0) {
       setIsSubmitting(false);
-      return alert('配信先となる社員がいません。役職・店舗の組み合わせを見直してください。');
+      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
     }
 
     try {
@@ -684,9 +743,9 @@ export default function App() {
 
     const derived =
       Array.isArray(task.targets) && task.targets.length > 0
-        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES)
+        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES, TEAMS)
         : null;
-    const { stores, roles } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
+    const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
 
     const deadlineInput =
       task.deadline && /^\d{4}-\d{2}-\d{2}$/.test(String(task.deadline).trim())
@@ -698,39 +757,37 @@ export default function App() {
     setRequestKind(task.requestKind === REQUEST_KIND.store ? REQUEST_KIND.store : REQUEST_KIND.employee);
     setRequestSelectedStores(stores);
     setRequestSelectedRoles(roles);
+    setRequestSelectedTeams(teams);
     setActiveTab('request');
   };
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     if (!scheduleSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
+    if (!scheduleSelectedTeams.length) return alert('配信先のチームを少なくとも1つ選択してください。');
     if (scheduleRequestKind === REQUEST_KIND.store && !scheduleSelectedStores.length) {
       return alert('配信先の店舗を少なくとも1つ選択してください。');
     }
 
     setIsSubmitting(true);
-    const targetEmails = new Set();
-    if (scheduleRequestKind === REQUEST_KIND.employee) {
-      allEmployees.forEach((emp) => {
-        const roleMatch = (!emp.role && scheduleSelectedRoles.length === ROLES.length) || scheduleSelectedRoles.includes(emp.role);
-        if (roleMatch) targetEmails.add(emp.email);
-      });
-    } else {
-      allEmployees.forEach((emp) => {
-        const storeMatch = emp.stores && emp.stores.some((s) => scheduleSelectedStores.includes(s));
-        const roleMatch = (!emp.role && scheduleSelectedRoles.length === ROLES.length) || scheduleSelectedRoles.includes(emp.role);
-        if (storeMatch && roleMatch) targetEmails.add(emp.email);
-      });
-    }
+    const targetEmails = computeTargetRecipientEmails({
+      requestKind: scheduleRequestKind,
+      selectedStores: scheduleSelectedStores,
+      selectedRoles: scheduleSelectedRoles,
+      selectedTeams: scheduleSelectedTeams,
+      allEmployees,
+      rolesList: ROLES,
+      teamsList: TEAMS,
+    });
 
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
     const finalTagsStr =
       scheduleRequestKind === REQUEST_KIND.employee
-        ? generateTargetTags(allStores.map((s) => s.storeName), scheduleSelectedRoles)
-        : generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles);
+        ? generateTargetTags(allStores.map((s) => s.storeName), scheduleSelectedRoles, scheduleSelectedTeams)
+        : generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles, scheduleSelectedTeams);
     if (targetEmails.size === 0) {
       setIsSubmitting(false);
-      return alert('配信先となる社員がいません。役職・店舗の組み合わせを見直してください。');
+      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
     }
     const cycleString = `毎月 ${scheduleDate}日 ${SCHEDULE_DELIVERY_TIME}`;
     const scheduleImagePayload = scheduleImages.map((img) =>
@@ -784,6 +841,7 @@ export default function App() {
       setScheduleRequestKind(REQUEST_KIND.employee);
       setScheduleSelectedStores(allStores.map(s => s.storeName));
       setScheduleSelectedRoles(ROLES);
+      setScheduleSelectedTeams(TEAMS);
       refreshTasks(); 
     } catch (error) {
       alert((scheduleEditingId ? '保存に失敗しました: ' : '登録失敗: ') + formatGasError(error));
@@ -816,11 +874,12 @@ export default function App() {
     setScheduleImages(imgs);
     const derived =
       Array.isArray(task.targets) && task.targets.length > 0
-        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES)
+        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES, TEAMS)
         : null;
-    const { stores, roles } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES);
+    const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
     setScheduleSelectedStores(stores);
     setScheduleSelectedRoles(roles);
+    setScheduleSelectedTeams(teams);
     setScheduleRequestKind(task.requestKind === REQUEST_KIND.store ? REQUEST_KIND.store : REQUEST_KIND.employee);
     setScheduleSkipInitialMonth(false);
     setActiveTab('scheduled');
@@ -836,6 +895,7 @@ export default function App() {
     setScheduleRequestKind(REQUEST_KIND.employee);
     setScheduleSelectedStores(allStores.map((s) => s.storeName));
     setScheduleSelectedRoles(ROLES);
+    setScheduleSelectedTeams(TEAMS);
   };
 
   const handleDeleteSchedule = async (id) => {
@@ -962,6 +1022,8 @@ export default function App() {
     setSelectedStores,
     selectedRoles,
     setSelectedRoles,
+    selectedTeams,
+    setSelectedTeams,
     startNum = 5,
     mode = REQUEST_KIND.store
   ) => {
@@ -976,6 +1038,78 @@ export default function App() {
       if (e.target.checked) setSelectedRoles(ROLES);
       else setSelectedRoles([]);
     };
+
+    const isAllTeamsSelected = selectedTeams.length === TEAMS.length;
+    const handleSelectAllTeams = (e) => {
+      if (e.target.checked) setSelectedTeams(TEAMS);
+      else setSelectedTeams([]);
+    };
+
+    const recipientEmails = computeTargetRecipientEmails({
+      requestKind: mode,
+      selectedStores,
+      selectedRoles,
+      selectedTeams,
+      allEmployees,
+      rolesList: ROLES,
+      teamsList: TEAMS,
+    });
+    const recipientCount = recipientEmails.size;
+
+    const blockRecipientPreview = () => (
+      <div className="bg-[var(--acc-50)] border-2 border-[var(--acc-300)] rounded-xl p-5 shadow-sm">
+        <p className="text-base font-black text-slate-900 text-center">
+          この条件で配信される人数
+          <span className="block text-3xl text-[var(--acc-600)] mt-2 tabular-nums">{recipientCount}</span>
+          <span className="text-sm font-bold text-slate-600">名</span>
+        </p>
+        {recipientCount === 0 && (
+          <p className="text-sm font-bold text-rose-600 text-center mt-3">
+            条件に一致する社員がいません。役職・チーム・店舗を見直してください。
+          </p>
+        )}
+      </div>
+    );
+
+    const blockTeams = (num) => (
+      <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
+        <h4 className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b-2 border-slate-300 pb-2">
+          {num}. 配信するチーム
+        </h4>
+        <p className="text-xs font-semibold text-slate-500 mb-3">複数選択可。全チームに送る場合は「全チームを選択」をオンにしてください。</p>
+        <label className="flex items-center font-bold text-base cursor-pointer w-max hover:opacity-70 transition-opacity mb-3">
+          <input
+            type="checkbox"
+            checked={isAllTeamsSelected}
+            onChange={handleSelectAllTeams}
+            className="mr-3 w-5 h-5 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+          />
+          全チームを選択
+        </label>
+        <div className="flex flex-wrap gap-3 pl-2">
+          {TEAMS.map((team) => {
+            const isChecked = selectedTeams.includes(team);
+            return (
+              <label
+                key={team}
+                className={`flex items-center font-bold text-sm border-2 border-slate-300 px-4 py-2.5 rounded-xl cursor-pointer transition-all ${isChecked ? 'bg-[var(--acc-200)] shadow-none translate-x-1 translate-y-1' : 'bg-white shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-sm'}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedTeams((prev) => [...prev, team]);
+                    else setSelectedTeams((prev) => prev.filter((t) => t !== team));
+                  }}
+                  className="mr-2 w-4 h-4 border-2 border-slate-300 rounded accent-[var(--acc-600)] cursor-pointer"
+                />
+                {team}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
 
     const blockRoles = (num) => (
       <div className="bg-white border-2 border-slate-300 rounded-xl p-5 shadow-sm">
@@ -1086,13 +1220,21 @@ export default function App() {
     );
 
     if (mode === REQUEST_KIND.employee) {
-      return <div className="w-full flex flex-col gap-6">{blockRoles(startNum)}</div>;
+      return (
+        <div className="w-full flex flex-col gap-6">
+          {blockRoles(startNum)}
+          {blockTeams(startNum + 1)}
+          {blockRecipientPreview()}
+        </div>
+      );
     }
 
     return (
       <div className="w-full flex flex-col gap-6">
-        {blockStores(startNum)}
-        {blockRoles(startNum + 1)}
+        {blockRoles(startNum)}
+        {blockTeams(startNum + 1)}
+        {blockStores(startNum + 2)}
+        {blockRecipientPreview()}
       </div>
     );
   };
@@ -1537,7 +1679,7 @@ export default function App() {
               {activeTab === 'request' && (
                 <div className="animate-fade-in w-full mt-4">
                   <form onSubmit={handleTaskSubmit} className="flex flex-col gap-6 w-full">
-                    {/* 入力フロー：1→2→3→4｜5→6 の見える区切り */}
+                    {/* 入力フロー：1→2→3→4｜5→6→7（店舗依頼時）の見える区切り */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
                       {/* 左列：入力内容 (1〜4) */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r-2 xl:border-slate-300">
@@ -1614,7 +1756,7 @@ export default function App() {
 
                       {/* 右列：配信先 (5〜6) */}
                       <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles, 5, requestKind)}
+                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles, requestSelectedTeams, setRequestSelectedTeams, 5, requestKind)}
                       </div>
                     </div>
 
@@ -1807,7 +1949,7 @@ export default function App() {
 
                       {/* 右列：5〜6 */}
                       <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles, 5, scheduleRequestKind)}
+                        {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles, scheduleSelectedTeams, setScheduleSelectedTeams, 5, scheduleRequestKind)}
                       </div>
                     </div>
 

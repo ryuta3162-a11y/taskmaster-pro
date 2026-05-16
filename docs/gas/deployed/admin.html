@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ToDo 管理ダッシュボード</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --acc-50: oklch(96.2% 0.018 272.314);
+      --acc-100: oklch(93% 0.034 272.788);
+      --acc-200: oklch(87% 0.065 274.039);
+      --acc-300: oklch(78.5% 0.115 274.713);
+      --acc-400: oklch(67.3% 0.182 276.935);
+      --acc-500: oklch(58.5% 0.233 277.117);
+      --acc-600: oklch(51.1% 0.262 276.966);
+      --acc-700: oklch(45.7% 0.24 277.023);
+      --acc-900: oklch(35.9% 0.144 278.697);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 100%; min-height: 100%; background: #f8fafc; font-family: 'Noto Sans JP', sans-serif; color: #0f172a; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .hero {
+      background: #fff; border: 2px solid #cbd5e1; border-radius: 1.25rem; padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      border-top: 3px solid var(--acc-600);
+    }
+    .hero h1 { margin: 0 0 0.35rem; font-size: 1.35rem; font-weight: 900; letter-spacing: -0.02em; }
+    .hero .sub { font-size: 0.8rem; color: #64748b; font-weight: 700; }
+    .hero .actions { margin-top: 0.85rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
+      padding: 0.5rem 1rem; font-size: 0.8rem; font-weight: 800; border-radius: 0.75rem; cursor: pointer;
+      border: 2px solid #cbd5e1; background: #fff; color: #334155; text-decoration: none; transition: background .15s, border-color .15s;
+    }
+    .btn:hover { background: #f8fafc; border-color: #94a3b8; }
+    .btn-primary { border-color: var(--acc-600); background: var(--acc-600); color: #fff; }
+    .btn-primary:hover { background: var(--acc-700); border-color: var(--acc-700); color: #fff; }
+    .btn-sm { padding: 0.35rem 0.65rem; font-size: 0.72rem; }
+    .btn-remind { border-color: #0f172a; background: #fff; color: #0f172a; }
+    .btn-remind:hover { background: #0f172a; color: #fff; }
+    .btn-remind:disabled { opacity: 0.45; cursor: not-allowed; }
+    h2.section-title {
+      margin: 1.5rem 0 0.65rem; font-size: 0.95rem; font-weight: 900; color: #334155;
+      letter-spacing: 0.02em; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.35rem;
+    }
+    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
+    .stat {
+      background: #fff; border: 2px solid #cbd5e1; border-radius: 0.9rem; padding: 0.75rem 0.85rem; text-align: center;
+    }
+    .stat .num { font-size: 1.35rem; font-weight: 900; font-variant-numeric: tabular-nums; color: #0f172a; line-height: 1.2; }
+    .stat .lbl { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.2rem; }
+    .stat.accent { border-color: var(--acc-400); background: linear-gradient(180deg, #fff, var(--acc-50)); }
+    .stat.warn .num { color: #b91c1c; }
+    .stat.ok .num { color: #15803d; }
+    .filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+    .chip {
+      padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 800; border-radius: 0.5rem; border: 2px solid #cbd5e1;
+      background: #fff; cursor: pointer; color: #475569;
+    }
+    .chip.on { background: var(--acc-700); border-color: var(--acc-900); color: #fff; }
+    .card { background: #fff; border: 2px solid #cbd5e1; border-radius: 1rem; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.05); margin-bottom: 1rem; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    th {
+      text-align: left; padding: 0.55rem 0.65rem; background: #f1f5f9; border-bottom: 2px solid #cbd5e1;
+      font-weight: 900; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; color: #475569; white-space: nowrap;
+    }
+    td { padding: 0.5rem 0.65rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    tr:hover td { background: #fafafa; }
+    .badge { display: inline-block; padding: 0.12rem 0.4rem; border-radius: 0.35rem; font-size: 0.62rem; font-weight: 900; border: 2px solid transparent; }
+    .badge-ok { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+    .badge-run { background: var(--acc-50); color: var(--acc-900); border-color: var(--acc-200); }
+    .badge-late { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+    .badge-kind-e { background: var(--acc-600); color: #fff; border-color: var(--acc-700); }
+    .badge-kind-s { background: var(--acc-900); color: #fff; border-color: #0f172a; }
+    .prog { height: 5px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: 0.2rem; max-width: 100px; }
+    .prog > i { display: block; height: 100%; background: var(--acc-500); border-radius: 99px; }
+    .err {
+      padding: 2rem; text-align: center; font-weight: 800; color: #b91c1c; background: #fff; border: 2px solid #fecaca; border-radius: 1rem;
+    }
+    .muted { color: #94a3b8; font-weight: 600; }
+    .loading { text-align: center; padding: 3rem; font-weight: 900; color: var(--acc-600); }
+    .user-name { font-weight: 900; color: #0f172a; }
+    .sub-list { margin: 0.35rem 0 0; padding-left: 1rem; font-size: 0.72rem; color: #475569; line-height: 1.45; }
+    .toast { font-size: 0.75rem; font-weight: 800; color: #15803d; margin-top: 0.35rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>ToDo 管理ダッシュボード</h1>
+      <div class="sub" id="metaLine">読み込み中…</div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btnRefresh">再読み込み</button>
+        <a class="btn" id="linkSheet" href="#" target="_blank" rel="noopener" style="display:none">スプレッドシートを開く</a>
+        <a class="btn" id="linkApp" href="#" target="_top">利用者向けアプリ</a>
+      </div>
+    </div>
+
+    <div id="root"><div class="loading">読み込み中…</div></div>
+  </div>
+
+  <script>
+    (function () {
+      var filter = 'all';
+      var lastData = null;
+
+      function esc(s) {
+        if (s == null) return '';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderUserBlock(up) {
+        if (!up || !up.stats) return '';
+        var st = up.stats;
+        var h = '';
+        h += '<h2 class="section-title">登録ユーザー（未完了が多い順）</h2>';
+        h += '<div class="stats">';
+        h += '<div class="stat accent"><div class="num">' + st.totalRegistered + '</div><div class="lbl">登録ユーザー</div></div>';
+        h += '<div class="stat warn"><div class="num">' + st.withIncomplete + '</div><div class="lbl">未完了あり</div></div>';
+        h += '<div class="stat ok"><div class="num">' + st.allClearCount + '</div><div class="lbl">担当分すべて完了</div></div>';
+        h += '<div class="stat"><div class="num">' + st.noAssignmentsCount + '</div><div class="lbl">依頼なし</div></div>';
+        h += '</div>';
+
+        h += '<div class="card"><div class="table-wrap"><table><thead><tr>';
+        h += '<th>未完了</th><th>氏名</th><th>メール</th><th>未完了タスク</th><th></th>';
+        h += '</tr></thead><tbody>';
+
+        (up.userRows || []).forEach(function (u) {
+          var sub = '';
+          (u.incompleteTasks || []).forEach(function (t) {
+            var late = t.overdue ? '<span class="badge badge-late">超過</span> ' : '';
+            sub +=
+              '<li>' +
+              late +
+              esc(t.requestKindLabel) +
+              ' · 期限 ' +
+              esc(t.deadline || '—') +
+              ' · ' +
+              esc(t.contentPreview) +
+              '</li>';
+          });
+          var subHtml = u.incompleteCount ? '<ul class="sub-list">' + sub + '</ul>' : '<span class="muted">—</span>';
+          var remindDisabled = u.incompleteCount === 0 ? ' disabled' : '';
+          h += '<tr>';
+          h += '<td><strong>' + u.incompleteCount + '</strong></td>';
+          h += '<td><span class="user-name">' + esc(u.name) + '</span></td>';
+          h += '<td style="word-break:break-all">' + esc(u.email) + '</td>';
+          h += '<td>' + subHtml + '</td>';
+          h +=
+            '<td><button type="button" class="btn btn-sm btn-remind" data-email="' +
+            esc(u.email) +
+            '"' +
+            remindDisabled +
+            '>リマインド</button></td>';
+          h += '</tr>';
+        });
+
+        h += '</tbody></table></div></div>';
+
+        if (up.usersAllClear && up.usersAllClear.length) {
+          h += '<h2 class="section-title">担当タスクはすべて完了済み</h2>';
+          h += '<div class="card" style="padding:0.75rem 1rem;font-size:0.8rem;font-weight:700;color:#15803d">';
+          h += up.usersAllClear
+            .map(function (u) {
+              return esc(u.name);
+            })
+            .join('、');
+          h += '</div>';
+        }
+
+        if (up.usersNoAssignments && up.usersNoAssignments.length) {
+          h += '<h2 class="section-title">まだ依頼の対象になっていないユーザー</h2>';
+          h += '<div class="card" style="padding:0.75rem 1rem;font-size:0.78rem;color:#64748b;font-weight:600">';
+          h += up.usersNoAssignments
+            .map(function (u) {
+              return esc(u.name);
+            })
+            .join('、');
+          h += '</div>';
+        }
+
+        return h;
+      }
+
+      function renderTaskTable(rows) {
+        var f = filter;
+        var list = rows.filter(function (t) {
+          if (f === 'open') return !t.complete;
+          if (f === 'late') return !t.complete && t.overdue;
+          return true;
+        });
+
+        var h = '';
+        h += '<h2 class="section-title">依頼（タスク）一覧</h2>';
+        h += '<div class="stats">';
+        var s = lastData.summary;
+        h += '<div class="stat accent"><div class="num">' + s.totalTasks + '</div><div class="lbl">総タスク</div></div>';
+        h += '<div class="stat"><div class="num">' + s.open + '</div><div class="lbl">未完了</div></div>';
+        h += '<div class="stat"><div class="num">' + s.completed + '</div><div class="lbl">完了</div></div>';
+        h += '<div class="stat warn"><div class="num">' + s.overdueOpen + '</div><div class="lbl">期限超過</div></div>';
+        h += '<div class="stat"><div class="num">' + s.employeeOpen + '</div><div class="lbl">社員依頼・未完了</div></div>';
+        h += '<div class="stat"><div class="num">' + s.storeOpen + '</div><div class="lbl">店舗依頼・未完了</div></div>';
+        h += '</div>';
+
+        h += '<div class="filters">';
+        h += '<button type="button" class="chip' + (f === 'all' ? ' on' : '') + '" data-f="all">すべて</button>';
+        h += '<button type="button" class="chip' + (f === 'open' ? ' on' : '') + '" data-f="open">未完了のみ</button>';
+        h += '<button type="button" class="chip' + (f === 'late' ? ' on' : '') + '" data-f="late">期限超過のみ</button>';
+        h += '</div>';
+
+        h += '<div class="card"><div class="table-wrap"><table><thead><tr>';
+        h += '<th>状態</th><th>種別</th><th>期限</th><th>送信者</th><th>進捗</th><th>内容</th><th>宛先タグ</th>';
+        h += '</tr></thead><tbody>';
+
+        list.forEach(function (t) {
+          var st =
+            t.complete
+              ? '<span class="badge badge-ok">完了</span>'
+              : t.overdue
+                ? '<span class="badge badge-late">期限超過</span>'
+                : '<span class="badge badge-run">進行中</span>';
+          var kind =
+            t.requestKind === 'store'
+              ? '<span class="badge badge-kind-s">店舗</span>'
+              : '<span class="badge badge-kind-e">社員</span>';
+          var pct = typeof t.progressPct === 'number' ? t.progressPct : 0;
+          h += '<tr>';
+          h += '<td>' + st + '</td>';
+          h += '<td>' + kind + ' <span class="muted">' + esc(t.type) + '</span></td>';
+          h += '<td>' + esc(t.deadline || '—') + '</td>';
+          h += '<td>' + esc(t.sender) + '</td>';
+          h += '<td><strong>' + esc(t.progressLabel) + '</strong><div class="prog"><i style="width:' + pct + '%"></i></div></td>';
+          h += '<td>' + esc(t.contentPreview) + '</td>';
+          h += '<td style="max-width:180px;word-break:break-all">' + esc(t.targetTags) + '</td>';
+          h += '</tr>';
+        });
+
+        h += '</tbody></table></div></div>';
+        return h;
+      }
+
+      function bindFilterClicks() {
+        document.querySelectorAll('.chip').forEach(function (el) {
+          el.addEventListener('click', function () {
+            filter = el.getAttribute('data-f') || 'all';
+            if (lastData) {
+              document.getElementById('root').innerHTML =
+                renderUserBlock(lastData.userProgress) + renderTaskTable(lastData.tasks);
+              bindFilterClicks();
+              bindRemindButtons();
+            }
+          });
+        });
+      }
+
+      function bindRemindButtons() {
+        document.querySelectorAll('.btn-remind[data-email]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var em = btn.getAttribute('data-email');
+            if (!em || btn.disabled) return;
+            if (!confirm('「' + em + '」に未完了タスクのリマインドメールを送りますか？')) return;
+            btn.disabled = true;
+            google.script.run
+              .withSuccessHandler(function (res) {
+                btn.disabled = false;
+                if (res && res.ok) {
+                  alert(res.message || '送信しました');
+                  if (!res.skipped) load();
+                } else {
+                  alert((res && res.message) || '送信に失敗しました');
+                }
+              })
+              .withFailureHandler(function (e) {
+                btn.disabled = false;
+                alert(e && e.message ? e.message : String(e));
+              })
+              .sendAdminReminderEmail(em);
+          });
+        });
+      }
+
+      function showError(msg) {
+        document.getElementById('root').innerHTML = '<div class="err">' + esc(msg) + '</div>';
+      }
+
+      function applyData(data) {
+        if (!data.ok) {
+          showError(data.message || '読み込みに失敗しました');
+          return;
+        }
+        lastData = data;
+        document.getElementById('metaLine').textContent =
+          '最終更新: ' +
+          (data.generatedAt ? new Date(data.generatedAt).toLocaleString('ja-JP') : '—') +
+          (data.viewerEmail ? ' · 閲覧: ' + data.viewerEmail : '');
+
+        if (data.spreadsheetUrl) {
+          var a = document.getElementById('linkSheet');
+          a.href = data.spreadsheetUrl;
+          a.style.display = 'inline-flex';
+        }
+
+        var app = document.getElementById('linkApp');
+        if (data.appUrl) {
+          app.href = data.appUrl;
+        } else {
+          app.href = window.location.href.split('?')[0];
+        }
+        app.target = '_top';
+
+        document.getElementById('root').innerHTML =
+          renderUserBlock(data.userProgress) + renderTaskTable(data.tasks);
+        bindFilterClicks();
+        bindRemindButtons();
+      }
+
+      function load() {
+        document.getElementById('root').innerHTML = '<div class="loading">読み込み中…</div>';
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          showError('この画面は Google Apps Script の Web アプリとして開いてください。');
+          return;
+        }
+        google.script.run.withSuccessHandler(applyData).withFailureHandler(function (e) {
+          showError(e && e.message ? e.message : String(e));
+        }).getAdminDashboardData();
+      }
+
+      document.getElementById('btnRefresh').addEventListener('click', load);
+      load();
+    })();
+  </script>
+</body>
+</html>
