@@ -23,6 +23,21 @@ function normalizeEmail(email) {
 function isCorpEmail(email) {
   return normalizeEmail(email).endsWith(CORP_EMAIL_DOMAIN);
 }
+
+/** URL から起動モード（?page=checklist = リストチェック専用） */
+function readAppEntryFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const page = String(params.get('page') || '').toLowerCase();
+  if (page === 'checklist') {
+    return { checklistOnlyMode: true, initialTab: 'checklist' };
+  }
+  const tab = params.get('tab');
+  const allowed = ['home', 'request', 'repost', 'scheduled', 'checklist'];
+  if (tab && allowed.includes(tab)) {
+    return { checklistOnlyMode: false, initialTab: tab };
+  }
+  return { checklistOnlyMode: false, initialTab: 'home' };
+}
 // 既存クラス名との互換（置換漏れ防止）
 const brutalCard = appCard;
 const brutalInput = appInput;
@@ -450,11 +465,14 @@ export default function App() {
   const [allStores, setAllStores] = useState([]);
   const [regData, setRegData] = useState({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
 
-  const [activeTab, setActiveTab] = useState('home');
+  const [appEntry] = useState(() => readAppEntryFromUrl());
+  const [checklistOnlyMode] = useState(() => appEntry.checklistOnlyMode);
+  const [activeTab, setActiveTab] = useState(() => appEntry.initialTab);
   const [screenTransition, setScreenTransition] = useState('fade');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
   const navigateTab = (tab) => {
+    if (checklistOnlyMode && tab !== 'checklist') return;
     setScreenTransition(tab === 'home' ? 'back' : activeTab === 'home' ? 'forward' : 'fade');
     setActiveTab(tab);
     setIsAccountMenuOpen(false);
@@ -514,12 +532,10 @@ export default function App() {
   const todayForMin = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
-    if (tabParam && ['home', 'request', 'repost', 'scheduled', 'checklist'].includes(tabParam)) {
-      setActiveTab(tabParam);
+    if (checklistOnlyMode) {
+      document.title = 'リストチェック - ToDo List';
     }
-  }, []);
+  }, [checklistOnlyMode]);
 
   useEffect(() => {
     Promise.all([api.fetchEmployees(), api.fetchStoreData()]).then(([employees, stores]) => {
@@ -1429,7 +1445,9 @@ export default function App() {
               <p className="text-[10px] font-semibold tracking-[0.28em] text-slate-500 uppercase mb-2">Task Force Team</p>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2 tracking-tight">To-Do List</h2>
             </div>
-            <p className="text-gray-600 text-base font-bold mb-6 text-center leading-relaxed">チームのタスクを一元管理。</p>
+            <p className="text-gray-600 text-base font-bold mb-6 text-center leading-relaxed">
+              {checklistOnlyMode ? '未完了タスクの確認・完了用です。' : 'チームのタスクを一元管理。'}
+            </p>
             <p className="text-xs text-slate-500 text-center mb-8 leading-relaxed px-1">
               初めての方は <span className="font-semibold text-[var(--acc-700)]">{CORP_EMAIL_DOMAIN}</span> のメールで登録してください。
               <br />
@@ -1587,11 +1605,17 @@ export default function App() {
                  </div>
                  <div className="flex flex-col leading-tight gap-0 min-w-0 hidden sm:flex">
                     <span className="text-[7px] sm:text-[8px] font-semibold tracking-[0.18em] text-slate-500 uppercase truncate">Task Force Team</span>
-                    <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">To-Do List</h1>
+                    <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+                      {checklistOnlyMode ? 'リストチェック' : 'To-Do List'}
+                    </h1>
                  </div>
                </div>
                
-               {activeTab !== 'home' && (
+               {checklistOnlyMode ? (
+                 <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0 sm:hidden">
+                   リストチェック
+                 </h2>
+               ) : activeTab !== 'home' ? (
                  <>
                    <button onClick={() => navigateTab('home')} className="flex items-center gap-1 text-sm font-semibold text-[var(--acc-600)] hover:opacity-80 transition-opacity shrink-0 ml-1">
                      <Icon name="chevronLeft" /> 戻る
@@ -1600,8 +1624,7 @@ export default function App() {
                      {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
                    </h2>
                  </>
-               )}
-               {activeTab === 'home' && (
+               ) : (
                  <h2 className="font-semibold text-slate-500 tracking-tight text-sm ml-1 hidden sm:block">Dashboard</h2>
                )}
             </div>
@@ -1695,7 +1718,7 @@ export default function App() {
               <div key={activeTab} className={screenAnimClass}>
               
               {/* === HOME === */}
-              {activeTab === 'home' && (
+              {!checklistOnlyMode && activeTab === 'home' && (
                 <div className="space-y-4 mt-1 w-full">
                   <div className="bg-white rounded-2xl px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04]">
                     <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-slate-600">
@@ -1742,7 +1765,7 @@ export default function App() {
               )}
               
               {/* === タスク配信 === */}
-              {activeTab === 'request' && (
+              {!checklistOnlyMode && activeTab === 'request' && (
                 <div className="w-full mt-4">
                   <form onSubmit={handleTaskSubmit} className="flex flex-col gap-6 w-full">
                     {/* 入力フロー：1→2→3→4｜5→6→7（店舗依頼時）の見える区切り */}
@@ -1837,7 +1860,7 @@ export default function App() {
               )}
               
               {/* === 再投稿 (履歴) === */}
-              {activeTab === 'repost' && (
+              {!checklistOnlyMode && activeTab === 'repost' && (
                 <div className="animate-fade-in w-full mt-4">
                   <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
@@ -1868,7 +1891,7 @@ export default function App() {
               )}
               
               {/* === 定期配信 === */}
-              {activeTab === 'scheduled' && (
+              {!checklistOnlyMode && activeTab === 'scheduled' && (
                 <div className="w-full space-y-10 animate-fade-in mt-4">
                   {scheduleEditingId && (
                     <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

@@ -25,6 +25,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-gas.ps1
 
 ビルド後、`index.html` の先頭付近に `<title>taskmaster-pro</title>` があり、ファイルサイズが **数百 KB 程度**になっていれば OK です。
 
+## リストチェック専用 URL
+
+依頼機能を使わない方向け: `.../exec?page=checklist`（詳細は `docs/gas/CHECKLIST_ONLY.md`）。
+
 ## GAS への貼り付け
 
 各ファイルを開き、中身をすべて選択 → 削除 → このフォルダの同名ファイルを丸ごと貼り付け → 保存 → Web アプリを新バージョンで再デプロイ。
