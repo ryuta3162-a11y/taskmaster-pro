@@ -410,7 +410,7 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
       </button>
 
       <div className={appChipArena}>
-        <motion.div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
         {items.map((item) => {
           const on = selected.includes(item);
           return (
