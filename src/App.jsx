@@ -285,9 +285,12 @@ function computeTargetRecipientEmails({
  * targetTags が「全店 [CL]」のように店名を列挙しない場合でも一致させる（従来は includes(店名) のみで 0 件になっていた）。
  * requestKind が employee のとき「全店」系タグは個別店舗フィルタに一致しない（社員依頼は全店チップのみで絞る）。
  */
-function taskMatchesStoreFilter(targetTagsStr, filterKey, allStores, requestKind) {
+function taskMatchesStoreFilter(targetTagsStr, filterKey, allStores, requestKind, targetStoreNames) {
   if (filterKey === 'ALL') return true;
   const tg = String(targetTagsStr || '').trim();
+  if (requestKind === 'store' && Array.isArray(targetStoreNames) && targetStoreNames.length) {
+    if (targetStoreNames.indexOf(filterKey) >= 0) return true;
+  }
   if (!tg || tg === '指定なし') return true;
   if (requestKind === 'employee' && (tg === '全店' || /^\s*全店(\s|\[)/.test(tg))) return false;
   if (tg === '全店' || /^\s*全店(\s|\[)/.test(tg)) return true;
@@ -600,7 +603,8 @@ export default function App() {
 
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
-  const [taskFilter, setTaskFilter] = useState('ALL');
+  /** リストチェック: 選択中の店舗（空＝全店。複数タップで OR 絞り込み） */
+  const [selectedChecklistStores, setSelectedChecklistStores] = useState([]);
   const [taskTab, setTaskTab] = useState('active');
   /** リストチェック: すべて / 社員依頼 / 店舗依頼 */
   const [checklistKindFilter, setChecklistKindFilter] = useState('all');
@@ -691,18 +695,41 @@ export default function App() {
   useEffect(() => { if (authStep === 'ready') refreshTasks(); }, [authStep, currentUser, activeTab]);
 
   useEffect(() => {
-    if (checklistKindFilter === 'employee') setTaskFilter('ALL');
+    if (checklistKindFilter === 'employee') setSelectedChecklistStores([]);
   }, [checklistKindFilter]);
+
+  const toggleChecklistStore = (storeName) => {
+    setSelectedChecklistStores((prev) =>
+      prev.includes(storeName) ? prev.filter((s) => s !== storeName) : [...prev, storeName]
+    );
+  };
+
+  const taskMatchesChecklistStoreSelection = (task, selectedStores) => {
+    if (!selectedStores.length) return true;
+    const rk = task.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+    const myStores = currentUser?.stores || [];
+    return selectedStores.some((filterKey) => {
+      if (!taskMatchesStoreFilter(t.targetTags, filterKey, allStores, rk, task.targetStoreNames)) return false;
+      if (rk === 'store') {
+        const targets =
+          task.targetStoreNames && task.targetStoreNames.length
+            ? task.targetStoreNames
+            : Object.keys(task.storeCompletions || {});
+        return myStores.includes(filterKey) && targets.includes(filterKey);
+      }
+      return true;
+    });
+  };
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
-      const storeMatch = taskMatchesStoreFilter(t.targetTags, taskFilter, allStores, rk);
+      const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores);
       const statusMatch = taskTab === 'active' ? !t.completed : t.completed;
       const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
       return storeMatch && statusMatch && kindMatch;
     });
-  }, [tasks, taskFilter, taskTab, allStores, checklistKindFilter]);
+  }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, currentUser?.stores]);
 
   const checklistTabTasks = useMemo(() => {
     return tasks.filter((t) => (taskTab === 'active' ? !t.completed : t.completed));
@@ -1240,11 +1267,18 @@ export default function App() {
     return full.filter((s) => myStores.includes(s));
   };
 
+  /** 店舗チップ選択時は、カード内も選択店舗の行だけ表示 */
+  const getVisibleStoreRowsForTask = (task) => {
+    const names = getMyStoreRowsForTask(task);
+    if (!selectedChecklistStores.length) return names;
+    return names.filter((s) => selectedChecklistStores.includes(s));
+  };
+
   /** 店舗依頼: 自分がまだ完了していない担当店舗名（一覧・一括完了用） */
   const getMyIncompleteStoreNames = (task) => {
     if (task.requestKind !== REQUEST_KIND.store) return [];
     const sc = task.storeCompletions || {};
-    return getMyStoreRowsForTask(task).filter((s) => !sc[s]);
+    return getVisibleStoreRowsForTask(task).filter((s) => !sc[s]);
   };
 
   const handleCompleteStoreCheckpoint = async (task, storeName) => {
@@ -2361,8 +2395,21 @@ export default function App() {
                     </button>
                   </div>
 
+                  {checklistKindFilter !== 'employee' && (
+                    <div className="mb-2">
+                      <p className="text-xs font-bold text-slate-500">
+                        店舗で絞り込み
+                        <span className="font-medium text-slate-400 ml-1">（タップで選択・複数可。もう一度タップで解除）</span>
+                      </p>
+                      {selectedChecklistStores.length > 0 && (
+                        <p className="text-[11px] font-bold text-[var(--acc-700)] mt-1">
+                          選択中: {selectedChecklistStores.join('、')}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-300">
-                    <button onClick={() => setTaskFilter('ALL')} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === 'ALL' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                    <button type="button" onClick={() => setSelectedChecklistStores([])} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${selectedChecklistStores.length === 0 ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                       全店
                       {tasksMatchingChecklistKind.length > 0 && (
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${taskTab === 'active' ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-500 text-white'}`}>{tasksMatchingChecklistKind.length}</span>
@@ -2370,15 +2417,23 @@ export default function App() {
                     </button>
                     {checklistKindFilter !== 'employee' &&
                       currentUser?.stores?.map((s) => {
-                        const storeTaskCount = tasksMatchingChecklistKind.filter(
-                          (t) =>
-                            t.requestKind === REQUEST_KIND.store &&
-                            taskMatchesStoreFilter(t.targetTags, s, allStores, 'store')
+                        const storeTaskCount = tasksMatchingChecklistKind.filter((t) =>
+                          taskMatchesChecklistStoreSelection(t, [s])
                         ).length;
+                        const isOn = selectedChecklistStores.includes(s);
                         return (
-                          <button key={s} onClick={() => setTaskFilter(s)} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${taskFilter === s ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => toggleChecklistStore(s)}
+                            className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${isOn ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)] ring-2 ring-[var(--acc-400)]/40' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+                          >
                             {s}
-                            {storeTaskCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--acc-500)] text-white font-bold">{storeTaskCount}</span>}
+                            {storeTaskCount > 0 && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isOn ? 'bg-white/25 text-white' : 'bg-[var(--acc-500)] text-white'}`}>
+                                {storeTaskCount}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -2390,7 +2445,11 @@ export default function App() {
                     ) : filteredTasks.length === 0 ? (
                       <div className="py-24 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.2em] w-full">
                         <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
-                        <p className="text-lg">タスクはありません</p>
+                        <p className="text-lg normal-case tracking-normal">
+                          {selectedChecklistStores.length > 0
+                            ? '選択した店舗に該当するタスクはありません'
+                            : 'タスクはありません'}
+                        </p>
                       </div>
                     ) : filteredTasks.map(task => (
                       <div key={task.id} className="bg-white border-2 border-slate-300 rounded-xl p-5 flex flex-col xl:flex-row gap-5 items-center animate-fade-in shadow-sm w-full">
@@ -2418,7 +2477,7 @@ export default function App() {
                           {task.requestKind === REQUEST_KIND.store &&
                             (() => {
                               const sc = task.storeCompletions || {};
-                              const names = getMyStoreRowsForTask(task);
+                              const names = getVisibleStoreRowsForTask(task);
                               if (!names.length) {
                                 return (
                                   <p className="mb-4 text-xs font-bold text-slate-500 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
