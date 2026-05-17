@@ -489,6 +489,73 @@ function completeTask(taskId, userEmail, optStoreName) {
 }
 
 /**
+ * 店舗依頼: 複数店舗を 1 回の呼び出しで完了（シート読み書き・ロックは 1 回のみ）。
+ * storeNames: 完了にする店舗名の配列（管轄かつ依頼対象のみ反映、既完了はスキップ）。
+ */
+function completeTaskStoresBulk(taskId, userEmail, storeNames) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const userNorm = normalizeTaskEmail(userEmail);
+    const namesIn = (storeNames || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
+    if (namesIn.length === 0) {
+      return { success: false, message: '完了する店舗がありません' };
+    }
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('申請データ');
+    if (!sheet) return { success: false, message: 'シートが見つかりません' };
+    const allStores = getStoreData();
+    const areasList = getAreasListFromStores_(allStores);
+    const employees = getEmployees();
+    var myEmp = null;
+    for (var ei = 0; ei < employees.length; ei++) {
+      if (normalizeTaskEmail(employees[ei].email) === userNorm) {
+        myEmp = employees[ei];
+        break;
+      }
+    }
+    const userStores = myEmp && myEmp.stores ? myEmp.stores : [];
+    const nameSet = {};
+    namesIn.forEach(function (n) { nameSet[n] = true; });
+
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) !== String(taskId)) continue;
+      const rowNum = i + 1;
+      const requestKind = getRequestKindFromRow_(values[i]);
+      if (requestKind !== 'store') {
+        return { success: false, message: '店舗依頼ではありません' };
+      }
+      var taskStores = parseTargetStoresFromTags_(String(values[i][12] || ''), allStores, areasList);
+      var toMark = userStores.filter(function (s) {
+        return taskStores.indexOf(s) >= 0 && nameSet[s];
+      });
+      if (toMark.length === 0) {
+        return { success: false, message: '管轄店舗がこの依頼の対象外です' };
+      }
+      const payload = parseCompletionPayload_(String(values[i][14] || '[]'));
+      var stores = payload.stores || {};
+      var timeStr = Utilities.formatDate(new Date(), 'JST', 'MM/dd HH:mm');
+      var completed = 0;
+      var updated = {};
+      toMark.forEach(function (pick) {
+        if (stores[pick]) return;
+        stores[pick] = { at: timeStr, by: userNorm };
+        updated[pick] = stores[pick];
+        completed++;
+      });
+      if (completed > 0) {
+        sheet.getRange(rowNum, 15).setValue(serializeStoreCompletion_(stores));
+      }
+      return { success: true, completed: completed, skipped: toMark.length - completed, updated: updated };
+    }
+    return { success: false, message: 'タスクが見つかりません' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
  * 自分の完了記録だけを O列から削除（未実施に戻す）。他の人の記録はそのまま。
  * 店舗依頼: optStoreName でその店舗 1 件だけ取り消す（複数店舗を一括削除しない）。
  */

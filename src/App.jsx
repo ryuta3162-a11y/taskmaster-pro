@@ -341,6 +341,14 @@ const api = {
     if (!isGAS) return setTimeout(() => res({ success: true }), 1500);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email, storeName);
   }),
+  completeTaskStoresBulk: (id, email, storeNames) => new Promise((res, rej) => {
+    if (!isGAS) {
+      const updated = {};
+      (storeNames || []).forEach((n) => { updated[n] = { at: 'mock', by: email }; });
+      return setTimeout(() => res({ success: true, completed: storeNames.length, updated }), 400);
+    }
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTaskStoresBulk(id, email, storeNames);
+  }),
   uncompleteTask: (id, email, storeName) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({ success: true }), 400);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).uncompleteTask(id, email, storeName);
@@ -580,7 +588,7 @@ export default function App() {
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm' });
   /** 店舗依頼: 担当店舗をまとめて完了する確認 */
-  const [storeBulkModal, setStoreBulkModal] = useState({ isOpen: false, task: null, step: 'confirm' });
+  const [storeBulkModal, setStoreBulkModal] = useState({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
   const [completingStoreKey, setCompletingStoreKey] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -1238,24 +1246,31 @@ export default function App() {
     if (!task || !currentUser?.email) return;
     const names = getMyIncompleteStoreNames(task);
     if (names.length === 0) {
-      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' });
+      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
       return;
     }
-    setStoreBulkModal((prev) => ({ ...prev, step: 'loading' }));
+    setStoreBulkModal((prev) => ({ ...prev, step: 'loading', bulkCount: names.length }));
     try {
-      for (let i = 0; i < names.length; i++) {
-        const storeName = names[i];
-        const result = await api.completeTask(task.id, currentUser.email, storeName);
-        if (result && result.success === false) {
-          alert(result.message || '完了に失敗しました');
-          break;
-        }
+      const result = await api.completeTaskStoresBulk(task.id, currentUser.email, names);
+      if (result && result.success === false) {
+        alert(result.message || '完了に失敗しました');
+        setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
+        return;
       }
-      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' });
+      const updated = result?.updated || {};
+      if (Object.keys(updated).length > 0) {
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.id !== task.id) return t;
+            return { ...t, storeCompletions: { ...(t.storeCompletions || {}), ...updated } };
+          })
+        );
+      }
+      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
       refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
-      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm' });
+      setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
     }
   };
 
@@ -1547,6 +1562,11 @@ export default function App() {
               <div className="text-center py-12">
                 <div className="text-[var(--acc-600)] mb-8 flex justify-center scale-150"><Icon name="loader" /></div>
                 <h3 className="text-3xl font-black text-black tracking-tighter animate-pulse">記録中...</h3>
+                {storeBulkModal.bulkCount > 0 && (
+                  <p className="text-sm font-bold text-slate-600 mt-4">
+                    {storeBulkModal.bulkCount}件の店舗をまとめて記録しています（通常は数秒〜十数秒）
+                  </p>
+                )}
               </div>
             )}
           </div>
