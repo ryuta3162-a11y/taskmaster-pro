@@ -5,13 +5,20 @@ Set-Location $root
 
 Write-Host "プロジェクト: $root" -ForegroundColor Cyan
 
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host ""
-    Write-Host "Node.js が見つかりません。" -ForegroundColor Red
-    Write-Host "1. https://nodejs.org/ から LTS をインストール" -ForegroundColor Yellow
-    Write-Host "2. Cursor / PowerShell を一度閉じて開き直す" -ForegroundColor Yellow
-    Write-Host "3. もう一度このスクリプトを実行" -ForegroundColor Yellow
-    exit 1
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCmd) {
+    $cursorNode = Join-Path $env:LOCALAPPDATA "Programs\cursor\resources\app\resources\helpers\node.exe"
+    if (Test-Path $cursorNode) {
+        $env:Path = (Split-Path $cursorNode -Parent) + ";" + $env:Path
+        Write-Host "システムの Node が無いため Cursor 同梱 Node を使用します" -ForegroundColor Yellow
+    } else {
+        Write-Host ""
+        Write-Host "Node.js が見つかりません。" -ForegroundColor Red
+        Write-Host "1. https://nodejs.org/ から LTS をインストール" -ForegroundColor Yellow
+        Write-Host "2. Cursor / PowerShell を一度閉じて開き直す" -ForegroundColor Yellow
+        Write-Host "3. もう一度このスクリプトを実行" -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 Write-Host "Node: $(node -v)  npm: $(npm -v)" -ForegroundColor Green

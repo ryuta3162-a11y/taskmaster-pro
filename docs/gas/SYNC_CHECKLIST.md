@@ -11,13 +11,13 @@
 | **Code.gs** | `docs/gas/Code.gs`（`deployed/Code.gs` と同一に保つ） | 不要 | API・スプレッドシート・メール |
 | **admin** | `docs/gas/admin.html`（`deployed/admin.html` と同一に保つ） | 不要 | 管理ダッシュボード `?page=admin` |
 
-## 現在のリポジトリ内の整合（確認日: 会話時点）
+## 現在のリポジトリ内の整合
 
 | ペア | 状態 |
 |------|------|
 | `docs/gas/Code.gs` ↔ `docs/gas/deployed/Code.gs` | **一致** |
 | `docs/gas/admin.html` ↔ `docs/gas/deployed/admin.html` | **一致** |
-| `src/App.jsx`（未コミット変更あり）↔ `docs/gas/deployed/index.html` | **不一致の可能性大**（下記） |
+| `src/App.jsx` ↔ `docs/gas/deployed/index.html` | **`npm run build` / `build:gas` 後に一致**（約 369KB・`completeTaskStoresBulk` 含む） |
 
 ### index が古いときの目安（貼り付け前に検索）
 
