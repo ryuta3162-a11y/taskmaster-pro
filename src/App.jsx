@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment, useMemo } from 'react';
+import React, { useState, useEffect, Fragment, useMemo, useRef, useCallback } from 'react';
 import { ACCENT_THEMES, applyAccentTheme, readStoredAccentId } from './accentThemes.js';
 
 // --- デザイン用定数（スマホアプリ風・内容は従来どおり） ---
@@ -465,6 +465,25 @@ function PanelFrame({ children, className = '' }) {
   );
 }
 
+/** タスク完了などの短いフィードバック（画面下部・数秒で消える） */
+function ActionToast({ toast }) {
+  if (!toast) return null;
+  return (
+    <div
+      className="fixed bottom-6 left-0 right-0 z-[110] flex justify-center px-4 pointer-events-none"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="action-toast flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-slate-900/92 text-white text-sm font-bold shadow-[0_8px_28px_rgba(0,0,0,0.2)] ring-1 ring-white/15 max-w-[min(92vw,22rem)]">
+        <span className="w-7 h-7 shrink-0 rounded-full bg-emerald-500 flex items-center justify-center text-white [&>svg]:scale-[0.6]">
+          <Icon name="check" />
+        </span>
+        <span className="truncate">{toast.message}</span>
+      </div>
+    </div>
+  );
+}
+
 /** 新規登録フォーム用チップ */
 function RegChip({ selected, onClick, children, compact }) {
   return (
@@ -590,7 +609,23 @@ export default function App() {
   /** 店舗依頼: 担当店舗をまとめて完了する確認 */
   const [storeBulkModal, setStoreBulkModal] = useState({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
   const [completingStoreKey, setCompletingStoreKey] = useState(null);
+  const [actionToast, setActionToast] = useState(null);
+  const actionToastTimerRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const showActionToast = useCallback((message) => {
+    if (!message) return;
+    if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+    const id = Date.now();
+    setActionToast({ id, message });
+    actionToastTimerRef.current = setTimeout(() => {
+      setActionToast((cur) => (cur && cur.id === id ? null : cur));
+    }, 2600);
+  }, []);
+
+  useEffect(() => () => {
+    if (actionToastTimerRef.current) clearTimeout(actionToastTimerRef.current);
+  }, []);
 
   const [requestSelectedStores, setRequestSelectedStores] = useState([]);
   const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES);
@@ -1222,6 +1257,20 @@ export default function App() {
         alert(result.message || '完了に失敗しました');
         return;
       }
+      const userNorm = normalizeEmail(currentUser.email);
+      const now = new Date();
+      const pad2 = (n) => String(n).padStart(2, '0');
+      const timeStr = `${pad2(now.getMonth() + 1)}/${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id !== task.id) return t;
+          return {
+            ...t,
+            storeCompletions: { ...(t.storeCompletions || {}), [storeName]: { at: timeStr, by: userNorm } },
+          };
+        })
+      );
+      showActionToast('完了しました');
       refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
@@ -1231,10 +1280,15 @@ export default function App() {
   };
 
   const executeCompleteTask = async () => {
+    const taskId = confirmModal.task?.id;
     setConfirmModal((prev) => ({ ...prev, step: 'loading' }));
     try {
-      await api.completeTask(confirmModal.task.id, currentUser.email);
+      await api.completeTask(taskId, currentUser.email);
+      if (taskId) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed: true } : t)));
+      }
       setConfirmModal({ isOpen: false, task: null, step: 'confirm' });
+      showActionToast('完了しました');
       refreshTasks();
     } catch (e) {
       setConfirmModal({ isOpen: false, task: null, step: 'confirm' });
@@ -1267,6 +1321,8 @@ export default function App() {
         );
       }
       setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
+      const doneCount = result?.completed ?? Object.keys(updated).length;
+      showActionToast(doneCount > 1 ? `${doneCount}件完了しました` : '完了しました');
       refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
@@ -1485,6 +1541,7 @@ export default function App() {
 
   return (
     <Fragment>
+      <ActionToast toast={actionToast} />
       {/* --- モーダル群 --- */}
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -2588,6 +2645,8 @@ export default function App() {
         @keyframes loginPop { 0% { opacity: 0; transform: translateY(18px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes loginCardIn { 0% { opacity: 0; transform: translateY(24px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes loginShine { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
+        @keyframes actionToastIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .action-toast { animation: actionToastIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .login-screen .login-orb { position: absolute; border-radius: 9999px; filter: blur(48px); opacity: 0.45; }
         .login-orb-a { width: 280px; height: 280px; top: 8%; left: -8%; background: var(--acc-300); animation: loginOrb 9s ease-in-out infinite; }
         .login-orb-b { width: 220px; height: 220px; bottom: 10%; right: -6%; background: var(--acc-400); animation: loginOrb 11s ease-in-out infinite reverse; }
