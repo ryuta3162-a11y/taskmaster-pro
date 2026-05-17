@@ -467,6 +467,41 @@ function isUserDoneWithTask(task, myStores) {
   return !!task?.completed;
 }
 
+/** 店舗依頼: 未実施タブに表示する担当店舗（店舗チップ絞り込み後） */
+function getMyPendingStoreNamesForChecklist(task, myStores, selectedStores) {
+  if (task?.requestKind !== REQUEST_KIND.store) return [];
+  let names = getMyRelevantStoreNamesForTask(task, myStores);
+  if (!names.length) return [];
+  const sel = asUserStoreList(selectedStores);
+  if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
+  const sc = task?.storeCompletions || {};
+  return names.filter((s) => !sc[s]);
+}
+
+/** 店舗依頼: 実施済みタブに表示する担当店舗（店舗チップ絞り込み後） */
+function getMyCompletedStoreNamesForChecklist(task, myStores, selectedStores) {
+  if (task?.requestKind !== REQUEST_KIND.store) return [];
+  let names = getMyRelevantStoreNamesForTask(task, myStores);
+  if (!names.length) return [];
+  const sel = asUserStoreList(selectedStores);
+  if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
+  const sc = task?.storeCompletions || {};
+  return names.filter((s) => !!sc[s]);
+}
+
+/** チェックリストの未実施/実施済みタブに載せるか（空カードを出さない） */
+function shouldIncludeTaskInChecklistTab(task, taskTab, myStores, selectedStores) {
+  if (task?.requestKind === REQUEST_KIND.store) {
+    if (getMyRelevantStoreNamesForTask(task, myStores).length === 0) return false;
+    if (taskTab === 'active') {
+      return getMyPendingStoreNamesForChecklist(task, myStores, selectedStores).length > 0;
+    }
+    if (!isUserDoneWithStoreTask(task, myStores)) return false;
+    return getMyCompletedStoreNamesForChecklist(task, myStores, selectedStores).length > 0;
+  }
+  return taskTab === 'active' ? !isUserDoneWithTask(task, myStores) : isUserDoneWithTask(task, myStores);
+}
+
 function applyStoreCompletionToTask(task, storeCompletions, myStores) {
   const next = { ...task, storeCompletions };
   if (task?.requestKind === REQUEST_KIND.store) {
@@ -758,8 +793,12 @@ export default function App() {
 
   const checklistUserStores = useMemo(() => asUserStoreList(currentUser?.stores), [currentUser?.stores]);
 
-  const activeTasksCount = tasks.filter((t) => !isUserDoneWithTask(t, checklistUserStores)).length;
-  const completedTasksCount = tasks.filter((t) => isUserDoneWithTask(t, checklistUserStores)).length;
+  const activeTasksCount = tasks.filter((t) =>
+    shouldIncludeTaskInChecklistTab(t, 'active', checklistUserStores, [])
+  ).length;
+  const completedTasksCount = tasks.filter((t) =>
+    shouldIncludeTaskInChecklistTab(t, 'completed', checklistUserStores, [])
+  ).length;
   const requestedTasksProgress = tasks.length === 0 ? 0 : Math.round((completedTasksCount / tasks.length) * 100);
 
   const toggleChecklistStore = (storeName) => {
@@ -772,15 +811,15 @@ export default function App() {
     return tasks.filter((t) => {
       const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
       const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores, allStores, checklistUserStores);
-      const statusMatch = taskTab === 'active' ? !isUserDoneWithTask(t, checklistUserStores) : isUserDoneWithTask(t, checklistUserStores);
+      const tabMatch = shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores);
       const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
-      return storeMatch && statusMatch && kindMatch;
+      return storeMatch && tabMatch && kindMatch;
     });
   }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, checklistUserStores]);
 
   const checklistTabTasks = useMemo(() => {
-    return tasks.filter((t) => (taskTab === 'active' ? !isUserDoneWithTask(t, checklistUserStores) : isUserDoneWithTask(t, checklistUserStores)));
-  }, [tasks, taskTab, checklistUserStores]);
+    return tasks.filter((t) => shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores));
+  }, [tasks, taskTab, checklistUserStores, selectedChecklistStores]);
 
   const checklistKindCounts = useMemo(() => {
     const all = checklistTabTasks.length;
@@ -792,12 +831,11 @@ export default function App() {
   /** 未実施/実施済みタブ + 依頼種別フィルタまで反映したタスク（店舗チップの件数用） */
   const tasksMatchingChecklistKind = useMemo(() => {
     return tasks.filter((t) => {
-      const statusOk = taskTab === 'active' ? !isUserDoneWithTask(t, checklistUserStores) : isUserDoneWithTask(t, checklistUserStores);
-      if (!statusOk) return false;
+      if (!shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores)) return false;
       const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
       return checklistKindFilter === 'all' || checklistKindFilter === rk;
     });
-  }, [tasks, taskTab, checklistKindFilter, checklistUserStores]);
+  }, [tasks, taskTab, checklistKindFilter, checklistUserStores, selectedChecklistStores]);
 
   const handleLoginSearch = (e) => {
     e.preventDefault();
@@ -1314,23 +1352,19 @@ export default function App() {
 
   /** 店舗チップ選択時は選択店舗のみ。未実施タブでは未完了の店舗行だけ */
   const getVisibleStoreRowsForTask = (task) => {
-    let names = getMyStoreRowsForTask(task);
-    if (selectedChecklistStores.length) names = names.filter((s) => selectedChecklistStores.includes(s));
-    const sc = task.storeCompletions || {};
-    if (task.requestKind === REQUEST_KIND.store && taskTab === 'active') {
-      names = names.filter((s) => !sc[s]);
-    } else if (task.requestKind === REQUEST_KIND.store && taskTab === 'completed') {
-      names = names.filter((s) => !!sc[s]);
+    if (task.requestKind !== REQUEST_KIND.store) return [];
+    if (taskTab === 'active') {
+      return getMyPendingStoreNamesForChecklist(task, checklistUserStores, selectedChecklistStores);
     }
-    return names;
+    if (taskTab === 'completed') {
+      return getMyCompletedStoreNamesForChecklist(task, checklistUserStores, selectedChecklistStores);
+    }
+    return getMyStoreRowsForTask(task);
   };
 
   /** 店舗依頼: 自分がまだ完了していない担当店舗名（一覧・一括完了用） */
-  const getMyIncompleteStoreNames = (task) => {
-    if (task.requestKind !== REQUEST_KIND.store) return [];
-    const sc = task.storeCompletions || {};
-    return getVisibleStoreRowsForTask(task).filter((s) => !sc[s]);
-  };
+  const getMyIncompleteStoreNames = (task) =>
+    getMyPendingStoreNamesForChecklist(task, checklistUserStores, selectedChecklistStores);
 
   const handleCompleteStoreCheckpoint = async (task, storeName) => {
     if (!currentUser?.email) return;
@@ -2535,13 +2569,7 @@ export default function App() {
                             (() => {
                               const sc = task.storeCompletions || {};
                               const names = getVisibleStoreRowsForTask(task);
-                              if (!names.length) {
-                                return (
-                                  <p className="mb-4 text-xs font-bold text-slate-500 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
-                                    この依頼の対象のうち、あなたの管轄店舗はありません。
-                                  </p>
-                                );
-                              }
+                              if (!names.length) return null;
                               const myStores = checklistUserStores;
                               return (
                                 <div className="mb-4 space-y-2">
@@ -2673,25 +2701,13 @@ export default function App() {
                         <div className="flex-shrink-0 border-t-2 xl:border-t-0 border-l-0 xl:border-l-2 border-slate-200 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
                           {!userDone ? (
                             task.requestKind === REQUEST_KIND.store ? (
-                              (() => {
-                                const pending = getMyIncompleteStoreNames(task);
-                                if (pending.length === 0) {
-                                  return (
-                                    <p className="text-[10px] font-bold text-slate-500 text-center max-w-[10rem] leading-snug">
-                                      担当の対象店舗がありません
-                                    </p>
-                                  );
-                                }
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => setStoreBulkModal({ isOpen: true, task, step: 'confirm' })}
-                                    className="px-4 py-3 rounded-xl border-2 border-slate-900 bg-white text-slate-900 text-xs font-black hover:bg-slate-900 hover:text-white transition-colors max-w-[11rem] text-center leading-snug shadow-sm"
-                                  >
-                                    全て完了にする
-                                  </button>
-                                );
-                              })()
+                              <button
+                                type="button"
+                                onClick={() => setStoreBulkModal({ isOpen: true, task, step: 'confirm' })}
+                                className="px-4 py-3 rounded-xl border-2 border-slate-900 bg-white text-slate-900 text-xs font-black hover:bg-slate-900 hover:text-white transition-colors max-w-[11rem] text-center leading-snug shadow-sm"
+                              >
+                                全て完了にする
+                              </button>
                             ) : (
                               <button
                                 onClick={() => openConfirmModal(task)}
