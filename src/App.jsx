@@ -446,6 +446,35 @@ function taskMatchesChecklistStoreSelection(task, selectedStores, allStores, myS
   });
 }
 
+/** 店舗依頼: 自分の管轄店舗のうち、この依頼に含まれる店舗名 */
+function getMyRelevantStoreNamesForTask(task, myStores) {
+  const safeMyStores = asUserStoreList(myStores);
+  const targets = getTaskTargetStoreNames(task);
+  return targets.filter((s) => safeMyStores.indexOf(s) >= 0);
+}
+
+/** 店舗依頼: 自分の担当分がすべて完了済みか（リストの未実施/実施済み判定用） */
+function isUserDoneWithStoreTask(task, myStores) {
+  const relevant = getMyRelevantStoreNamesForTask(task, myStores);
+  if (relevant.length === 0) return false;
+  const sc = task?.storeCompletions || {};
+  return relevant.every((s) => !!sc[s]);
+}
+
+/** チェックリスト上で「実施済み」タブに出すか */
+function isUserDoneWithTask(task, myStores) {
+  if (task?.requestKind === REQUEST_KIND.store) return isUserDoneWithStoreTask(task, myStores);
+  return !!task?.completed;
+}
+
+function applyStoreCompletionToTask(task, storeCompletions, myStores) {
+  const next = { ...task, storeCompletions };
+  if (task?.requestKind === REQUEST_KIND.store) {
+    next.completed = isUserDoneWithStoreTask(next, myStores);
+  }
+  return next;
+}
+
 function isPdfFile(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 }
@@ -686,10 +715,6 @@ export default function App() {
   const [scheduleSelectedTeams, setScheduleSelectedTeams] = useState(TEAMS);
   const [scheduleRequestKind, setScheduleRequestKind] = useState(REQUEST_KIND.employee);
 
-  const activeTasksCount = tasks.filter(t => !t.completed).length;
-  const completedTasksCount = tasks.filter(t => t.completed).length;
-  const requestedTasksProgress = tasks.length === 0 ? 0 : Math.round((completedTasksCount / tasks.length) * 100);
-
   const todayForMin = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
 
   useEffect(() => {
@@ -733,6 +758,10 @@ export default function App() {
 
   const checklistUserStores = useMemo(() => asUserStoreList(currentUser?.stores), [currentUser?.stores]);
 
+  const activeTasksCount = tasks.filter((t) => !isUserDoneWithTask(t, checklistUserStores)).length;
+  const completedTasksCount = tasks.filter((t) => isUserDoneWithTask(t, checklistUserStores)).length;
+  const requestedTasksProgress = tasks.length === 0 ? 0 : Math.round((completedTasksCount / tasks.length) * 100);
+
   const toggleChecklistStore = (storeName) => {
     setSelectedChecklistStores((prev) =>
       prev.includes(storeName) ? prev.filter((s) => s !== storeName) : [...prev, storeName]
@@ -743,15 +772,15 @@ export default function App() {
     return tasks.filter((t) => {
       const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
       const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores, allStores, checklistUserStores);
-      const statusMatch = taskTab === 'active' ? !t.completed : t.completed;
+      const statusMatch = taskTab === 'active' ? !isUserDoneWithTask(t, checklistUserStores) : isUserDoneWithTask(t, checklistUserStores);
       const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
       return storeMatch && statusMatch && kindMatch;
     });
   }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, checklistUserStores]);
 
   const checklistTabTasks = useMemo(() => {
-    return tasks.filter((t) => (taskTab === 'active' ? !t.completed : t.completed));
-  }, [tasks, taskTab]);
+    return tasks.filter((t) => (taskTab === 'active' ? !isUserDoneWithTask(t, checklistUserStores) : isUserDoneWithTask(t, checklistUserStores)));
+  }, [tasks, taskTab, checklistUserStores]);
 
   const checklistKindCounts = useMemo(() => {
     const all = checklistTabTasks.length;
@@ -763,12 +792,12 @@ export default function App() {
   /** 未実施/実施済みタブ + 依頼種別フィルタまで反映したタスク（店舗チップの件数用） */
   const tasksMatchingChecklistKind = useMemo(() => {
     return tasks.filter((t) => {
-      const statusOk = taskTab === 'active' ? !t.completed : t.completed;
+      const statusOk = taskTab === 'active' ? !isUserDoneWithTask(t, checklistUserStores) : isUserDoneWithTask(t, checklistUserStores);
       if (!statusOk) return false;
       const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
       return checklistKindFilter === 'all' || checklistKindFilter === rk;
     });
-  }, [tasks, taskTab, checklistKindFilter]);
+  }, [tasks, taskTab, checklistKindFilter, checklistUserStores]);
 
   const handleLoginSearch = (e) => {
     e.preventDefault();
@@ -1283,11 +1312,17 @@ export default function App() {
     return full.filter((s) => myStores.indexOf(s) >= 0);
   };
 
-  /** 店舗チップ選択時は、カード内も選択店舗の行だけ表示 */
+  /** 店舗チップ選択時は選択店舗のみ。未実施タブでは未完了の店舗行だけ */
   const getVisibleStoreRowsForTask = (task) => {
-    const names = getMyStoreRowsForTask(task);
-    if (!selectedChecklistStores.length) return names;
-    return names.filter((s) => selectedChecklistStores.includes(s));
+    let names = getMyStoreRowsForTask(task);
+    if (selectedChecklistStores.length) names = names.filter((s) => selectedChecklistStores.includes(s));
+    const sc = task.storeCompletions || {};
+    if (task.requestKind === REQUEST_KIND.store && taskTab === 'active') {
+      names = names.filter((s) => !sc[s]);
+    } else if (task.requestKind === REQUEST_KIND.store && taskTab === 'completed') {
+      names = names.filter((s) => !!sc[s]);
+    }
+    return names;
   };
 
   /** 店舗依頼: 自分がまだ完了していない担当店舗名（一覧・一括完了用） */
@@ -1311,13 +1346,11 @@ export default function App() {
       const now = new Date();
       const pad2 = (n) => String(n).padStart(2, '0');
       const timeStr = `${pad2(now.getMonth() + 1)}/${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+      const nextCompletions = { ...(task.storeCompletions || {}), [storeName]: { at: timeStr, by: userNorm } };
       setTasks((prev) =>
         prev.map((t) => {
           if (t.id !== task.id) return t;
-          return {
-            ...t,
-            storeCompletions: { ...(t.storeCompletions || {}), [storeName]: { at: timeStr, by: userNorm } },
-          };
+          return applyStoreCompletionToTask(t, nextCompletions, checklistUserStores);
         })
       );
       showActionToast('完了しました');
@@ -1366,7 +1399,8 @@ export default function App() {
         setTasks((prev) =>
           prev.map((t) => {
             if (t.id !== task.id) return t;
-            return { ...t, storeCompletions: { ...(t.storeCompletions || {}), ...updated } };
+            const nextCompletions = { ...(t.storeCompletions || {}), ...updated };
+            return applyStoreCompletionToTask(t, nextCompletions, checklistUserStores);
           })
         );
       }
@@ -1408,6 +1442,11 @@ export default function App() {
         alert(res.message || '取り消しに失敗しました');
         return;
       }
+      const nextCompletions = { ...(task.storeCompletions || {}) };
+      delete nextCompletions[storeName];
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? applyStoreCompletionToTask(t, nextCompletions, checklistUserStores) : t))
+      );
       refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
@@ -2467,7 +2506,9 @@ export default function App() {
                             : 'タスクはありません'}
                         </p>
                       </div>
-                    ) : filteredTasks.map(task => (
+                    ) : filteredTasks.map((task) => {
+                      const userDone = isUserDoneWithTask(task, checklistUserStores);
+                      return (
                       <div key={task.id} className="bg-white border-2 border-slate-300 rounded-xl p-5 flex flex-col xl:flex-row gap-5 items-center animate-fade-in shadow-sm w-full">
                         <div className="flex-1 w-full min-w-0">
                           
@@ -2486,7 +2527,7 @@ export default function App() {
                             <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
                           </div>
                           
-                          <h3 className={`text-lg md:text-xl font-black text-black leading-relaxed mb-6 break-words ${task.completed ? 'line-through opacity-40' : ''}`}>
+                          <h3 className={`text-lg md:text-xl font-black text-black leading-relaxed mb-6 break-words ${userDone ? 'line-through opacity-40' : ''}`}>
                             {formatContent(task.content)}
                           </h3>
 
@@ -2513,7 +2554,7 @@ export default function App() {
                                       const mine = myStores.indexOf(storeName) >= 0;
                                       const rowKey = `${task.id}:${storeName}`;
                                       const busy = completingStoreKey === rowKey;
-                                      const canComplete = mine && !done && !task.completed;
+                                      const canComplete = mine && !done && !userDone;
                                       const canUndo =
                                         mine && done && emailsMatch(done.by, currentUser?.email);
                                       const interactive = canComplete || canUndo;
@@ -2570,7 +2611,7 @@ export default function App() {
                               );
                             })()}
 
-                          {task.completed &&
+                          {userDone &&
                             task.requestKind !== REQUEST_KIND.store &&
                             task.employeeCompletions &&
                             task.employeeCompletions.length > 0 && (
@@ -2586,7 +2627,7 @@ export default function App() {
                               </div>
                             )}
                           
-                          {!task.completed && (
+                          {!userDone && (
                             <div className="flex flex-col gap-4 border-t-2 border-slate-200 pt-4">
                               
                               <div className="flex flex-wrap gap-3 items-center">
@@ -2630,7 +2671,7 @@ export default function App() {
                         </div>
                         
                         <div className="flex-shrink-0 border-t-2 xl:border-t-0 border-l-0 xl:border-l-2 border-slate-200 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
-                          {!task.completed ? (
+                          {!userDone ? (
                             task.requestKind === REQUEST_KIND.store ? (
                               (() => {
                                 const pending = getMyIncompleteStoreNames(task);
@@ -2684,7 +2725,8 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
               )}
