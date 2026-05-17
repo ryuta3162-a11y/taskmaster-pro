@@ -7,6 +7,9 @@ const appInput = "bg-slate-100/90 border-0 rounded-xl px-4 py-3.5 font-medium te
 const appBtnPrimary = "bg-[var(--acc-500)] text-white rounded-2xl font-bold shadow-lg shadow-[var(--acc-500)]/25 transition-all hover:bg-[var(--acc-600)] active:scale-[0.98] flex items-center justify-center gap-3 py-4 text-lg";
 const appBtnSecondary = "bg-white text-slate-700 rounded-2xl font-semibold border border-black/[0.06] shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-base";
 const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
+/** ダッシュボード（ホーム）の4メニュー用・やや大きめ */
+const dashboardMenuTile = "w-full text-left bg-white rounded-2xl p-5 md:p-7 min-h-[5.25rem] md:min-h-[6.25rem] shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-black/[0.05] active:scale-[0.99] transition-all flex items-center gap-4 md:gap-5";
+const dashboardMenuIcon = "w-14 h-14 md:w-16 md:h-16 rounded-2xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-100";
 const appSection = "relative rounded-2xl w-full overflow-hidden border border-[var(--acc-200)]/45 bg-white/95 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.08)] ring-1 ring-[var(--acc-100)]/40 p-5 md:p-6";
 const appLabel = "text-base font-semibold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2";
 const appMenuIcon = "w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-[0.85]";
@@ -413,6 +416,36 @@ const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
 /** GAS・列「依頼単位」と一致: employee=社員ごと / store=店舗単位で1回 */
 const REQUEST_KIND = { employee: 'employee', store: 'store' };
 
+/** 管轄店舗リストを常に配列に正規化（スプレッドシート由来の不正値で落ちないように） */
+function asUserStoreList(stores) {
+  if (Array.isArray(stores)) return stores.map((s) => String(s || '').trim()).filter(Boolean);
+  if (stores != null && typeof stores === 'string') {
+    return stores.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function getTaskTargetStoreNames(task) {
+  if (Array.isArray(task?.targetStoreNames) && task.targetStoreNames.length) {
+    return task.targetStoreNames.map((s) => String(s || '').trim()).filter(Boolean);
+  }
+  return Object.keys(task?.storeCompletions || {});
+}
+
+function taskMatchesChecklistStoreSelection(task, selectedStores, allStores, myStores) {
+  if (!selectedStores || !selectedStores.length) return true;
+  const rk = task?.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+  const safeMyStores = asUserStoreList(myStores);
+  return selectedStores.some((filterKey) => {
+    if (!taskMatchesStoreFilter(task?.targetTags, filterKey, allStores, rk, task?.targetStoreNames)) return false;
+    if (rk === 'store') {
+      const targets = getTaskTargetStoreNames(task);
+      return safeMyStores.indexOf(filterKey) >= 0 && targets.indexOf(filterKey) >= 0;
+    }
+    return true;
+  });
+}
+
 function isPdfFile(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 }
@@ -698,38 +731,23 @@ export default function App() {
     if (checklistKindFilter === 'employee') setSelectedChecklistStores([]);
   }, [checklistKindFilter]);
 
+  const checklistUserStores = useMemo(() => asUserStoreList(currentUser?.stores), [currentUser?.stores]);
+
   const toggleChecklistStore = (storeName) => {
     setSelectedChecklistStores((prev) =>
       prev.includes(storeName) ? prev.filter((s) => s !== storeName) : [...prev, storeName]
     );
   };
 
-  const taskMatchesChecklistStoreSelection = (task, selectedStores) => {
-    if (!selectedStores.length) return true;
-    const rk = task.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
-    const myStores = currentUser?.stores || [];
-    return selectedStores.some((filterKey) => {
-      if (!taskMatchesStoreFilter(t.targetTags, filterKey, allStores, rk, task.targetStoreNames)) return false;
-      if (rk === 'store') {
-        const targets =
-          task.targetStoreNames && task.targetStoreNames.length
-            ? task.targetStoreNames
-            : Object.keys(task.storeCompletions || {});
-        return myStores.includes(filterKey) && targets.includes(filterKey);
-      }
-      return true;
-    });
-  };
-
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
-      const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores);
+      const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores, allStores, checklistUserStores);
       const statusMatch = taskTab === 'active' ? !t.completed : t.completed;
       const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
       return storeMatch && statusMatch && kindMatch;
     });
-  }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, currentUser?.stores]);
+  }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, checklistUserStores]);
 
   const checklistTabTasks = useMemo(() => {
     return tasks.filter((t) => (taskTab === 'active' ? !t.completed : t.completed));
@@ -1260,11 +1278,9 @@ export default function App() {
   /** 店舗依頼: チェックリストに出す店舗 = 依頼対象 ∩ 自分の管轄のみ（他店舗は非表示） */
   const getMyStoreRowsForTask = (task) => {
     if (task.requestKind !== REQUEST_KIND.store) return [];
-    const sc = task.storeCompletions || {};
-    const full =
-      task.targetStoreNames && task.targetStoreNames.length ? [...task.targetStoreNames] : Object.keys(sc).sort();
-    const myStores = currentUser?.stores || [];
-    return full.filter((s) => myStores.includes(s));
+    const full = getTaskTargetStoreNames(task).sort();
+    const myStores = checklistUserStores;
+    return full.filter((s) => myStores.indexOf(s) >= 0);
   };
 
   /** 店舗チップ選択時は、カード内も選択店舗の行だけ表示 */
@@ -1992,46 +2008,46 @@ export default function App() {
               
               {/* === HOME === */}
               {!checklistOnlyMode && activeTab === 'home' && (
-                <div className="space-y-4 mt-1 w-full">
-                  <div className="bg-white rounded-2xl px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04]">
-                    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-slate-600">
+                <div className="space-y-5 mt-1 w-full max-w-5xl mx-auto">
+                  <div className="bg-white rounded-2xl px-5 py-4 md:px-6 md:py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04]">
+                    <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-sm md:text-base text-slate-600">
                       <span>
                         未完了{' '}
-                        <strong className="text-slate-900 font-black tabular-nums text-base">{activeTasksCount}</strong>
+                        <strong className="text-slate-900 font-black tabular-nums text-lg md:text-xl">{activeTasksCount}</strong>
                         <span className="font-bold text-slate-500"> 件</span>
                       </span>
                       <span className="hidden sm:inline text-slate-300 select-none">/</span>
                       <span>
                         完了率{' '}
-                        <strong className="text-slate-900 font-black tabular-nums text-base">{requestedTasksProgress}</strong>
+                        <strong className="text-slate-900 font-black tabular-nums text-lg md:text-xl">{requestedTasksProgress}</strong>
                         <span className="font-bold text-slate-500"> %</span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2.5 w-full md:grid md:grid-cols-2 xl:grid-cols-4 md:gap-3">
-                    <button type="button" onClick={() => navigateTab('request')} className={appMenuTile}>
-                      <div className={appMenuIcon}><Icon name="plus" /></div>
-                      <h4 className="text-base font-semibold text-slate-900 flex-1">新規投稿</h4>
-                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                  <div className="flex flex-col gap-3 w-full md:grid md:grid-cols-2 md:gap-4 xl:gap-5">
+                    <button type="button" onClick={() => navigateTab('request')} className={dashboardMenuTile}>
+                      <div className={dashboardMenuIcon}><Icon name="plus" /></div>
+                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">新規投稿</h4>
+                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    <button type="button" onClick={() => navigateTab('repost')} className={appMenuTile}>
-                      <div className={appMenuIcon}><Icon name="history" /></div>
-                      <h4 className="text-base font-semibold text-slate-900 flex-1">再投稿</h4>
-                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                    <button type="button" onClick={() => navigateTab('repost')} className={dashboardMenuTile}>
+                      <div className={dashboardMenuIcon}><Icon name="history" /></div>
+                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">再投稿</h4>
+                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    <button type="button" onClick={() => navigateTab('scheduled')} className={appMenuTile}>
-                      <div className={appMenuIcon}><Icon name="repeat" /></div>
-                      <h4 className="text-base font-semibold text-slate-900 flex-1">定期配信</h4>
-                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                    <button type="button" onClick={() => navigateTab('scheduled')} className={dashboardMenuTile}>
+                      <div className={dashboardMenuIcon}><Icon name="repeat" /></div>
+                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">定期配信</h4>
+                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
-                    <button type="button" onClick={() => navigateTab('checklist')} className={appMenuTile + ' relative'}>
-                      <div className={appMenuIcon}><Icon name="list" /></div>
-                      <h4 className="text-base font-semibold text-slate-900 flex-1">リストチェック</h4>
+                    <button type="button" onClick={() => navigateTab('checklist')} className={dashboardMenuTile + ' relative'}>
+                      <div className={dashboardMenuIcon}><Icon name="list" /></div>
+                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">リストチェック</h4>
                       {activeTasksCount > 0 && (
-                        <span className="bg-[var(--acc-600)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">{activeTasksCount}</span>
+                        <span className="bg-[var(--acc-600)] text-white text-xs font-bold px-2.5 py-1 rounded-full shrink-0">{activeTasksCount}</span>
                       )}
-                      <span className="text-slate-300 shrink-0 scale-75 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
                   </div>
                 </div>
@@ -2416,9 +2432,9 @@ export default function App() {
                       )}
                     </button>
                     {checklistKindFilter !== 'employee' &&
-                      currentUser?.stores?.map((s) => {
+                      checklistUserStores.map((s) => {
                         const storeTaskCount = tasksMatchingChecklistKind.filter((t) =>
-                          taskMatchesChecklistStoreSelection(t, [s])
+                          taskMatchesChecklistStoreSelection(t, [s], allStores, checklistUserStores)
                         ).length;
                         const isOn = selectedChecklistStores.includes(s);
                         return (
@@ -2485,7 +2501,7 @@ export default function App() {
                                   </p>
                                 );
                               }
-                              const myStores = currentUser?.stores || [];
+                              const myStores = checklistUserStores;
                               return (
                                 <div className="mb-4 space-y-2">
                                   {names.length > 6 && (
@@ -2494,7 +2510,7 @@ export default function App() {
                                   <ul className="space-y-2 max-h-64 overflow-y-auto overscroll-contain pr-0.5">
                                     {names.map((storeName) => {
                                       const done = sc[storeName];
-                                      const mine = myStores.includes(storeName);
+                                      const mine = myStores.indexOf(storeName) >= 0;
                                       const rowKey = `${task.id}:${storeName}`;
                                       const busy = completingStoreKey === rowKey;
                                       const canComplete = mine && !done && !task.completed;
