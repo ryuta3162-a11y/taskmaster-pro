@@ -3,15 +3,43 @@ import { ACCENT_THEMES, applyAccentTheme, readStoredAccentId } from './accentThe
 
 // --- デザイン用定数（スマホアプリ風・内容は従来どおり） ---
 const appCard = "bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.05] p-5 md:p-6 transition-all w-full";
-const appInput = "bg-slate-100/90 border-0 rounded-xl px-4 py-3.5 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--acc-500)]/35 transition-all w-full text-base";
-const appBtnPrimary = "bg-[var(--acc-500)] text-white rounded-2xl font-bold shadow-lg shadow-[var(--acc-500)]/25 transition-all hover:bg-[var(--acc-600)] active:scale-[0.98] flex items-center justify-center gap-3 py-4 text-lg";
-const appBtnSecondary = "bg-white text-slate-700 rounded-2xl font-semibold border border-black/[0.06] shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] flex items-center justify-center gap-2 py-3 text-base";
+const appInput = "bg-slate-100/90 border-0 rounded-xl px-4 py-3.5 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--acc-500)]/35 transition-all w-full text-sm";
+/** タイポグラフィ階層（index 全画面・admin.css と同じ 16/14/12/11px 想定） */
+const appText = {
+  title: 'text-base font-bold text-slate-900 leading-snug',
+  section: 'text-sm font-semibold text-[var(--acc-600)]',
+  body: 'text-sm font-medium text-slate-700',
+  meta: 'text-xs font-medium text-slate-500',
+  caption: 'text-xs font-semibold text-slate-500',
+  badge: 'text-xs font-bold',
+  badgeNum: 'text-[11px] font-bold tabular-nums leading-none',
+  tab: 'text-sm font-bold',
+  btn: 'text-sm font-bold',
+  /** 配信人数など、強調したい数字のみ */
+  stat: 'text-2xl font-bold text-[var(--acc-600)] tabular-nums tracking-tight',
+};
+const appLabel = `${appText.section} mb-3 block tracking-wide border-b border-slate-200/80 pb-2`;
+/** リストチェック等のタスクカード（appCard と同じ枠・角丸） */
+const appTaskCard = `${appCard} flex flex-col xl:flex-row gap-4 xl:gap-5 w-full animate-fade-in`;
+const appTagPill = `${appText.badge} inline-flex items-center px-2.5 py-1 rounded-lg border border-black/[0.06]`;
+const appTagOnAccent = `${appText.badge} inline-flex items-center px-2.5 py-1 rounded-lg text-white shadow-sm`;
+const appSurfaceInset = 'rounded-xl border border-slate-200/80 bg-slate-50/90';
+const appDivider = 'border-t border-slate-200/80';
+const appFormSubmitRow = `${appDivider} pt-6 w-full mt-2`;
+const appBtnPrimary = `bg-[var(--acc-500)] text-white rounded-2xl shadow-lg shadow-[var(--acc-500)]/25 transition-all hover:bg-[var(--acc-600)] active:scale-[0.98] flex items-center justify-center gap-3 py-3.5 w-full ${appText.btn}`;
+const appBtnSecondary = `bg-white text-slate-700 rounded-2xl border border-black/[0.06] shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] flex items-center justify-center gap-2 py-3 ${appText.btn}`;
+const appLinkBtn = `${appBtnSecondary} w-full max-w-md py-3 gap-2`;
+const appLabelKind = `${appText.section} mb-4 block tracking-wide border-b border-slate-200/80 pb-2`;
+const appKindRadio = (on) =>
+  `flex items-center gap-3 flex-1 p-4 rounded-xl border cursor-pointer transition-colors ${
+    on ? 'border-[var(--acc-500)] bg-[var(--acc-50)] ring-1 ring-[var(--acc-200)]/40' : 'border-slate-200 bg-white hover:border-slate-300'
+  }`;
+const appCallout = 'rounded-2xl border border-[var(--acc-200)]/60 bg-[var(--acc-50)]/80 p-5 md:p-6 space-y-4 shadow-sm';
 const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
 /** ダッシュボード（ホーム）の4メニュー用・やや大きめ */
 const dashboardMenuTile = "w-full text-left bg-white rounded-2xl p-5 md:p-7 min-h-[5.25rem] md:min-h-[6.25rem] shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-black/[0.05] active:scale-[0.99] transition-all flex items-center gap-4 md:gap-5";
 const dashboardMenuIcon = "w-14 h-14 md:w-16 md:h-16 rounded-2xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-100";
 const appSection = "relative rounded-2xl w-full overflow-hidden border border-[var(--acc-200)]/45 bg-white/95 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.08)] ring-1 ring-[var(--acc-100)]/40 p-5 md:p-6";
-const appLabel = "text-base font-semibold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2";
 const appMenuIcon = "w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-[0.85]";
 const appChipBase = "inline-flex items-center justify-center min-h-[2.5rem] px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer select-none text-center leading-snug";
 const appChipOn = "bg-gradient-to-br from-[var(--acc-500)] to-[var(--acc-700)] text-white shadow-md shadow-[var(--acc-500)]/30 ring-1 ring-white/25";
@@ -521,6 +549,21 @@ function taskHasPendingWorkForStoreChip(task, storeName, myStores) {
   return getMyPendingStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
 }
 
+/** 店舗チップの件数（実施済みタブ＝その店舗で完了済みの担当がある依頼） */
+function taskHasCompletedWorkForStoreChip(task, storeName, myStores) {
+  if (task?.requestKind !== REQUEST_KIND.store) return false;
+  return getMyCompletedStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
+}
+
+/** 店舗チップに表示する件数（現在の未実施/実施済みタブに合わせる） */
+function countChecklistTasksForStoreChip(tasks, storeName, taskTab, myStores) {
+  const list = Array.isArray(tasks) ? tasks : [];
+  if (taskTab === 'completed') {
+    return list.filter((t) => taskHasCompletedWorkForStoreChip(t, storeName, myStores)).length;
+  }
+  return list.filter((t) => taskHasPendingWorkForStoreChip(t, storeName, myStores)).length;
+}
+
 function applyStoreCompletionToTask(task, storeCompletions, myStores) {
   const next = { ...task, storeCompletions };
   if (task?.requestKind === REQUEST_KIND.store) {
@@ -633,9 +676,9 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. {title}</h4>
-          {hint && <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>}
+          {hint && <p className={`${appText.meta} leading-relaxed`}>{hint}</p>}
         </div>
-        <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full">
+        <span className={`shrink-0 ${appText.badgeNum} font-semibold text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full`}>
           {count}/{items.length}
         </span>
       </div>
@@ -649,7 +692,7 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
             : 'bg-slate-100/80 text-slate-800 border border-black/[0.04]'
         }`}
       >
-        <span className="font-semibold text-sm">{allLabel}</span>
+        <span className={appText.btn}>{allLabel}</span>
         <span
           className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${allSelected ? 'bg-white/25' : 'bg-slate-300/70'}`}
           aria-hidden
@@ -855,6 +898,17 @@ export default function App() {
       return checklistKindFilter === 'all' || checklistKindFilter === rk;
     });
   }, [tasks, taskTab, checklistKindFilter, checklistUserStores, selectedChecklistStores]);
+
+  /** 件数0の店舗チップは選択解除（タップ不可店舗を残さない） */
+  useEffect(() => {
+    if (checklistKindFilter === 'employee') return;
+    setSelectedChecklistStores((prev) => {
+      const next = prev.filter(
+        (s) => countChecklistTasksForStoreChip(tasksMatchingChecklistKind, s, taskTab, checklistUserStores) > 0
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [tasks, taskTab, checklistKindFilter, checklistUserStores, tasksMatchingChecklistKind]);
 
   const handleLoginSearch = (e) => {
     e.preventDefault();
@@ -1536,14 +1590,14 @@ export default function App() {
     const recipientCount = recipientEmails.size;
 
     const blockRecipientPreview = () => (
-      <PanelFrame className="ring-2 ring-[var(--acc-200)]/35">
-        <p className="text-sm font-medium text-slate-600 text-center">この条件で配信される人数</p>
-        <p className="text-center mt-1">
-          <span className="text-4xl font-bold text-[var(--acc-600)] tabular-nums tracking-tight">{recipientCount}</span>
-          <span className="text-sm font-medium text-slate-500 ml-1">名</span>
+      <PanelFrame className="ring-1 ring-[var(--acc-200)]/40">
+        <p className={`${appText.body} text-slate-600 text-center`}>この条件で配信される人数</p>
+        <p className="text-center mt-1.5">
+          <span className={appText.stat}>{recipientCount}</span>
+          <span className={`${appText.body} text-slate-500 ml-1`}>名</span>
         </p>
         {recipientCount === 0 && (
-          <p className="text-xs font-medium text-rose-600 text-center mt-3 leading-relaxed">
+          <p className={`${appText.meta} text-rose-600 text-center mt-3 leading-relaxed`}>
             条件に一致する社員がいません。役職・チーム・店舗を見直してください。
           </p>
         )}
@@ -1584,7 +1638,7 @@ export default function App() {
             <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. 配信するエリア・店舗</h4>
             <p className="text-xs text-slate-500 leading-relaxed">エリア単位で開いて店舗を選択できます。</p>
           </div>
-          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full">
+          <span className={`shrink-0 ${appText.badgeNum} font-semibold text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full`}>
             {storeCount}/{allStoreNames.length}
           </span>
         </div>
@@ -1901,7 +1955,7 @@ export default function App() {
                     <label className={`${appLabel} !mb-0`}>
                       管轄店舗 <span className="text-xs font-bold text-gray-500 ml-2">※管轄外の店舗のみタップして外す</span>
                     </label>
-                    <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full">
+                    <span className={`shrink-0 ${appText.badgeNum} font-semibold text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full`}>
                       {regData.stores.length}/{MAX_EMPLOYEE_STORES}
                     </span>
                   </div>
@@ -2109,13 +2163,13 @@ export default function App() {
                     <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-sm md:text-base text-slate-600">
                       <span>
                         未完了{' '}
-                        <strong className="text-slate-900 font-black tabular-nums text-lg md:text-xl">{activeTasksCount}</strong>
+                        <strong className={`text-slate-900 tabular-nums ${appText.stat}`}>{activeTasksCount}</strong>
                         <span className="font-bold text-slate-500"> 件</span>
                       </span>
                       <span className="hidden sm:inline text-slate-300 select-none">/</span>
                       <span>
                         完了率{' '}
-                        <strong className="text-slate-900 font-black tabular-nums text-lg md:text-xl">{requestedTasksProgress}</strong>
+                        <strong className={`text-slate-900 tabular-nums ${appText.stat}`}>{requestedTasksProgress}</strong>
                         <span className="font-bold text-slate-500"> %</span>
                       </span>
                     </div>
@@ -2158,30 +2212,30 @@ export default function App() {
                       {/* 左列：入力内容 (1〜4) */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b border-slate-200/80 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
+                          <label className={appLabelKind}>依頼の種類 <span className="text-rose-500">*</span></label>
                           <div className="flex flex-col sm:flex-row gap-3">
-                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${requestKind === REQUEST_KIND.employee ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                            <label className={appKindRadio(requestKind === REQUEST_KIND.employee)}>
                               <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.employee} onChange={() => setRequestKind(REQUEST_KIND.employee)} />
-                              <span className="font-black text-slate-900">社員への依頼</span>
+                              <span className={`${appText.body} font-bold text-slate-900`}>社員への依頼</span>
                             </label>
-                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${requestKind === REQUEST_KIND.store ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                            <label className={appKindRadio(requestKind === REQUEST_KIND.store)}>
                               <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.store} onChange={() => setRequestKind(REQUEST_KIND.store)} />
-                              <span className="font-black text-slate-900">店舗への依頼</span>
+                              <span className={`${appText.body} font-bold text-slate-900`}>店舗への依頼</span>
                             </label>
                           </div>
                         </div>
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">1. 依頼内容 <span className="text-rose-500">*</span></label>
+                          <label className={appLabel}>1. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea value={requestForm.content} onChange={e => setRequestForm({...requestForm, content: e.target.value})} required rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="具体的な指示内容を入力してください"></textarea>
                         </div>
                         
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">2. 期限 (DL) <span className="text-rose-500">*</span></label>
+                          <label className={appLabel}>2. 期限 (DL) <span className="text-rose-500">*</span></label>
                           <input type="date" min={todayForMin} value={requestForm.deadline} onChange={e => setRequestForm({...requestForm, deadline: e.target.value})} required className={brutalInput} />
                         </div>
                         
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">3. URL (任意 / 最大3つ)</label>
+                          <label className={appLabel}>3. URL (任意 / 最大3つ)</label>
                           <div className="space-y-3">
                             {requestForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
@@ -2203,7 +2257,7 @@ export default function App() {
                         </div>
 
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
+                          <label className={appLabel}>4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
                           {requestImages.length < MAX_ATTACHMENTS && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -2234,10 +2288,10 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="border-t-2 border-slate-300 pt-6 w-full mt-2">
-                      <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-6 text-xl"}>
+                    <div className={appFormSubmitRow}>
+                      <button type="submit" disabled={isSubmitting} className={appBtnPrimary}>
                         {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="send" />}
-                        <span className="tracking-widest ml-4">{isSubmitting ? '処理中...' : 'この内容で配信する'}</span>
+                        <span className="ml-3">{isSubmitting ? '処理中...' : 'この内容で配信する'}</span>
                       </button>
                     </div>
                   </form>
@@ -2279,8 +2333,8 @@ export default function App() {
               {!checklistOnlyMode && activeTab === 'scheduled' && (
                 <div className="w-full space-y-10 animate-fade-in mt-4">
                   {scheduleEditingId && (
-                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <p className="text-base font-black text-amber-900">
+                    <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <p className={`${appText.body} font-bold text-amber-900`}>
                         編集中：保存すると<strong>次回の定期配信から</strong>この内容で送信されます（今日のタスクは増えません）。
                       </p>
                       <button type="button" onClick={handleCancelScheduleEdit} className={brutalBtnSecondary + " whitespace-nowrap py-3 px-6 text-sm"}>
@@ -2288,21 +2342,21 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  <div className="bg-[var(--acc-50)] border-2 border-[var(--acc-200)] rounded-2xl p-6 md:p-8 space-y-5 shadow-sm">
-                    <p className="text-lg md:text-xl font-black text-[var(--acc-900)] text-center leading-snug">
+                  <div className={appCallout}>
+                    <p className={`${appText.title} text-[var(--acc-900)] text-center`}>
                       初回のみ当月分は即タスクに反映されます。
                     </p>
-                    <ul className="space-y-3 text-base text-slate-800 font-bold leading-relaxed">
+                    <ul className={`space-y-3 ${appText.body} text-slate-800 leading-relaxed`}>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white text-sm flex items-center justify-center font-black">1</span>
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white flex items-center justify-center ${appText.badge}`}>1</span>
                         <span>初回の期限は、下の「タスクの期限（毎月〜まで）」に従います。</span>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white text-sm flex items-center justify-center font-black">2</span>
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white flex items-center justify-center ${appText.badge}`}>2</span>
                         <span>2回目以降は、指定した<strong className="text-[var(--acc-600)]">日</strong>にだけ自動配信されます。</span>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-600 text-white text-sm flex items-center justify-center font-black">3</span>
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg bg-slate-600 text-white flex items-center justify-center ${appText.badge}`}>3</span>
                         <span>配信の時刻は<strong>午前10:00</strong>固定です。</span>
                       </li>
                     </ul>
@@ -2313,20 +2367,20 @@ export default function App() {
                       {/* 左列：1〜4 */}
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-4 block tracking-wide border-b border-slate-200/80 pb-2">依頼の種類 <span className="text-rose-500">*</span></label>
+                          <label className={appLabelKind}>依頼の種類 <span className="text-rose-500">*</span></label>
                           <div className="flex flex-col sm:flex-row gap-3">
-                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${scheduleRequestKind === REQUEST_KIND.employee ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                            <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.employee)}>
                               <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.employee} onChange={() => setScheduleRequestKind(REQUEST_KIND.employee)} />
-                              <span className="font-black text-slate-900">社員への依頼</span>
+                              <span className={`${appText.body} font-bold text-slate-900`}>社員への依頼</span>
                             </label>
-                            <label className={`flex items-center gap-3 flex-1 p-4 rounded-xl border-2 cursor-pointer transition-colors ${scheduleRequestKind === REQUEST_KIND.store ? 'border-[var(--acc-500)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                            <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.store)}>
                               <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.store} onChange={() => setScheduleRequestKind(REQUEST_KIND.store)} />
-                              <span className="font-black text-slate-900">店舗への依頼</span>
+                              <span className={`${appText.body} font-bold text-slate-900`}>店舗への依頼</span>
                             </label>
                           </div>
                         </div>
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">1. 配信スケジュール <span className="text-rose-500">*</span></label>
+                          <label className={appLabel}>1. 配信スケジュール <span className="text-rose-500">*</span></label>
                           <p className="text-sm text-slate-600 mb-4">配信時刻は<strong>午前10:00</strong>固定です（変更はシステム管理者向け設定です）。</p>
                           <div className="flex flex-col sm:flex-row gap-4 mt-2">
                             <div className="flex-1">
@@ -2368,12 +2422,12 @@ export default function App() {
                         </div>
 
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">2. 依頼内容 <span className="text-rose-500">*</span></label>
+                          <label className={appLabel}>2. 依頼内容 <span className="text-rose-500">*</span></label>
                           <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
                         </div>
 
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">3. URL (任意 / 最大3つ)</label>
+                          <label className={appLabel}>3. URL (任意 / 最大3つ)</label>
                           <div className="space-y-3">
                             {scheduleForm.urls.map((url, i) => (
                               <div key={i} className="flex gap-3">
@@ -2395,7 +2449,7 @@ export default function App() {
                         </div>
 
                         <div className={appSection}>
-                          <label className="text-base font-bold text-[var(--acc-600)] mb-3 block tracking-wide border-b border-slate-200/80 pb-2">4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
+                          <label className={appLabel}>4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
                           {scheduleImages.length < MAX_ATTACHMENTS && (
                             <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
                               <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -2427,10 +2481,10 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="border-t-2 border-slate-300 pt-6 w-full mt-2 flex flex-col gap-4">
-                      <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-full py-6 text-xl"}>
-                          {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="repeat" />}
-                        <span className="tracking-widest ml-4">
+                    <div className={`${appFormSubmitRow} flex flex-col gap-4`}>
+                      <button type="submit" disabled={isSubmitting} className={appBtnPrimary}>
+                        {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="repeat" />}
+                        <span className="ml-3">
                           {isSubmitting ? '処理中...' : scheduleEditingId ? '変更を保存する' : 'スケジュールを登録する'}
                         </span>
                       </button>
@@ -2438,25 +2492,25 @@ export default function App() {
                   </form>
 
                   <div className="mt-10">
-                    <h3 className="text-xl font-bold text-slate-800 mb-6 tracking-tight border-b-2 border-slate-300 pb-4">稼働中の定期配信</h3>
+                    <h3 className={`${appLabel} mb-6`}>稼働中の定期配信</h3>
                     <div className="space-y-6 w-full">
                       {scheduledTasks.length === 0 ? (
-                        <p className="text-center text-gray-500 font-black py-10 text-xl">登録されている定期配信はありません</p>
+                        <p className={`text-center text-slate-500 py-10 ${appText.body}`}>登録されている定期配信はありません</p>
                       ) : scheduledTasks.map(task => (
-                        <div key={task.id} className="bg-white p-6 rounded-xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm w-full">
+                        <div key={task.id} className={`${appCard} flex flex-col md:flex-row justify-between items-stretch md:items-center gap-5`}>
                            <div className="flex-1 text-center md:text-left w-full">
                              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
-                               <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-2"><Icon name="repeat"/> {task.cycle}</span>
-                               <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">期限: 毎月 {task.deadlineOffset}</span>
-                               {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
+                               <span className={`${appTagOnAccent} bg-[var(--acc-500)] gap-1.5`}><Icon name="repeat"/> {task.cycle}</span>
+                               <span className={`${appTagPill} text-slate-700 bg-slate-50`}>期限: 毎月 {task.deadlineOffset}</span>
+                               {task.targetTags && <span className={`${appTagPill} text-slate-700 bg-slate-50`}>宛先: {task.targetTags}</span>}
                              </div>
-                             <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
+                             <p className={`${appText.title} text-slate-800 leading-relaxed`}>{formatContent(task.content)}</p>
                            </div>
                            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
-                             <button type="button" onClick={() => handleEditScheduleClick(task)} className="w-full bg-white border-2 border-[var(--acc-300)] text-[var(--acc-700)] hover:bg-[var(--acc-50)] px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
+                             <button type="button" onClick={() => handleEditScheduleClick(task)} className={`${appBtnSecondary} w-full md:w-auto px-5`}>
                                <Icon name="calendar" /> 内容を編集
                              </button>
-                             <button type="button" onClick={() => handleDeleteSchedule(task.id)} className="w-full bg-slate-50 border-2 border-slate-300 hover:bg-rose-500 hover:text-white text-slate-700 hover:border-rose-400 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm">
+                             <button type="button" onClick={() => handleDeleteSchedule(task.id)} className={`${appBtnSecondary} w-full md:w-auto px-5 hover:bg-rose-500 hover:text-white hover:border-rose-300`}>
                                <Icon name="trash" /> 停止
                              </button>
                            </div>
@@ -2472,11 +2526,11 @@ export default function App() {
                 <div className="animate-fade-in w-full mt-4">
                   
                   <div className="flex flex-col sm:flex-row gap-4 mb-6 w-full max-w-2xl">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
-                      未実施 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'active' ? 'bg-white text-[var(--acc-600)]' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
+                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-4 ${appText.tab} rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                      未実施 <span className={`px-2 py-0.5 rounded-full ${appText.badgeNum} ${taskTab === 'active' ? 'bg-white text-[var(--acc-600)]' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
                     </button>
-                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3 px-5 text-base rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2 ${taskTab === 'completed' ? 'bg-white text-slate-800 border-slate-400' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}>
-                      実施済み <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${taskTab === 'completed' ? 'bg-slate-600 text-white' : 'bg-slate-400 text-white'}`}>{completedTasksCount}</span>
+                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3 px-4 ${appText.tab} rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${taskTab === 'completed' ? 'bg-white text-slate-800 border-slate-400' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}>
+                      実施済み <span className={`px-2 py-0.5 rounded-full ${appText.badgeNum} ${taskTab === 'completed' ? 'bg-slate-600 text-white' : 'bg-slate-400 text-white'}`}>{completedTasksCount}</span>
                     </button>
                   </div>
 
@@ -2484,65 +2538,88 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setChecklistKindFilter('all')}
-                      className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'all' ? 'bg-[var(--acc-700)] text-white border-[var(--acc-900)] ring-1 ring-[var(--acc-400)]/40' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                      className={`px-4 py-2 rounded-xl ${appText.tab} border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'all' ? 'bg-[var(--acc-700)] text-white border-[var(--acc-700)] ring-1 ring-[var(--acc-400)]/40' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
                     >
                       すべて
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${checklistKindFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'}`}>{checklistKindCounts.all}</span>
+                      <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${checklistKindFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-800'}`}>{checklistKindCounts.all}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setChecklistKindFilter('employee')}
-                      className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'employee' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-700)] ring-1 ring-[var(--acc-400)]/35' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                      className={`px-4 py-2 rounded-xl ${appText.tab} border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'employee' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)] ring-1 ring-[var(--acc-400)]/35' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
                     >
                       社員依頼
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${checklistKindFilter === 'employee' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.employee}</span>
+                      <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${checklistKindFilter === 'employee' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.employee}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setChecklistKindFilter('store')}
-                      className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'store' ? 'bg-[var(--acc-900)] text-white border-black/20 ring-1 ring-[var(--acc-500)]/30' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                      className={`px-4 py-2 rounded-xl ${appText.tab} border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'store' ? 'bg-[var(--acc-900)] text-white border-[var(--acc-900)] ring-1 ring-[var(--acc-500)]/30' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
                     >
                       店舗依頼
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${checklistKindFilter === 'store' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.store}</span>
+                      <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${checklistKindFilter === 'store' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.store}</span>
                     </button>
                   </div>
 
                   {checklistKindFilter !== 'employee' && (
                     <div className="mb-2">
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className={appText.caption}>
                         店舗で絞り込み
-                        <span className="font-medium text-slate-400 ml-1">（タップで選択・複数可。もう一度タップで解除）</span>
+                        <span className="font-medium text-slate-400 ml-1">（グレーは該当なし・選択不可。タップで選択・複数可）</span>
                       </p>
                       {selectedChecklistStores.length > 0 && (
-                        <p className="text-[11px] font-bold text-[var(--acc-700)] mt-1">
+                        <p className={`${appText.caption} text-[var(--acc-700)] mt-1`}>
                           選択中: {selectedChecklistStores.join('、')}
                         </p>
                       )}
                     </div>
                   )}
                   <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-300">
-                    <button type="button" onClick={() => setSelectedChecklistStores([])} className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${selectedChecklistStores.length === 0 ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                    <button type="button" onClick={() => setSelectedChecklistStores([])} className={`flex-shrink-0 px-4 py-2 rounded-xl ${appText.tab} border-2 border-slate-300 transition-all flex items-center gap-2 ${selectedChecklistStores.length === 0 ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                       全店
                       {tasksMatchingChecklistKind.length > 0 && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${taskTab === 'active' ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-500 text-white'}`}>{tasksMatchingChecklistKind.length}</span>
+                        <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${taskTab === 'active' ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-500 text-white'}`}>{tasksMatchingChecklistKind.length}</span>
                       )}
                     </button>
                     {checklistKindFilter !== 'employee' &&
                       checklistUserStores.map((s) => {
-                        const storeTaskCount = tasksMatchingChecklistKind.filter((t) =>
-                          taskHasPendingWorkForStoreChip(t, s, checklistUserStores)
-                        ).length;
+                        const storeTaskCount = countChecklistTasksForStoreChip(
+                          tasksMatchingChecklistKind,
+                          s,
+                          taskTab,
+                          checklistUserStores
+                        );
                         const isOn = selectedChecklistStores.includes(s);
+                        const chipInactive = storeTaskCount === 0;
+                        const chipClass = chipInactive
+                          ? isOn
+                            ? 'bg-slate-200 text-slate-500 border-slate-300 cursor-pointer'
+                            : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-55'
+                          : isOn
+                            ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)] ring-2 ring-[var(--acc-400)]/40'
+                            : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-300';
                         return (
                           <button
                             key={s}
                             type="button"
-                            onClick={() => toggleChecklistStore(s)}
-                            className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-300 transition-all flex items-center gap-2 ${isOn ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)] ring-2 ring-[var(--acc-400)]/40' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+                            disabled={chipInactive && !isOn}
+                            aria-disabled={chipInactive && !isOn}
+                            title={
+                              chipInactive && !isOn
+                                ? taskTab === 'active'
+                                  ? 'この店舗の未実施タスクはありません'
+                                  : 'この店舗の実施済みタスクはありません'
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (chipInactive && !isOn) return;
+                              toggleChecklistStore(s);
+                            }}
+                            className={`flex-shrink-0 px-4 py-2 rounded-xl ${appText.tab} border-2 transition-all flex items-center gap-2 ${chipClass}`}
                           >
                             {s}
                             {storeTaskCount > 0 && (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isOn ? 'bg-white/25 text-white' : 'bg-[var(--acc-500)] text-white'}`}>
+                              <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${isOn ? 'bg-white/25 text-white' : 'bg-[var(--acc-500)] text-white'}`}>
                                 {storeTaskCount}
                               </span>
                             )}
@@ -2553,11 +2630,11 @@ export default function App() {
                   
                   <div className="space-y-6 pb-24 w-full">
                     {tasksLoading ? (
-                      <div className="space-y-6 animate-pulse"><div className="h-32 bg-white border-2 border-slate-300 rounded-2xl shadow-lg w-full"></div></div>
+                      <div className="space-y-6 animate-pulse"><div className={`h-32 ${appCard}`}></div></div>
                     ) : filteredTasks.length === 0 ? (
                       <div className="py-24 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.2em] w-full">
                         <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
-                        <p className="text-lg normal-case tracking-normal">
+                        <p className={`${appText.body} normal-case tracking-normal`}>
                           {selectedChecklistStores.length > 0
                             ? taskTab === 'active'
                               ? '選択した店舗の未実施タスクはありません（他店舗が未完了の依頼は「全店」で確認できます）'
@@ -2568,25 +2645,25 @@ export default function App() {
                     ) : filteredTasks.map((task) => {
                       const userDone = isUserDoneWithTask(task, checklistUserStores);
                       return (
-                      <div key={task.id} className="bg-white border-2 border-slate-300 rounded-xl p-5 flex flex-col xl:flex-row gap-5 items-center animate-fade-in shadow-sm w-full">
+                      <div key={task.id} className={`${appTaskCard} items-stretch xl:items-center`}>
                         <div className="flex-1 w-full min-w-0">
                           
                           <div className="flex flex-wrap gap-2 mb-3 items-center">
                             {task.requestKind === REQUEST_KIND.store ? (
-                              <span className="text-white text-xs font-bold px-3 py-1 rounded-lg border-2 shadow-sm bg-[var(--acc-900)] border-[var(--acc-900)] ring-1 ring-black/10">
+                              <span className={`${appTagOnAccent} bg-[var(--acc-900)]`}>
                                 店舗依頼
                               </span>
                             ) : (
-                              <span className="text-white text-xs font-bold px-3 py-1 rounded-lg border-2 shadow-sm bg-[var(--acc-600)] border-[var(--acc-700)] ring-1 ring-[var(--acc-400)]/35">
+                              <span className={`${appTagOnAccent} bg-[var(--acc-600)]`}>
                                 社員依頼
                               </span>
                             )}
-                            {task.targetTags && <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1 rounded-lg">{task.targetTags}</span>}
-                            <span className="bg-slate-100 text-slate-700 border-2 border-slate-300 text-xs font-bold px-2 py-1 rounded-lg">{task.type}</span>
-                            <span className="text-xs font-bold text-gray-500 ml-1">from {task.sender}</span>
+                            {task.targetTags && <span className={`${appTagOnAccent} bg-[var(--acc-500)]`}>{task.targetTags}</span>}
+                            <span className={`${appTagPill} bg-slate-100 text-slate-700`}>{task.type}</span>
+                            <span className={`${appText.meta} ml-1`}>from {task.sender}</span>
                           </div>
                           
-                          <h3 className={`text-lg md:text-xl font-black text-black leading-relaxed mb-6 break-words ${userDone ? 'line-through opacity-40' : ''}`}>
+                          <h3 className={`${appText.title} mb-4 break-words ${userDone ? 'line-through opacity-40' : ''}`}>
                             {formatContent(task.content)}
                           </h3>
 
@@ -2599,7 +2676,7 @@ export default function App() {
                               return (
                                 <div className="mb-4 space-y-2">
                                   {names.length > 6 && (
-                                    <p className="text-[10px] font-bold text-slate-500">担当店舗 {names.length}件（スクロールで確認）</p>
+                                    <p className={appText.caption}>担当店舗 {names.length}件（スクロールで確認）</p>
                                   )}
                                   <ul className="space-y-2 max-h-64 overflow-y-auto overscroll-contain pr-0.5">
                                     {names.map((storeName) => {
@@ -2614,7 +2691,7 @@ export default function App() {
                                       return (
                                         <li
                                           key={storeName}
-                                          className="flex flex-wrap items-center gap-3 text-sm border-2 border-slate-300 rounded-xl px-3 py-2.5 bg-white"
+                                          className={`flex flex-wrap items-center gap-3 ${appText.body} border border-slate-300 rounded-xl px-3 py-2.5 bg-white`}
                                         >
                                           <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                             <span className="font-bold text-slate-900 min-w-0 break-words">{storeName}</span>
@@ -2668,7 +2745,7 @@ export default function App() {
                             task.requestKind !== REQUEST_KIND.store &&
                             task.employeeCompletions &&
                             task.employeeCompletions.length > 0 && (
-                              <div className="mb-4 text-xs text-slate-700 border-2 border-slate-200 rounded-xl px-3 py-2 bg-slate-50">
+                              <div className={`mb-4 ${appText.meta} text-slate-700 ${appSurfaceInset} px-3 py-2`}>
                                 <span className="font-bold text-slate-800">実施済み: </span>
                                 {task.employeeCompletions.map((p, i) => (
                                   <span key={`${p.email}-${i}`}>
@@ -2681,12 +2758,12 @@ export default function App() {
                             )}
                           
                           {!userDone && (
-                            <div className="flex flex-col gap-4 border-t-2 border-slate-200 pt-4">
+                            <div className={`flex flex-col gap-4 ${appDivider} pt-4`}>
                               
                               <div className="flex flex-wrap gap-3 items-center">
-                                <div className="flex items-center gap-3 bg-slate-50 border-2 border-slate-300 rounded-xl px-4 py-2">
-                                  <span className="text-xs font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-300">提出期限</span>
-                                  <span className="text-base font-bold text-slate-800">{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
+                                <div className={`flex items-center gap-3 ${appSurfaceInset} px-4 py-2`}>
+                                  <span className={`${appText.caption} text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200`}>提出期限</span>
+                                  <span className={`${appText.body} font-bold text-slate-800`}>{task.deadline ? task.deadline.replace(/-/g, '/') + ' まで' : '期限なし'}</span>
                                 </div>
 
                                 {task.daysRemaining !== null && task.daysRemaining !== undefined && (
@@ -2709,12 +2786,12 @@ export default function App() {
 
                               <div className="flex flex-col gap-4 w-full mt-4">
                                 {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
-                                  <a key={i} href={u} target="_blank" rel="noreferrer" className="w-full bg-white border-2 border-slate-300 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
+                                  <a key={i} href={u} target="_blank" rel="noreferrer" className={appLinkBtn}>
                                     <Icon name="link" /> リンクを開く
                                   </a>
                                 ))}
                                 {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
-                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className="w-full bg-amber-100 border-2 border-slate-300 text-black text-sm font-black px-4 py-3 rounded-xl hover:bg-amber-200 transition-all shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-sm flex items-center justify-center gap-2 max-w-md">
+                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className={`${appLinkBtn} bg-amber-50 hover:bg-amber-100 border-amber-200/60`}>
                                     <Icon name="image" /> 添付を開く
                                   </a>
                                 ))}
@@ -2723,42 +2800,42 @@ export default function App() {
                           )}
                         </div>
                         
-                        <div className="flex-shrink-0 border-t-2 xl:border-t-0 border-l-0 xl:border-l-2 border-slate-200 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
+                        <div className="flex-shrink-0 border-t xl:border-t-0 border-l-0 xl:border-l border-slate-200/80 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
                           {!userDone ? (
                             task.requestKind === REQUEST_KIND.store ? (
                               <button
                                 type="button"
                                 onClick={() => setStoreBulkModal({ isOpen: true, task, step: 'confirm' })}
-                                className="px-4 py-3 rounded-xl border-2 border-slate-900 bg-white text-slate-900 text-xs font-black hover:bg-slate-900 hover:text-white transition-colors max-w-[11rem] text-center leading-snug shadow-sm"
+                                className={`${appBtnSecondary} px-4 py-3 max-w-[11rem] text-center leading-snug border-slate-900/20 hover:bg-slate-900 hover:text-white hover:border-slate-900`}
                               >
                                 全て完了にする
                               </button>
                             ) : (
                               <button
                                 onClick={() => openConfirmModal(task)}
-                                className="w-14 h-14 rounded-xl border-2 border-slate-900 bg-white text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all flex items-center justify-center shadow-sm group"
+                                className="w-14 h-14 rounded-xl border border-slate-900 bg-white text-slate-400 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center shadow-sm group"
                               >
                                 <span className="group-hover:scale-110 transition-transform inline-flex"><Icon name="check" /></span>
                               </button>
                             )
                           ) : task.requestKind === REQUEST_KIND.store ? (
                             <div className="flex flex-col items-center gap-2 max-w-[10rem] text-center">
-                              <div className="w-14 h-14 rounded-xl border-2 border-[var(--acc-200)] bg-[var(--acc-50)] text-[var(--acc-700)] flex items-center justify-center">
+                              <div className="w-14 h-14 rounded-xl border border-[var(--acc-200)] bg-[var(--acc-50)] text-[var(--acc-700)] flex items-center justify-center">
                                 <span className="inline-flex"><Icon name="check" /></span>
                               </div>
-                              <p className="text-[10px] font-bold text-slate-500 leading-snug">
+                              <p className={`${appText.badgeNum} text-slate-500 leading-snug`}>
                                 取り消しは左の店舗のチェックを外してください
                               </p>
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-2">
-                              <div className="w-14 h-14 rounded-xl border-2 border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center">
+                              <div className="w-14 h-14 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 flex items-center justify-center">
                                 <span className="inline-flex"><Icon name="check" /></span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleUncompleteEmployeeTask(task)}
-                                className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline underline-offset-2 whitespace-nowrap"
+                                className={`${appText.badgeNum} text-slate-500 hover:text-rose-600 underline underline-offset-2 whitespace-nowrap`}
                               >
                                 完了を取り消す
                               </button>

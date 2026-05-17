@@ -1539,9 +1539,11 @@ function sendAdminTaskReminder(taskId, keys, mode) {
     if (mode === 'store') {
       recipients.forEach(function (r) {
         if (r.done) return;
+        var sn = String(r.storeName || r.label || r.key || '').trim();
+        if (!sn || (!keySet[sn] && !keySet[r.key])) return;
         (r.assignees || []).forEach(function (a) {
           var em = normalizeTaskEmail(a.email);
-          if (!em || (!keySet[em] && !keySet[String(a.email).trim()])) return;
+          if (!em) return;
           if (!emailMap[em]) {
             emailMap[em] = {
               email: String(a.email).trim(),
@@ -1549,8 +1551,7 @@ function sendAdminTaskReminder(taskId, keys, mode) {
               stores: [],
             };
           }
-          var sn = r.storeName || r.label;
-          if (sn && emailMap[em].stores.indexOf(sn) < 0) {
+          if (emailMap[em].stores.indexOf(sn) < 0) {
             emailMap[em].stores.push(sn);
           }
         });

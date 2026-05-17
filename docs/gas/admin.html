@@ -9,6 +9,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root {
+      /* タイポグラフィ（index の appText と同階層） */
+      --tm-title: 1rem;
+      --tm-section: 0.875rem;
+      --tm-body: 0.875rem;
+      --tm-meta: 0.75rem;
+      --tm-badge: 0.6875rem;
       --acc-50: oklch(96.2% 0.018 272.314);
       --acc-100: oklch(93% 0.034 272.788);
       --acc-200: oklch(87% 0.065 274.039);
@@ -205,7 +211,7 @@
     .mode-nav-label {
       margin: 0;
       flex: 1;
-      font-size: 1rem;
+      font-size: var(--tm-title);
       font-weight: 600;
       color: #0f172a;
       line-height: 1.3;
@@ -256,7 +262,7 @@
     .chip {
       display: inline-flex; align-items: center; justify-content: center;
       min-height: 2.5rem; padding: .5rem .85rem; border-radius: .75rem;
-      font-size: .875rem; font-weight: 500; cursor: pointer; border: none;
+      font-size: var(--tm-body); font-weight: 600; cursor: pointer; border: none;
       background: rgba(255,255,255,.9); color: #334155;
       border: 1px solid color-mix(in oklch, var(--acc-200) 60%, transparent);
       transition: all .15s;
@@ -297,8 +303,8 @@
     .badge-late { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .badge-kind-e { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
     .badge-kind-s { background: var(--acc-900); color: #fff; }
-    .task-title { font-size: .95rem; font-weight: 600; line-height: 1.45; margin: 0 0 .25rem; word-break: break-word; color: #0f172a; }
-    .task-meta { font-size: .72rem; color: #64748b; font-weight: 500; }
+    .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.45; margin: 0 0 .25rem; word-break: break-word; color: #0f172a; }
+    .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; }
     .prog-wrap { margin-top: .45rem; max-width: 9rem; }
     .prog { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
     .prog > i { display: block; height: 100%; background: linear-gradient(90deg, var(--acc-500), var(--acc-700)); border-radius: 99px; }
@@ -314,7 +320,7 @@
     .expand-toolbar {
       display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; align-items: center;
     }
-    .expand-toolbar .hint { font-size: .72rem; color: #64748b; font-weight: 600; flex: 1; min-width: 8rem; }
+    .expand-toolbar .hint { font-size: var(--tm-meta); color: #64748b; font-weight: 600; flex: 1; min-width: 8rem; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
       padding: .55rem 1rem; font-size: .8rem; font-weight: 600; border-radius: 1rem;
@@ -334,7 +340,11 @@
       border: 1px solid rgba(0,0,0,.05); border-radius: .75rem; margin-bottom: .4rem;
       background: rgba(255,255,255,.85);
     }
-    .recipient.done { opacity: .55; background: #f8fafc; }
+    .recipient.done {
+      opacity: .5; background: #f1f5f9; border-color: #e2e8f0;
+      cursor: not-allowed; pointer-events: none;
+    }
+    .recipient.done .recipient-name { color: #94a3b8; }
     .assignee-row {
       display: flex; align-items: flex-start; gap: .65rem;
       padding: .65rem .75rem; border: 1px solid rgba(0,0,0,.05);
@@ -355,10 +365,10 @@
     }
     .assignee-arrow { color: #cbd5e1; font-size: .75rem; font-weight: 700; flex-shrink: 0; padding-top: .15rem; }
     .recipient input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--acc-600); flex-shrink: 0; }
-    .recipient-name { font-size: .82rem; font-weight: 600; }
+    .recipient-name { font-size: var(--tm-body); font-weight: 600; }
     .recipient-sub { font-size: .68rem; color: #64748b; margin-top: .15rem; }
     .recipient-label { flex: 1; min-width: 0; }
-    .status-pill { font-size: .65rem; font-weight: 700; padding: .12rem .4rem; border-radius: .35rem; flex-shrink: 0; }
+    .status-pill { font-size: var(--tm-badge); font-weight: 700; padding: .15rem .45rem; border-radius: .35rem; flex-shrink: 0; }
     .status-pill.ok { background: #ecfdf5; color: #047857; }
     .status-pill.ng { background: #fff1f2; color: #be123c; }
 
@@ -509,36 +519,6 @@
 
       function selKey(taskId, key) { return taskId + '::' + key; }
 
-      function normEmail(email) {
-        return String(email || '').trim().toLowerCase();
-      }
-
-      /** 店舗依頼：未完了店舗を担当者ごとに集約 */
-      function groupStoreAssignees(recipients) {
-        var map = {};
-        (recipients || []).forEach(function (r) {
-          if (r.done) return;
-          (r.assignees || []).forEach(function (a) {
-            var em = normEmail(a.email);
-            if (!em) return;
-            if (!map[em]) {
-              map[em] = {
-                key: em,
-                email: String(a.email || '').trim(),
-                name: String(a.name || '').trim() || String(a.email || '').trim(),
-                stores: [],
-              };
-            }
-            if (map[em].stores.indexOf(r.storeName || r.label) < 0) {
-              map[em].stores.push(r.storeName || r.label);
-            }
-          });
-        });
-        return Object.keys(map)
-          .map(function (k) { return map[k]; })
-          .sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'ja'); });
-      }
-
       function getTasksForMode() {
         if (!lastData) return [];
         if (mode === 'employee') return lastData.employeeTasks || [];
@@ -599,50 +579,32 @@
         var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
         var recipients = task.recipients || [];
         h += '<div class="expand-toolbar">';
-        h += '<span class="hint">' + (mode === 'store' ? '未完了の担当者を選ぶと、その人の未完了店舗をまとめて送信' : '未実施の方を選んでリマインド') + '</span>';
+        h += '<span class="hint">' + (mode === 'store' ? '未完了の店舗を選んでリマインド（完了済み店舗は選択できません）' : '未実施の方を選んでリマインド') + '</span>';
         h += '<button type="button" class="btn btn-sm" data-select-pending="' + esc(task.id) + '">未実施をすべて選択</button>';
-        h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '">選択した人にリマインド</button>';
+        h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '">' + (mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド') + '</button>';
         h += '</div>';
 
-        if (mode === 'store') {
-          var assignees = groupStoreAssignees(recipients);
-          if (!assignees.length) {
-            h += '<p class="hint">未完了の担当者はいません</p>';
-          } else {
-            assignees.forEach(function (a) {
-              var sk = selKey(task.id, a.key);
-              var checked = selected[sk] ? ' checked' : '';
-              h += '<label class="assignee-row">';
-              h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + ' />';
-              h += '<div class="assignee-name">';
-              h += '<div class="recipient-name">' + esc(a.name) + '</div>';
-              if (a.email) h += '<div class="recipient-sub">' + esc(a.email) + '</div>';
-              h += '</div>';
-              h += '<span class="assignee-arrow" aria-hidden="true">→</span>';
-              h += '<div class="assignee-stores">';
-              a.stores.forEach(function (sn) {
-                h += '<span class="store-chip">' + esc(sn) + '</span>';
-              });
-              h += '</div>';
-              h += '</label>';
-            });
-          }
-        } else if (!recipients.length) {
+        if (!recipients.length) {
           h += '<p class="hint">対象データがありません</p>';
         } else {
-          recipients.forEach(function (r) {
+          var rows = recipients.slice().sort(function (a, b) {
+            if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+            return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
+          });
+          rows.forEach(function (r) {
             var sk = selKey(task.id, r.key);
             var checked = selected[sk] ? ' checked' : '';
             var disabled = r.done ? ' disabled' : '';
             var cls = 'recipient' + (r.done ? ' done' : '');
-            var sub = r.email ? esc(r.email) : '';
+            var statusLabel = mode === 'store' ? (r.done ? '完了' : '未完了') : (r.done ? '実施済' : '未実施');
             h += '<label class="' + cls + '">';
             h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + disabled + ' />';
-            h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name) + '</div>';
-            if (sub) h += '<div class="recipient-sub">' + sub + '</div>';
-            h += '</div>';
-            h += '<span class="status-pill ' + (r.done ? 'ok' : 'ng') + '">' + (r.done ? '実施済' : '未実施') + '</span></label>';
+            h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name || r.storeName) + '</div></div>';
+            h += '<span class="status-pill ' + (r.done ? 'ok' : 'ng') + '">' + statusLabel + '</span></label>';
           });
+          if (mode === 'store' && !recipients.some(function (r) { return !r.done; })) {
+            h += '<p class="hint" style="margin-top:.5rem">すべての店舗が完了済みです</p>';
+          }
         }
         h += '</div></div>';
         return h;
@@ -719,15 +681,9 @@
             var tid = btn.getAttribute('data-select-pending');
             var task = getTasksForMode().find(function (t) { return t.id === tid; });
             if (!task) return;
-            if (mode === 'store') {
-              groupStoreAssignees(task.recipients || []).forEach(function (a) {
-                selected[selKey(tid, a.key)] = true;
-              });
-            } else {
-              (task.recipients || []).forEach(function (r) {
-                if (!r.done) selected[selKey(tid, r.key)] = true;
-              });
-            }
+            (task.recipients || []).forEach(function (r) {
+              if (!r.done) selected[selKey(tid, r.key)] = true;
+            });
             renderRoot();
           });
         });
@@ -745,7 +701,10 @@
               return;
             }
             var n = keys.length;
-            if (!confirm(n + ' 名にリマインドを送信しますか？')) return;
+            var confirmMsg = mode === 'store'
+              ? n + ' 店舗の担当者にリマインドを送信しますか？'
+              : n + ' 名にリマインドを送信しますか？';
+            if (!confirm(confirmMsg)) return;
             btn.disabled = true;
             google.script.run
               .withSuccessHandler(function (res) {
