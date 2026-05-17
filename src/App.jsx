@@ -489,17 +489,36 @@ function getMyCompletedStoreNamesForChecklist(task, myStores, selectedStores) {
   return names.filter((s) => !!sc[s]);
 }
 
-/** チェックリストの未実施/実施済みタブに載せるか（空カードを出さない） */
+/** 店舗チップで絞っているか */
+function hasChecklistStoreFilter(selectedStores) {
+  return asUserStoreList(selectedStores).length > 0;
+}
+
+/**
+ * チェックリストの未実施/実施済みタブに載せるか（空カードを出さない）
+ * 店舗チップ選択時: その店舗が自分の担当に含まれる依頼は、完了済み行も表示（取り消し可）
+ */
 function shouldIncludeTaskInChecklistTab(task, taskTab, myStores, selectedStores) {
   if (task?.requestKind === REQUEST_KIND.store) {
-    if (getMyRelevantStoreNamesForTask(task, myStores).length === 0) return false;
+    const relevant = getMyRelevantStoreNamesForTask(task, myStores);
+    if (relevant.length === 0) return false;
+    const sel = asUserStoreList(selectedStores);
+    if (sel.length) {
+      return relevant.some((s) => sel.indexOf(s) >= 0);
+    }
     if (taskTab === 'active') {
-      return getMyPendingStoreNamesForChecklist(task, myStores, selectedStores).length > 0;
+      return getMyPendingStoreNamesForChecklist(task, myStores, []).length > 0;
     }
     if (!isUserDoneWithStoreTask(task, myStores)) return false;
-    return getMyCompletedStoreNamesForChecklist(task, myStores, selectedStores).length > 0;
+    return getMyCompletedStoreNamesForChecklist(task, myStores, []).length > 0;
   }
   return taskTab === 'active' ? !isUserDoneWithTask(task, myStores) : isUserDoneWithTask(task, myStores);
+}
+
+/** 店舗チップの件数バッジ（未実施＝その店舗にやることが残っている依頼のみ） */
+function taskHasPendingWorkForStoreChip(task, storeName, myStores) {
+  if (task?.requestKind !== REQUEST_KIND.store) return false;
+  return getMyPendingStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
 }
 
 function applyStoreCompletionToTask(task, storeCompletions, myStores) {
@@ -1350,16 +1369,20 @@ export default function App() {
     return full.filter((s) => myStores.indexOf(s) >= 0);
   };
 
-  /** 店舗チップ選択時は選択店舗のみ。未実施タブでは未完了の店舗行だけ */
+  /** 店舗チップ選択時は選択店舗のみ。未実施・全店表示時は未完了行のみ、店舗絞り込み時は完了行も表示 */
   const getVisibleStoreRowsForTask = (task) => {
     if (task.requestKind !== REQUEST_KIND.store) return [];
-    if (taskTab === 'active') {
-      return getMyPendingStoreNamesForChecklist(task, checklistUserStores, selectedChecklistStores);
+    let names = getMyRelevantStoreNamesForTask(task, checklistUserStores);
+    const sel = asUserStoreList(selectedChecklistStores);
+    if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
+    if (taskTab === 'active' && !hasChecklistStoreFilter(selectedChecklistStores)) {
+      const sc = task.storeCompletions || {};
+      names = names.filter((s) => !sc[s]);
+    } else if (taskTab === 'completed') {
+      const sc = task.storeCompletions || {};
+      names = names.filter((s) => !!sc[s]);
     }
-    if (taskTab === 'completed') {
-      return getMyCompletedStoreNamesForChecklist(task, checklistUserStores, selectedChecklistStores);
-    }
-    return getMyStoreRowsForTask(task);
+    return names;
   };
 
   /** 店舗依頼: 自分がまだ完了していない担当店舗名（一覧・一括完了用） */
@@ -2507,7 +2530,7 @@ export default function App() {
                     {checklistKindFilter !== 'employee' &&
                       checklistUserStores.map((s) => {
                         const storeTaskCount = tasksMatchingChecklistKind.filter((t) =>
-                          taskMatchesChecklistStoreSelection(t, [s], allStores, checklistUserStores)
+                          taskHasPendingWorkForStoreChip(t, s, checklistUserStores)
                         ).length;
                         const isOn = selectedChecklistStores.includes(s);
                         return (
@@ -2536,7 +2559,9 @@ export default function App() {
                         <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
                         <p className="text-lg normal-case tracking-normal">
                           {selectedChecklistStores.length > 0
-                            ? '選択した店舗に該当するタスクはありません'
+                            ? taskTab === 'active'
+                              ? '選択した店舗の未実施タスクはありません（他店舗が未完了の依頼は「全店」で確認できます）'
+                              : '選択した店舗の実施済みタスクはありません'
                             : 'タスクはありません'}
                         </p>
                       </div>

@@ -20,6 +20,9 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run build
 
+      - name: Copy to docs/gas/deployed (repo mirror)
+        run: cp dist/index.html docs/gas/deployed/index.html
+
       - name: Upload index.html for GAS
         uses: actions/upload-artifact@v4
         with:

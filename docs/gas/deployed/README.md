@@ -4,7 +4,7 @@
 |----------|------|--------|
 | `Code.gs` | ToDo バックエンド | `docs/gas/Code.gs` と同期済み |
 | `admin.html` | 管理ダッシュボード | `docs/gas/admin.html` と同期済み |
-| `index.html` | 利用者向け Web アプリ（ビルド1枚・約330KB） | GAS 本番エクスポート済み |
+| `index.html` | 利用者向け Web アプリ（ビルド1枚・約330KB） | **`src/App.jsx` を `npm run build:gas` した結果**（手動で GAS だけ更新していると古くなる） |
 
 ## index.html を更新する手順
 
@@ -12,8 +12,10 @@
 
 1. 変更を GitHub に push する  
 2. GitHub の **Actions** → **Build GAS index** → **Run workflow**  
-3. 完了後 **Artifacts** の `gas-index-html` から `index.html` をダウンロード  
+3. 完了後 **Artifacts** の `gas-index-html` から `index.html` をダウンロード（リポジトリでは `docs/gas/deployed/index.html` も更新されます）  
 4. GAS の `index` に丸ごと貼り付け → 新バージョンでデプロイ  
+
+同期の考え方は `docs/gas/SYNC_CHECKLIST.md` を参照。
 
 ※ 社用PCに Node のインストールは不要です。
 

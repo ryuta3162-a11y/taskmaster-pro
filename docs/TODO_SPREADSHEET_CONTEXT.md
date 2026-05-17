@@ -53,4 +53,4 @@ GitHub: taskmaster-pro（変更時は npm run build:gas または GAS から ind
 - ToDo 用の参照実装（開発テンプレ）: `docs/gas/Code.gs`・`docs/gas/admin.html`。
 - 管理画面の手順説明: `docs/gas/ADMIN_DASHBOARD.md`。
 
-※ `docs/gas/deployed/` の3ファイルは ToDo 用として揃済み（index はデスクトップの GAS 本番エクスポートを反映）。
+※ `Code.gs` / `admin.html` は `docs/gas/` と `deployed/` で揃える。**index.html は `src/App.jsx` 変更のたびにビルド必須**（手順は `docs/gas/SYNC_CHECKLIST.md`）。
