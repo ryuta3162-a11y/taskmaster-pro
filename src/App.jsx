@@ -34,7 +34,8 @@ const appKindRadio = (on) =>
   `flex items-center gap-3 flex-1 p-4 rounded-xl border cursor-pointer transition-colors ${
     on ? 'border-[var(--acc-500)] bg-[var(--acc-50)] ring-1 ring-[var(--acc-200)]/40' : 'border-slate-200 bg-white hover:border-slate-300'
   }`;
-const appCallout = 'rounded-2xl border border-[var(--acc-200)]/60 bg-[var(--acc-50)]/80 p-5 md:p-6 space-y-4 shadow-sm';
+/** 定期配信：スケジュール直下のオプション（黄色ではなくアクセント系の控えめボックス） */
+const appScheduleOption = 'flex items-start gap-3 mt-5 p-4 rounded-xl border border-[var(--acc-200)]/55 bg-[var(--acc-50)]/50 cursor-pointer hover:bg-[var(--acc-50)]/80 transition-colors ring-1 ring-black/[0.03]';
 const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
 /** ダッシュボード（ホーム）の4メニュー用・やや大きめ */
 const dashboardMenuTile = "w-full text-left bg-white rounded-2xl p-5 md:p-7 min-h-[5.25rem] md:min-h-[6.25rem] shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-black/[0.05] active:scale-[0.99] transition-all flex items-center gap-4 md:gap-5";
@@ -2333,35 +2334,15 @@ export default function App() {
               {!checklistOnlyMode && activeTab === 'scheduled' && (
                 <div className="w-full space-y-10 animate-fade-in mt-4">
                   {scheduleEditingId && (
-                    <div className="bg-amber-50 border border-amber-300/80 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <p className={`${appText.body} font-bold text-amber-900`}>
+                    <div className="rounded-2xl border border-[var(--acc-200)]/60 bg-[var(--acc-50)]/60 p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <p className={`${appText.body} font-bold text-slate-800`}>
                         編集中：保存すると<strong>次回の定期配信から</strong>この内容で送信されます（今日のタスクは増えません）。
                       </p>
-                      <button type="button" onClick={handleCancelScheduleEdit} className={brutalBtnSecondary + " whitespace-nowrap py-3 px-6 text-sm"}>
+                      <button type="button" onClick={handleCancelScheduleEdit} className={brutalBtnSecondary + " whitespace-nowrap py-3 px-5"}>
                         編集をやめる
                       </button>
                     </div>
                   )}
-                  <div className={appCallout}>
-                    <p className={`${appText.title} text-[var(--acc-900)] text-center`}>
-                      初回のみ当月分は即タスクに反映されます。
-                    </p>
-                    <ul className={`space-y-3 ${appText.body} text-slate-800 leading-relaxed`}>
-                      <li className="flex gap-3">
-                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white flex items-center justify-center ${appText.badge}`}>1</span>
-                        <span>初回の期限は、下の「タスクの期限（毎月〜まで）」に従います。</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--acc-500)] text-white flex items-center justify-center ${appText.badge}`}>2</span>
-                        <span>2回目以降は、指定した<strong className="text-[var(--acc-600)]">日</strong>にだけ自動配信されます。</span>
-                      </li>
-                      <li className="flex gap-3">
-                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg bg-slate-600 text-white flex items-center justify-center ${appText.badge}`}>3</span>
-                        <span>配信の時刻は<strong>午前10:00</strong>固定です。</span>
-                      </li>
-                    </ul>
-                  </div>
-                  
                   <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-6 w-full">
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
                       {/* 左列：1〜4 */}
@@ -2381,7 +2362,7 @@ export default function App() {
                         </div>
                         <div className={appSection}>
                           <label className={appLabel}>1. 配信スケジュール <span className="text-rose-500">*</span></label>
-                          <p className="text-sm text-slate-600 mb-4">配信時刻は<strong>午前10:00</strong>固定です（変更はシステム管理者向け設定です）。</p>
+                          <p className={`${appText.meta} mb-4`}>配信時刻は<strong className="text-slate-700">午前10:00</strong>固定です。</p>
                           <div className="flex flex-col sm:flex-row gap-4 mt-2">
                             <div className="flex-1">
                               <label className="text-xs font-bold text-slate-600 mb-2 block">毎月何日に配信するか</label>
@@ -2406,16 +2387,21 @@ export default function App() {
                           <p className="text-xs text-slate-500 mt-4">登録日: {todayForMin} ／ 保存される配信時刻: {SCHEDULE_DELIVERY_TIME}</p>
 
                           {!scheduleEditingId && (
-                            <label className="flex items-start gap-3 mt-5 p-4 rounded-xl border-2 border-amber-200 bg-amber-50/80 cursor-pointer hover:bg-amber-50 transition-colors">
+                            <label className={appScheduleOption}>
                               <input
                                 type="checkbox"
                                 checked={scheduleSkipInitialMonth}
                                 onChange={(e) => setScheduleSkipInitialMonth(e.target.checked)}
-                                className="mt-1 w-5 h-5 rounded border-2 border-slate-400 text-[var(--acc-600)] focus:ring-[var(--acc-500)]"
+                                className="mt-0.5 w-5 h-5 shrink-0 rounded border border-slate-300 text-[var(--acc-600)] accent-[var(--acc-600)] focus:ring-[var(--acc-500)]"
                               />
-                              <span className="text-sm font-bold text-slate-800 leading-relaxed">
-                                <span className="block text-amber-900">今月の初回分は作成しない</span>
-                                <span className="block text-xs font-semibold text-slate-600 mt-1">今月の配信日が過ぎたあとに登録する場合など、チェックすると翌月の定期配信からのみ始まります。</span>
+                              <span className="min-w-0 leading-relaxed">
+                                <span className={`${appText.body} font-bold text-slate-900 block`}>今月の初回分は作成しない</span>
+                                <span className={`${appText.meta} block mt-1.5`}>
+                                  チェックすると、上の「毎月何日に配信するか」（現在：
+                                  <strong className="text-[var(--acc-700)]">{scheduleDate}日</strong>
+                                  ）の<strong className="text-[var(--acc-700)]">翌月{scheduleDate}日</strong>
+                                  から配信が始まります。
+                                </span>
                               </span>
                             </label>
                           )}
