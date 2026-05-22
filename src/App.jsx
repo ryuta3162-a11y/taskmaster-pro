@@ -286,8 +286,29 @@ function deriveStoresAndRolesFromTargets(targetEmails, allEmployees, allStoreNam
   };
 }
 
-/** 依頼・定期の配信先メール集合（役職・チーム・店舗条件） */
-function computeTargetRecipientEmails({
+function normalizeRecipientEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+/** 役職・チーム・店舗条件に一致する社員か（役職は社員依頼のみ） */
+function employeeMatchesTargetFilters(
+  emp,
+  { requestKind, selectedStores, selectedRoles, selectedTeams, rolesList, teamsList }
+) {
+  const kind = normalizeRequestKind(requestKind);
+  const teamMatch = employeeMatchesTeams(emp, selectedTeams, teamsList);
+  if (!teamMatch || !emp.email) return false;
+  if (kind === REQUEST_KIND.tf) return true;
+  if (kind === REQUEST_KIND.employee) {
+    const roleMatch =
+      (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role);
+    return roleMatch;
+  }
+  return !!(emp.stores && emp.stores.some((s) => selectedStores.includes(s)));
+}
+
+/** 配信先候補一覧（名前・役職など付き） */
+function computeTargetRecipientsList({
   requestKind,
   selectedStores,
   selectedRoles,
@@ -296,20 +317,50 @@ function computeTargetRecipientEmails({
   rolesList,
   teamsList,
 }) {
-  const emails = new Set();
-  allEmployees.forEach((emp) => {
-    const roleMatch =
-      (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role);
-    const teamMatch = employeeMatchesTeams(emp, selectedTeams, teamsList);
-    if (!roleMatch || !teamMatch) return;
-    if (requestKind === REQUEST_KIND.employee) {
-      if (emp.email) emails.add(emp.email);
-    } else {
-      const storeMatch = emp.stores && emp.stores.some((s) => selectedStores.includes(s));
-      if (storeMatch && emp.email) emails.add(emp.email);
-    }
-  });
-  return emails;
+  const params = {
+    requestKind,
+    selectedStores,
+    selectedRoles,
+    selectedTeams,
+    rolesList,
+    teamsList,
+  };
+  return allEmployees
+    .filter((emp) => employeeMatchesTargetFilters(emp, params))
+    .map((emp) => {
+      const email = String(emp.email).trim();
+      const stores =
+        requestKind === REQUEST_KIND.store
+          ? (emp.stores || []).filter((s) => selectedStores.includes(s))
+          : emp.stores || [];
+      return {
+        email,
+        name: emp.name || email,
+        role: emp.role || '—',
+        team: emp.team || '—',
+        storesLabel: stores.length ? stores.join('、') : '—',
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+}
+
+/** 依頼・定期の配信先メール集合（役職・チーム・店舗条件） */
+function computeTargetRecipientEmails(params) {
+  return new Set(computeTargetRecipientsList(params).map((r) => r.email));
+}
+
+function filterRecipientsByExclusions(recipients, excludedEmails) {
+  const excluded = new Set((excludedEmails || []).map(normalizeRecipientEmail));
+  return recipients.filter((r) => !excluded.has(normalizeRecipientEmail(r.email)));
+}
+
+/** 保存済み targets（メール配列）から、候補一覧に対する除外リストを作る */
+function excludedEmailsFromSavedTargets(candidates, savedTargetEmails) {
+  if (!Array.isArray(savedTargetEmails) || savedTargetEmails.length === 0) return [];
+  const saved = new Set(savedTargetEmails.map(normalizeRecipientEmail));
+  return candidates
+    .filter((r) => !saved.has(normalizeRecipientEmail(r.email)))
+    .map((r) => normalizeRecipientEmail(r.email));
 }
 
 /**
@@ -324,7 +375,8 @@ function taskMatchesStoreFilter(targetTagsStr, filterKey, allStores, requestKind
     if (targetStoreNames.indexOf(filterKey) >= 0) return true;
   }
   if (!tg || tg === '指定なし') return true;
-  if (requestKind === 'employee' && (tg === '全店' || /^\s*全店(\s|\[)/.test(tg))) return false;
+  const rk = normalizeRequestKind(requestKind);
+  if (rk !== REQUEST_KIND.store && (tg === '全店' || /^\s*全店(\s|\[)/.test(tg))) return false;
   if (tg === '全店' || /^\s*全店(\s|\[)/.test(tg)) return true;
   if (tg.includes(filterKey)) return true;
   const storeRow = allStores.find((st) => st.storeName === filterKey);
@@ -442,8 +494,25 @@ const MAX_ATTACHMENTS = 3;
 const MAX_PDF_BYTES = 25 * 1024 * 1024;
 const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
 
-/** GAS・列「依頼単位」と一致: employee=社員ごと / store=店舗単位で1回 */
-const REQUEST_KIND = { employee: 'employee', store: 'store' };
+/** GAS・列「依頼単位」と一致: employee=社員 / store=店舗単位 / tf=TFチーム（個人完了） */
+const REQUEST_KIND = { employee: 'employee', store: 'store', tf: 'tf' };
+
+const REQUEST_KIND_LABEL = {
+  [REQUEST_KIND.employee]: '社員依頼',
+  [REQUEST_KIND.store]: '店舗依頼',
+  [REQUEST_KIND.tf]: 'TFチーム依頼',
+};
+
+function normalizeRequestKind(raw) {
+  const k = String(raw || '').trim().toLowerCase();
+  if (k === REQUEST_KIND.store) return REQUEST_KIND.store;
+  if (k === REQUEST_KIND.tf) return REQUEST_KIND.tf;
+  return REQUEST_KIND.employee;
+}
+
+function isStoreRequestKind(kind) {
+  return normalizeRequestKind(kind) === REQUEST_KIND.store;
+}
 
 /** 管轄店舗リストを常に配列に正規化（スプレッドシート由来の不正値で落ちないように） */
 function asUserStoreList(stores) {
@@ -463,7 +532,7 @@ function getTaskTargetStoreNames(task) {
 
 function taskMatchesChecklistStoreSelection(task, selectedStores, allStores, myStores) {
   if (!selectedStores || !selectedStores.length) return true;
-  const rk = task?.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+  const rk = normalizeRequestKind(task?.requestKind);
   const safeMyStores = asUserStoreList(myStores);
   return selectedStores.some((filterKey) => {
     if (!taskMatchesStoreFilter(task?.targetTags, filterKey, allStores, rk, task?.targetStoreNames)) return false;
@@ -492,13 +561,13 @@ function isUserDoneWithStoreTask(task, myStores) {
 
 /** チェックリスト上で「実施済み」タブに出すか */
 function isUserDoneWithTask(task, myStores) {
-  if (task?.requestKind === REQUEST_KIND.store) return isUserDoneWithStoreTask(task, myStores);
+  if (isStoreRequestKind(task?.requestKind)) return isUserDoneWithStoreTask(task, myStores);
   return !!task?.completed;
 }
 
 /** 店舗依頼: 未実施タブに表示する担当店舗（店舗チップ絞り込み後） */
 function getMyPendingStoreNamesForChecklist(task, myStores, selectedStores) {
-  if (task?.requestKind !== REQUEST_KIND.store) return [];
+  if (!isStoreRequestKind(task?.requestKind)) return [];
   let names = getMyRelevantStoreNamesForTask(task, myStores);
   if (!names.length) return [];
   const sel = asUserStoreList(selectedStores);
@@ -509,7 +578,7 @@ function getMyPendingStoreNamesForChecklist(task, myStores, selectedStores) {
 
 /** 店舗依頼: 実施済みタブに表示する担当店舗（店舗チップ絞り込み後） */
 function getMyCompletedStoreNamesForChecklist(task, myStores, selectedStores) {
-  if (task?.requestKind !== REQUEST_KIND.store) return [];
+  if (!isStoreRequestKind(task?.requestKind)) return [];
   let names = getMyRelevantStoreNamesForTask(task, myStores);
   if (!names.length) return [];
   const sel = asUserStoreList(selectedStores);
@@ -528,7 +597,7 @@ function hasChecklistStoreFilter(selectedStores) {
  * 店舗チップ選択時: その店舗が自分の担当に含まれる依頼は、完了済み行も表示（取り消し可）
  */
 function shouldIncludeTaskInChecklistTab(task, taskTab, myStores, selectedStores) {
-  if (task?.requestKind === REQUEST_KIND.store) {
+  if (isStoreRequestKind(task?.requestKind)) {
     const relevant = getMyRelevantStoreNamesForTask(task, myStores);
     if (relevant.length === 0) return false;
     const sel = asUserStoreList(selectedStores);
@@ -546,13 +615,13 @@ function shouldIncludeTaskInChecklistTab(task, taskTab, myStores, selectedStores
 
 /** 店舗チップの件数バッジ（未実施＝その店舗にやることが残っている依頼のみ） */
 function taskHasPendingWorkForStoreChip(task, storeName, myStores) {
-  if (task?.requestKind !== REQUEST_KIND.store) return false;
+  if (!isStoreRequestKind(task?.requestKind)) return false;
   return getMyPendingStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
 }
 
 /** 店舗チップの件数（実施済みタブ＝その店舗で完了済みの担当がある依頼） */
 function taskHasCompletedWorkForStoreChip(task, storeName, myStores) {
-  if (task?.requestKind !== REQUEST_KIND.store) return false;
+  if (!isStoreRequestKind(task?.requestKind)) return false;
   return getMyCompletedStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
 }
 
@@ -567,7 +636,7 @@ function countChecklistTasksForStoreChip(tasks, storeName, taskTab, myStores) {
 
 function applyStoreCompletionToTask(task, storeCompletions, myStores) {
   const next = { ...task, storeCompletions };
-  if (task?.requestKind === REQUEST_KIND.store) {
+  if (isStoreRequestKind(task?.requestKind)) {
     next.completed = isUserDoneWithStoreTask(next, myStores);
   }
   return next;
@@ -739,6 +808,126 @@ function RegChip({ selected, onClick, children, compact }) {
   );
 }
 
+/** 配信直前：条件に一致した社員一覧（個別に配信対象から外せる） */
+function RecipientRosterPanel({ num, recipients, excludedEmails, onToggle, onSetAllIncluded }) {
+  const [query, setQuery] = useState('');
+  const excluded = new Set((excludedEmails || []).map(normalizeRecipientEmail));
+  const includedCount = recipients.filter((r) => !excluded.has(normalizeRecipientEmail(r.email))).length;
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? recipients.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          String(r.role).toLowerCase().includes(q) ||
+          String(r.team).toLowerCase().includes(q) ||
+          String(r.storesLabel).toLowerCase().includes(q)
+      )
+    : recipients;
+
+  return (
+    <PanelFrame className="ring-1 ring-[var(--acc-200)]/50">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. 配信先の最終確認</h4>
+          <p className={`${appText.meta} leading-relaxed`}>
+            条件に一致した方を一覧表示しています。タップで配信対象から外せます（再度タップで戻せます）。
+          </p>
+        </div>
+        <span className={`shrink-0 ${appText.badgeNum} font-semibold text-[var(--acc-700)] bg-[var(--acc-50)] border border-[var(--acc-200)]/60 px-2.5 py-1 rounded-full`}>
+          {includedCount}/{recipients.length}
+        </span>
+      </div>
+
+      {recipients.length === 0 ? (
+        <p className={`${appText.meta} text-rose-600 text-center py-4 leading-relaxed`}>
+          条件に一致する社員がいません。役職・チーム・店舗を見直してください。
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => onSetAllIncluded(true)}
+              className={`${appChipBase} !min-h-[2rem] !text-xs ${appChipOn}`}
+            >
+              すべて配信に含める
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetAllIncluded(false)}
+              className={`${appChipBase} !min-h-[2rem] !text-xs ${appChipOff}`}
+            >
+              すべて外す
+            </button>
+          </div>
+          {recipients.length > 8 && (
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="名前・メール・役職で絞り込み"
+              className={`${brutalInput} py-2.5 mb-3 text-sm`}
+            />
+          )}
+          <ul className="max-h-72 overflow-y-auto overscroll-contain space-y-2 pr-0.5 border-t border-slate-100 pt-3">
+            {filtered.length === 0 ? (
+              <li className={`${appText.meta} text-center py-6 text-slate-500`}>検索に一致する方がいません</li>
+            ) : (
+              filtered.map((r) => {
+                const key = normalizeRecipientEmail(r.email);
+                const on = !excluded.has(key);
+                return (
+                  <li key={r.email}>
+                    <button
+                      type="button"
+                      onClick={() => onToggle(r.email)}
+                      className={`w-full text-left rounded-xl border px-3 py-2.5 transition-all ${
+                        on
+                          ? 'border-[var(--acc-300)] bg-[var(--acc-50)]/80'
+                          : 'border-slate-200 bg-slate-100 opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`${appText.body} font-bold truncate ${
+                              on ? 'text-slate-900' : 'text-slate-500 line-through decoration-slate-400'
+                            }`}
+                          >
+                            {r.name}
+                          </p>
+                          <p className={`${appText.meta} mt-0.5 truncate ${on ? 'text-slate-600' : 'text-slate-400'}`}>
+                            {r.role}
+                            {r.team && r.team !== '—' ? ` · ${r.team}` : ''}
+                            {r.storesLabel !== '—' ? ` · ${r.storesLabel}` : ''}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md ${
+                            on ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-200 text-slate-500'
+                          }`}
+                        >
+                          {on ? '配信' : '除外'}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+          {includedCount === 0 && (
+            <p className={`${appText.meta} text-rose-600 text-center mt-3 leading-relaxed`}>
+              配信対象が0名です。1名以上「配信」にしてください。
+            </p>
+          )}
+        </>
+      )}
+    </PanelFrame>
+  );
+}
+
 /** 役職・チームなどの複数選択（チップ＋トグル） */
 function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeSelected }) {
   const allSelected = items.length > 0 && selected.length === items.length;
@@ -845,7 +1034,7 @@ export default function App() {
   /** リストチェック: 選択中の店舗（空＝全店。複数タップで OR 絞り込み） */
   const [selectedChecklistStores, setSelectedChecklistStores] = useState([]);
   const [taskTab, setTaskTab] = useState('active');
-  /** リストチェック: すべて / 社員依頼 / 店舗依頼 */
+  /** リストチェック: すべて / 社員依頼 / 店舗依頼 / TFチーム依頼 */
   const [checklistKindFilter, setChecklistKindFilter] = useState('all');
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm' });
@@ -873,6 +1062,8 @@ export default function App() {
   const [requestSelectedStores, setRequestSelectedStores] = useState([]);
   const [requestSelectedRoles, setRequestSelectedRoles] = useState(ROLES);
   const [requestSelectedTeams, setRequestSelectedTeams] = useState(TEAMS);
+  /** 新規投稿：配信先一覧で除外したメール（小文字） */
+  const [requestRecipientExcluded, setRequestRecipientExcluded] = useState([]);
   const [requestForm, setRequestForm] = useState({ content: '', deadline: '', urls: [''] });
   const [requestImages, setRequestImages] = useState([]);
   const [requestKind, setRequestKind] = useState(REQUEST_KIND.employee);
@@ -890,7 +1081,60 @@ export default function App() {
   const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
   const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES);
   const [scheduleSelectedTeams, setScheduleSelectedTeams] = useState(TEAMS);
+  /** 定期配信：配信先一覧で除外したメール（小文字） */
+  const [scheduleRecipientExcluded, setScheduleRecipientExcluded] = useState([]);
   const [scheduleRequestKind, setScheduleRequestKind] = useState(REQUEST_KIND.employee);
+
+  const targetListParams = useMemo(
+    () => ({ allEmployees, rolesList: ROLES, teamsList: TEAMS }),
+    [allEmployees]
+  );
+
+  const requestRecipientCandidates = useMemo(
+    () =>
+      computeTargetRecipientsList({
+        requestKind,
+        selectedStores: requestSelectedStores,
+        selectedRoles: requestSelectedRoles,
+        selectedTeams: requestSelectedTeams,
+        ...targetListParams,
+      }),
+    [
+      requestKind,
+      requestSelectedStores,
+      requestSelectedRoles,
+      requestSelectedTeams,
+      targetListParams,
+    ]
+  );
+
+  const scheduleRecipientCandidates = useMemo(
+    () =>
+      computeTargetRecipientsList({
+        requestKind: scheduleRequestKind,
+        selectedStores: scheduleSelectedStores,
+        selectedRoles: scheduleSelectedRoles,
+        selectedTeams: scheduleSelectedTeams,
+        ...targetListParams,
+      }),
+    [
+      scheduleRequestKind,
+      scheduleSelectedStores,
+      scheduleSelectedRoles,
+      scheduleSelectedTeams,
+      targetListParams,
+    ]
+  );
+
+  useEffect(() => {
+    const valid = new Set(requestRecipientCandidates.map((r) => normalizeRecipientEmail(r.email)));
+    setRequestRecipientExcluded((prev) => prev.filter((e) => valid.has(e)));
+  }, [requestRecipientCandidates]);
+
+  useEffect(() => {
+    const valid = new Set(scheduleRecipientCandidates.map((r) => normalizeRecipientEmail(r.email)));
+    setScheduleRecipientExcluded((prev) => prev.filter((e) => valid.has(e)));
+  }, [scheduleRecipientCandidates]);
 
   const todayForMin = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
 
@@ -951,7 +1195,7 @@ export default function App() {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+      const rk = normalizeRequestKind(t.requestKind);
       const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores, allStores, checklistUserStores);
       const tabMatch = shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores);
       const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
@@ -965,23 +1209,24 @@ export default function App() {
 
   const checklistKindCounts = useMemo(() => {
     const all = checklistTabTasks.length;
-    const emp = checklistTabTasks.filter((t) => (t.requestKind === REQUEST_KIND.store ? 'store' : 'employee') === 'employee').length;
-    const sto = checklistTabTasks.filter((t) => t.requestKind === REQUEST_KIND.store).length;
-    return { all, employee: emp, store: sto };
+    const emp = checklistTabTasks.filter((t) => normalizeRequestKind(t.requestKind) === REQUEST_KIND.employee).length;
+    const sto = checklistTabTasks.filter((t) => normalizeRequestKind(t.requestKind) === REQUEST_KIND.store).length;
+    const tf = checklistTabTasks.filter((t) => normalizeRequestKind(t.requestKind) === REQUEST_KIND.tf).length;
+    return { all, employee: emp, store: sto, tf };
   }, [checklistTabTasks]);
 
   /** 未実施/実施済みタブ + 依頼種別フィルタまで反映したタスク（店舗チップの件数用） */
   const tasksMatchingChecklistKind = useMemo(() => {
     return tasks.filter((t) => {
       if (!shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores)) return false;
-      const rk = t.requestKind === REQUEST_KIND.store ? 'store' : 'employee';
+      const rk = normalizeRequestKind(t.requestKind);
       return checklistKindFilter === 'all' || checklistKindFilter === rk;
     });
   }, [tasks, taskTab, checklistKindFilter, checklistUserStores, selectedChecklistStores]);
 
   /** 件数0の店舗チップは選択解除（タップ不可店舗を残さない） */
   useEffect(() => {
-    if (checklistKindFilter === 'employee') return;
+    if (checklistKindFilter === 'employee' || checklistKindFilter === 'tf') return;
     setSelectedChecklistStores((prev) => {
       const next = prev.filter(
         (s) => countChecklistTasksForStoreChip(tasksMatchingChecklistKind, s, taskTab, checklistUserStores) > 0
@@ -1210,16 +1455,37 @@ export default function App() {
     else setScheduleImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateTargetTags = (selectedStoreNames, selectedRoles, selectedTeams) => {
+  const buildTeamTag = (selectedTeams) => {
+    if (!selectedTeams?.length || selectedTeams.length >= TEAMS.length) return '';
+    return `〈${selectedTeams.join(', ')}〉`;
+  };
+
+  const generateTargetTags = (kind, selectedStoreNames, selectedRoles, selectedTeams) => {
+    const teamTag = buildTeamTag(selectedTeams);
+    const rk = normalizeRequestKind(kind);
+
+    if (rk === REQUEST_KIND.tf) {
+      if (!teamTag) return 'TFチーム（全チーム）';
+      return `TF${teamTag}`;
+    }
+
+    if (rk === REQUEST_KIND.employee) {
+      let storeTag = '全店';
+      let roleTag = '';
+      if (selectedRoles.length < ROLES.length) roleTag = `[${selectedRoles.join(', ')}]`;
+      if (!teamTag && !roleTag) return storeTag;
+      return `${storeTag}${teamTag}${roleTag ? (teamTag ? ' ' : '') + roleTag : ''}`.trim();
+    }
+
     let storeTag = '';
     if (selectedStoreNames.length === 0) storeTag = '';
     else if (selectedStoreNames.length === allStores.length && allStores.length > 0) storeTag = '全店';
     else {
-      let tags = [];
-      AREAS.forEach(area => {
-        const storesInArea = allStores.filter(s => s.area === area).map(s => s.storeName);
+      const tags = [];
+      AREAS.forEach((area) => {
+        const storesInArea = allStores.filter((s) => s.area === area).map((s) => s.storeName);
         if (storesInArea.length === 0) return;
-        const selectedInArea = storesInArea.filter(s => selectedStoreNames.includes(s));
+        const selectedInArea = storesInArea.filter((s) => selectedStoreNames.includes(s));
         if (selectedInArea.length > 0) {
           if (selectedInArea.length === storesInArea.length) tags.push(area);
           else tags.push(...selectedInArea);
@@ -1227,50 +1493,53 @@ export default function App() {
       });
       storeTag = tags.join(', ');
     }
+    const base = storeTag || (teamTag ? '全店' : '');
+    if (!base && !teamTag) return '指定なし';
+    return `${base}${teamTag}`.trim();
+  };
 
-    let teamTag = '';
-    if (selectedTeams?.length > 0 && selectedTeams.length < TEAMS.length) {
-      teamTag = `〈${selectedTeams.join(', ')}〉`;
+  const validateTargetSelection = (kind, { roles, teams, stores }) => {
+    const rk = normalizeRequestKind(kind);
+    if (!teams.length) return '配信先のチームを少なくとも1つ選択してください。';
+    if (rk === REQUEST_KIND.employee && !roles.length) {
+      return '配信先の役職を少なくとも1つ選択してください。';
     }
-
-    let roleTag = '';
-    if (selectedRoles.length === ROLES.length) roleTag = '';
-    else roleTag = `[${selectedRoles.join(', ')}]`;
-
-    const base = storeTag || (roleTag || teamTag ? '全店' : '');
-    if (!base && !teamTag && !roleTag) return '指定なし';
-    return `${base}${teamTag}${roleTag ? (teamTag ? ' ' : '') + roleTag : ''}`.trim();
+    if (rk === REQUEST_KIND.store && !stores.length) {
+      return '配信先の店舗を少なくとも1つ選択してください。';
+    }
+    return null;
   };
 
   const handleTaskSubmit = async (e) => {
     e.preventDefault();
-    if (!requestSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
-    if (!requestSelectedTeams.length) return alert('配信先のチームを少なくとも1つ選択してください。');
-    if (requestKind === REQUEST_KIND.store && !requestSelectedStores.length) {
-      return alert('配信先の店舗を少なくとも1つ選択してください。');
+    const targetErr = validateTargetSelection(requestKind, {
+      roles: requestSelectedRoles,
+      teams: requestSelectedTeams,
+      stores: requestSelectedStores,
+    });
+    if (targetErr) return alert(targetErr);
+
+    const includedRecipients = filterRecipientsByExclusions(
+      requestRecipientCandidates,
+      requestRecipientExcluded
+    );
+    if (requestRecipientCandidates.length === 0) {
+      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
+    }
+    if (includedRecipients.length === 0) {
+      return alert('配信対象が0名です。配信先の最終確認で1名以上を「配信」にしてください。');
     }
 
     setIsSubmitting(true);
-    const targetEmails = computeTargetRecipientEmails({
-      requestKind,
-      selectedStores: requestSelectedStores,
-      selectedRoles: requestSelectedRoles,
-      selectedTeams: requestSelectedTeams,
-      allEmployees,
-      rolesList: ROLES,
-      teamsList: TEAMS,
-    });
+    const targetEmails = includedRecipients.map((r) => r.email);
 
     const validUrls = requestForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr =
-      requestKind === REQUEST_KIND.employee
-        ? generateTargetTags(allStores.map((s) => s.storeName), requestSelectedRoles, requestSelectedTeams)
-        : generateTargetTags(requestSelectedStores, requestSelectedRoles, requestSelectedTeams);
-
-    if (targetEmails.size === 0) {
-      setIsSubmitting(false);
-      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
-    }
+    const finalTagsStr = generateTargetTags(
+      requestKind,
+      requestKind === REQUEST_KIND.store ? requestSelectedStores : allStores.map((s) => s.storeName),
+      requestSelectedRoles,
+      requestSelectedTeams
+    );
 
     try {
       const result = await api.createTask({
@@ -1279,7 +1548,7 @@ export default function App() {
         deadline: requestForm.deadline,
         urls: validUrls, 
         sender: currentUser ? currentUser.name : "管理者",
-        targets: Array.from(targetEmails),
+        targets: targetEmails,
         targetTags: finalTagsStr,
         requestKind,
         images: requestImages.map((img) =>
@@ -1298,6 +1567,7 @@ export default function App() {
       setRequestKind(REQUEST_KIND.employee);
       setRequestSelectedStores(allStores.map(s => s.storeName));
       setRequestSelectedRoles(ROLES);
+      setRequestRecipientExcluded([]);
       setActiveTab('home');
       refreshTasks();
     } catch (error) { alert('送信失敗: ' + formatGasError(error)); } finally { setIsSubmitting(false); }
@@ -1333,41 +1603,54 @@ export default function App() {
 
     setRequestForm({ content: task.content, deadline: deadlineInput, urls: storedUrls });
     setRequestImages(repostImages);
-    setRequestKind(task.requestKind === REQUEST_KIND.store ? REQUEST_KIND.store : REQUEST_KIND.employee);
+    const rk = normalizeRequestKind(task.requestKind);
+    setRequestKind(rk);
     setRequestSelectedStores(stores);
     setRequestSelectedRoles(roles);
     setRequestSelectedTeams(teams);
+    const candidates = computeTargetRecipientsList({
+      requestKind: rk,
+      selectedStores: stores,
+      selectedRoles: roles,
+      selectedTeams: teams,
+      allEmployees,
+      rolesList: ROLES,
+      teamsList: TEAMS,
+    });
+    setRequestRecipientExcluded(excludedEmailsFromSavedTargets(candidates, task.targets));
     setActiveTab('request');
   };
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    if (!scheduleSelectedRoles.length) return alert('配信先の役職を少なくとも1つ選択してください。');
-    if (!scheduleSelectedTeams.length) return alert('配信先のチームを少なくとも1つ選択してください。');
-    if (scheduleRequestKind === REQUEST_KIND.store && !scheduleSelectedStores.length) {
-      return alert('配信先の店舗を少なくとも1つ選択してください。');
+    const targetErr = validateTargetSelection(scheduleRequestKind, {
+      roles: scheduleSelectedRoles,
+      teams: scheduleSelectedTeams,
+      stores: scheduleSelectedStores,
+    });
+    if (targetErr) return alert(targetErr);
+
+    const includedRecipients = filterRecipientsByExclusions(
+      scheduleRecipientCandidates,
+      scheduleRecipientExcluded
+    );
+    if (scheduleRecipientCandidates.length === 0) {
+      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
+    }
+    if (includedRecipients.length === 0) {
+      return alert('配信対象が0名です。配信先の最終確認で1名以上を「配信」にしてください。');
     }
 
     setIsSubmitting(true);
-    const targetEmails = computeTargetRecipientEmails({
-      requestKind: scheduleRequestKind,
-      selectedStores: scheduleSelectedStores,
-      selectedRoles: scheduleSelectedRoles,
-      selectedTeams: scheduleSelectedTeams,
-      allEmployees,
-      rolesList: ROLES,
-      teamsList: TEAMS,
-    });
+    const targetEmails = includedRecipients.map((r) => r.email);
 
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr =
-      scheduleRequestKind === REQUEST_KIND.employee
-        ? generateTargetTags(allStores.map((s) => s.storeName), scheduleSelectedRoles, scheduleSelectedTeams)
-        : generateTargetTags(scheduleSelectedStores, scheduleSelectedRoles, scheduleSelectedTeams);
-    if (targetEmails.size === 0) {
-      setIsSubmitting(false);
-      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
-    }
+    const finalTagsStr = generateTargetTags(
+      scheduleRequestKind,
+      scheduleRequestKind === REQUEST_KIND.store ? scheduleSelectedStores : allStores.map((s) => s.storeName),
+      scheduleSelectedRoles,
+      scheduleSelectedTeams
+    );
     const cycleString = `毎月 ${scheduleDate}日 ${SCHEDULE_DELIVERY_TIME}`;
     const scheduleImagePayload = scheduleImages.map((img) =>
       img.reuseUrl
@@ -1384,7 +1667,7 @@ export default function App() {
           content: scheduleForm.content,
           urls: validUrls,
           targetTags: finalTagsStr,
-          targets: Array.from(targetEmails),
+          targets: targetEmails,
           requestKind: scheduleRequestKind,
           images: scheduleImagePayload
         });
@@ -1401,7 +1684,7 @@ export default function App() {
           content: scheduleForm.content,
           urls: validUrls,
           targetTags: finalTagsStr,
-          targets: Array.from(targetEmails),
+          targets: targetEmails,
           requestKind: scheduleRequestKind,
           images: scheduleImagePayload,
           skipInitialTask: scheduleSkipInitialMonth
@@ -1421,6 +1704,7 @@ export default function App() {
       setScheduleSelectedStores(allStores.map(s => s.storeName));
       setScheduleSelectedRoles(ROLES);
       setScheduleSelectedTeams(TEAMS);
+      setScheduleRecipientExcluded([]);
       refreshTasks(); 
     } catch (error) {
       alert((scheduleEditingId ? '保存に失敗しました: ' : '登録失敗: ') + formatGasError(error));
@@ -1449,10 +1733,21 @@ export default function App() {
         ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES, TEAMS)
         : null;
     const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
+    const rk = normalizeRequestKind(task.requestKind);
     setScheduleSelectedStores(stores);
     setScheduleSelectedRoles(roles);
     setScheduleSelectedTeams(teams);
-    setScheduleRequestKind(task.requestKind === REQUEST_KIND.store ? REQUEST_KIND.store : REQUEST_KIND.employee);
+    setScheduleRequestKind(rk);
+    const candidates = computeTargetRecipientsList({
+      requestKind: rk,
+      selectedStores: stores,
+      selectedRoles: roles,
+      selectedTeams: teams,
+      allEmployees,
+      rolesList: ROLES,
+      teamsList: TEAMS,
+    });
+    setScheduleRecipientExcluded(excludedEmailsFromSavedTargets(candidates, task.targets));
     setScheduleSkipInitialMonth(false);
     setActiveTab('scheduled');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1468,6 +1763,7 @@ export default function App() {
     setScheduleSelectedStores(allStores.map((s) => s.storeName));
     setScheduleSelectedRoles(ROLES);
     setScheduleSelectedTeams(TEAMS);
+    setScheduleRecipientExcluded([]);
   };
 
   const handleDeleteSchedule = async (id) => {
@@ -1483,7 +1779,7 @@ export default function App() {
 
   /** 店舗依頼: チェックリストに出す店舗 = 依頼対象 ∩ 自分の管轄のみ（他店舗は非表示） */
   const getMyStoreRowsForTask = (task) => {
-    if (task.requestKind !== REQUEST_KIND.store) return [];
+    if (!isStoreRequestKind(task.requestKind)) return [];
     const full = getTaskTargetStoreNames(task).sort();
     const myStores = checklistUserStores;
     return full.filter((s) => myStores.indexOf(s) >= 0);
@@ -1491,7 +1787,7 @@ export default function App() {
 
   /** 未実施タブ: 担当店舗をすべて表示（完了分はグレー＋実施者・時刻）。実施済みタブ: 完了店舗のみ */
   const getVisibleStoreRowsForTask = (task) => {
-    if (task.requestKind !== REQUEST_KIND.store) return [];
+    if (!isStoreRequestKind(task.requestKind)) return [];
     let names = getMyRelevantStoreNamesForTask(task, checklistUserStores);
     const sel = asUserStoreList(selectedChecklistStores);
     if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
@@ -1636,6 +1932,16 @@ export default function App() {
     }
   };
 
+  const toggleRecipientExcluded = useCallback((excluded, setExcluded, email) => {
+    const key = normalizeRecipientEmail(email);
+    setExcluded((prev) => (prev.includes(key) ? prev.filter((e) => e !== key) : [...prev, key]));
+  }, []);
+
+  const setAllRecipientsIncluded = useCallback((setExcluded, recipients, included) => {
+    if (included) setExcluded([]);
+    else setExcluded(recipients.map((r) => normalizeRecipientEmail(r.email)));
+  }, []);
+
   const renderTargetSelector = (
     selectedStores,
     setSelectedStores,
@@ -1643,42 +1949,35 @@ export default function App() {
     setSelectedRoles,
     selectedTeams,
     setSelectedTeams,
+    recipients,
+    excludedEmails,
+    setExcludedEmails,
     startNum = 5,
     mode = REQUEST_KIND.store
   ) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
+    const rosterStep =
+      mode === REQUEST_KIND.employee ? startNum + 2 : mode === REQUEST_KIND.tf ? startNum + 1 : startNum + 3;
 
-    const recipientEmails = computeTargetRecipientEmails({
-      requestKind: mode,
-      selectedStores,
-      selectedRoles,
-      selectedTeams,
-      allEmployees,
-      rolesList: ROLES,
-      teamsList: TEAMS,
-    });
-    const recipientCount = recipientEmails.size;
-
-    const blockRecipientPreview = () => (
-      <PanelFrame className="ring-1 ring-[var(--acc-200)]/40">
-        <p className={`${appText.body} text-slate-600 text-center`}>この条件で配信される人数</p>
-        <p className="text-center mt-1.5">
-          <span className={appText.stat}>{recipientCount}</span>
-          <span className={`${appText.body} text-slate-500 ml-1`}>名</span>
-        </p>
-        {recipientCount === 0 && (
-          <p className={`${appText.meta} text-rose-600 text-center mt-3 leading-relaxed`}>
-            条件に一致する社員がいません。役職・チーム・店舗を見直してください。
-          </p>
-        )}
-      </PanelFrame>
+    const blockRecipientRoster = () => (
+      <RecipientRosterPanel
+        num={rosterStep}
+        recipients={recipients}
+        excludedEmails={excludedEmails}
+        onToggle={(email) => toggleRecipientExcluded(excludedEmails, setExcludedEmails, email)}
+        onSetAllIncluded={(on) => setAllRecipientsIncluded(setExcludedEmails, recipients, on)}
+      />
     );
 
     const blockTeams = (num) => (
       <SelectionBlock
         num={num}
-        title="配信するチーム"
-        hint="タップで個別に切り替え。初期状態は全チームが選択されています。"
+        title={mode === REQUEST_KIND.tf ? '配信するTFチーム' : '配信するチーム'}
+        hint={
+          mode === REQUEST_KIND.tf
+            ? 'TFチーム向けの依頼です。所属チームで配信先を絞り込みます。'
+            : 'タップで個別に切り替え。初期状態は全チームが選択されています。'
+        }
         allLabel="全チームを選択"
         items={TEAMS}
         selected={selectedTeams}
@@ -1786,17 +2085,25 @@ export default function App() {
         <div className="w-full flex flex-col gap-6">
           {blockRoles(startNum)}
           {blockTeams(startNum + 1)}
-          {blockRecipientPreview()}
+          {blockRecipientRoster()}
+        </div>
+      );
+    }
+
+    if (mode === REQUEST_KIND.tf) {
+      return (
+        <div className="w-full flex flex-col gap-6">
+          {blockTeams(startNum)}
+          {blockRecipientRoster()}
         </div>
       );
     }
 
     return (
       <div className="w-full flex flex-col gap-6">
-        {blockRoles(startNum)}
-        {blockTeams(startNum + 1)}
-        {blockStores(startNum + 2)}
-        {blockRecipientPreview()}
+        {blockTeams(startNum)}
+        {blockStores(startNum + 1)}
+        {blockRecipientRoster()}
       </div>
     );
   };
@@ -2283,7 +2590,7 @@ export default function App() {
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
                         <div className={appSection}>
                           <label className={appLabelKind}>依頼の種類 <span className="text-rose-500">*</span></label>
-                          <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                             <label className={appKindRadio(requestKind === REQUEST_KIND.employee)}>
                               <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.employee} onChange={() => setRequestKind(REQUEST_KIND.employee)} />
                               <span className={`${appText.body} font-bold text-slate-900`}>社員への依頼</span>
@@ -2291,6 +2598,10 @@ export default function App() {
                             <label className={appKindRadio(requestKind === REQUEST_KIND.store)}>
                               <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.store} onChange={() => setRequestKind(REQUEST_KIND.store)} />
                               <span className={`${appText.body} font-bold text-slate-900`}>店舗への依頼</span>
+                            </label>
+                            <label className={appKindRadio(requestKind === REQUEST_KIND.tf)}>
+                              <input type="radio" name="requestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={requestKind === REQUEST_KIND.tf} onChange={() => setRequestKind(REQUEST_KIND.tf)} />
+                              <span className={`${appText.body} font-bold text-slate-900`}>TFチームの依頼</span>
                             </label>
                           </div>
                         </div>
@@ -2354,7 +2665,19 @@ export default function App() {
 
                       {/* 右列：配信先 (5〜6) */}
                       <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(requestSelectedStores, setRequestSelectedStores, requestSelectedRoles, setRequestSelectedRoles, requestSelectedTeams, setRequestSelectedTeams, 5, requestKind)}
+                        {renderTargetSelector(
+                          requestSelectedStores,
+                          setRequestSelectedStores,
+                          requestSelectedRoles,
+                          setRequestSelectedRoles,
+                          requestSelectedTeams,
+                          setRequestSelectedTeams,
+                          requestRecipientCandidates,
+                          requestRecipientExcluded,
+                          setRequestRecipientExcluded,
+                          5,
+                          requestKind
+                        )}
                       </div>
                     </div>
 
@@ -2419,7 +2742,7 @@ export default function App() {
                       <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
                         <div className={appSection}>
                           <label className={appLabelKind}>依頼の種類 <span className="text-rose-500">*</span></label>
-                          <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                             <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.employee)}>
                               <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.employee} onChange={() => setScheduleRequestKind(REQUEST_KIND.employee)} />
                               <span className={`${appText.body} font-bold text-slate-900`}>社員への依頼</span>
@@ -2427,6 +2750,10 @@ export default function App() {
                             <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.store)}>
                               <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.store} onChange={() => setScheduleRequestKind(REQUEST_KIND.store)} />
                               <span className={`${appText.body} font-bold text-slate-900`}>店舗への依頼</span>
+                            </label>
+                            <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.tf)}>
+                              <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.tf} onChange={() => setScheduleRequestKind(REQUEST_KIND.tf)} />
+                              <span className={`${appText.body} font-bold text-slate-900`}>TFチームの依頼</span>
                             </label>
                           </div>
                         </div>
@@ -2533,7 +2860,19 @@ export default function App() {
 
                       {/* 右列：5〜6 */}
                       <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(scheduleSelectedStores, setScheduleSelectedStores, scheduleSelectedRoles, setScheduleSelectedRoles, scheduleSelectedTeams, setScheduleSelectedTeams, 5, scheduleRequestKind)}
+                        {renderTargetSelector(
+                          scheduleSelectedStores,
+                          setScheduleSelectedStores,
+                          scheduleSelectedRoles,
+                          setScheduleSelectedRoles,
+                          scheduleSelectedTeams,
+                          setScheduleSelectedTeams,
+                          scheduleRecipientCandidates,
+                          scheduleRecipientExcluded,
+                          setScheduleRecipientExcluded,
+                          5,
+                          scheduleRequestKind
+                        )}
                       </div>
                     </div>
 
@@ -2616,9 +2955,17 @@ export default function App() {
                       店舗依頼
                       <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${checklistKindFilter === 'store' ? 'bg-white/20 text-white' : 'bg-[var(--acc-100)] text-[var(--acc-900)]'}`}>{checklistKindCounts.store}</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setChecklistKindFilter('tf')}
+                      className={`px-4 py-2 rounded-xl ${appText.tab} border-2 transition-all flex items-center gap-2 shadow-sm ${checklistKindFilter === 'tf' ? 'bg-violet-700 text-white border-violet-700 ring-1 ring-violet-400/35' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                    >
+                      TFチーム依頼
+                      <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${checklistKindFilter === 'tf' ? 'bg-white/20 text-white' : 'bg-violet-100 text-violet-900'}`}>{checklistKindCounts.tf}</span>
+                    </button>
                   </div>
 
-                  {checklistKindFilter !== 'employee' && (
+                  {checklistKindFilter === 'store' && (
                     <div className="mb-2">
                       <p className={appText.caption}>
                         店舗で絞り込み
@@ -2631,6 +2978,7 @@ export default function App() {
                       )}
                     </div>
                   )}
+                  {checklistKindFilter === 'store' && (
                   <div className="flex gap-3 overflow-x-auto pb-4 mb-6 no-scrollbar w-full border-b-2 border-slate-300">
                     <button type="button" onClick={() => setSelectedChecklistStores([])} className={`flex-shrink-0 px-4 py-2 rounded-xl ${appText.tab} border-2 border-slate-300 transition-all flex items-center gap-2 ${selectedChecklistStores.length === 0 ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
                       全店
@@ -2638,8 +2986,7 @@ export default function App() {
                         <span className={`${appText.badgeNum} px-2 py-0.5 rounded-full ${taskTab === 'active' ? 'bg-[var(--acc-500)] text-white' : 'bg-slate-500 text-white'}`}>{tasksMatchingChecklistKind.length}</span>
                       )}
                     </button>
-                    {checklistKindFilter !== 'employee' &&
-                      checklistUserStores.map((s) => {
+                    {checklistUserStores.map((s) => {
                         const storeTaskCount = countChecklistTasksForStoreChip(
                           tasksMatchingChecklistKind,
                           s,
@@ -2684,6 +3031,7 @@ export default function App() {
                         );
                       })}
                   </div>
+                  )}
                   
                   <div className="space-y-6 pb-24 w-full">
                     {tasksLoading ? (
@@ -2701,20 +3049,19 @@ export default function App() {
                       </div>
                     ) : filteredTasks.map((task) => {
                       const userDone = isUserDoneWithTask(task, checklistUserStores);
+                      const taskKind = normalizeRequestKind(task.requestKind);
+                      const kindBadge =
+                        taskKind === REQUEST_KIND.store
+                          ? { label: REQUEST_KIND_LABEL.store, cls: 'bg-[var(--acc-900)]' }
+                          : taskKind === REQUEST_KIND.tf
+                            ? { label: REQUEST_KIND_LABEL.tf, cls: 'bg-violet-700' }
+                            : { label: REQUEST_KIND_LABEL.employee, cls: 'bg-[var(--acc-600)]' };
                       return (
                       <div key={task.id} className={`${appTaskCard} items-stretch xl:items-center`}>
                         <div className="flex-1 w-full min-w-0">
                           
                           <div className="flex flex-wrap gap-2 mb-3 items-center">
-                            {task.requestKind === REQUEST_KIND.store ? (
-                              <span className={`${appTagOnAccent} bg-[var(--acc-900)]`}>
-                                店舗依頼
-                              </span>
-                            ) : (
-                              <span className={`${appTagOnAccent} bg-[var(--acc-600)]`}>
-                                社員依頼
-                              </span>
-                            )}
+                            <span className={`${appTagOnAccent} ${kindBadge.cls}`}>{kindBadge.label}</span>
                             {task.targetTags && <span className={`${appTagOnAccent} bg-[var(--acc-500)]`}>{task.targetTags}</span>}
                             <span className={`${appTagPill} bg-slate-100 text-slate-700`}>{task.type}</span>
                             <span className={`${appText.meta} ml-1`}>from {task.sender}</span>
@@ -2724,7 +3071,7 @@ export default function App() {
                             {formatContent(task.content)}
                           </h3>
 
-                          {task.requestKind === REQUEST_KIND.store &&
+                          {isStoreRequestKind(task.requestKind) &&
                             (() => {
                               const sc = task.storeCompletions || {};
                               const names = getVisibleStoreRowsForTask(task);
@@ -2810,7 +3157,7 @@ export default function App() {
                             })()}
 
                           {userDone &&
-                            task.requestKind !== REQUEST_KIND.store &&
+                            !isStoreRequestKind(task.requestKind) &&
                             task.employeeCompletions &&
                             task.employeeCompletions.length > 0 && (
                               <div className={`mb-4 ${appText.meta} text-slate-700 ${appSurfaceInset} px-3 py-2`}>
@@ -2870,7 +3217,7 @@ export default function App() {
                         
                         <div className="flex-shrink-0 border-t xl:border-t-0 border-l-0 xl:border-l border-slate-200/80 pt-4 xl:pt-0 xl:pl-6 flex items-center justify-center w-full xl:w-auto mt-4 xl:mt-0">
                           {!userDone ? (
-                            task.requestKind === REQUEST_KIND.store ? (
+                            isStoreRequestKind(task.requestKind) ? (
                               <button
                                 type="button"
                                 onClick={() => setStoreBulkModal({ isOpen: true, task, step: 'confirm' })}
@@ -2886,7 +3233,7 @@ export default function App() {
                                 <span className="group-hover:scale-110 transition-transform inline-flex"><Icon name="check" /></span>
                               </button>
                             )
-                          ) : task.requestKind === REQUEST_KIND.store ? (
+                          ) : isStoreRequestKind(task.requestKind) ? (
                             <div className="flex flex-col items-center gap-2 max-w-[10rem] text-center">
                               <div className="w-14 h-14 rounded-xl border border-[var(--acc-200)] bg-[var(--acc-50)] text-[var(--acc-700)] flex items-center justify-center">
                                 <span className="inline-flex"><Icon name="check" /></span>

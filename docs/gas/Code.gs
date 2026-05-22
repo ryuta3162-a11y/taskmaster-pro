@@ -281,10 +281,26 @@ function parseCompletionPayload_(str) {
   return { people: [], stores: {} };
 }
 
-function getRequestKindFromRow_(row) {
-  var k = String(row[15] || '').trim().toLowerCase();
-  if (k === 'store') return 'store';
+/** 依頼単位列: employee | store | tf（tf は社員依頼と同様に個人完了） */
+function normalizeRequestKind_(k) {
+  var s = String(k || '').trim().toLowerCase();
+  if (s === 'store') return 'store';
+  if (s === 'tf') return 'tf';
   return 'employee';
+}
+
+function getRequestKindFromRow_(row) {
+  return normalizeRequestKind_(row[15]);
+}
+
+function getRequestKindLabel_(kind) {
+  if (kind === 'store') return '店舗依頼';
+  if (kind === 'tf') return 'TFチーム依頼';
+  return '社員依頼';
+}
+
+function isPersonRequestKind_(kind) {
+  return kind === 'employee' || kind === 'tf';
 }
 
 function serializeEmployeeCompletion_(peopleArr) {
@@ -645,7 +661,7 @@ function getSentTasks(userName) {
       targetTags: String(row[12] || ""),
       /** 配信先メール（再投稿で役職・店舗を正確に復元するため） */
       targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
-      requestKind: String(row[15] || '').toLowerCase() === 'store' ? 'store' : 'employee'
+      requestKind: normalizeRequestKind_(row[15])
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }
@@ -692,7 +708,7 @@ function registerScheduledTask(taskData) {
       sheet.appendRow(['ID', '作成日', '作成者', 'サイクル', '期限設定', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '配信先タグ', '配信先アドレス', '依頼単位']);
     }
     const newId = 's_' + new Date().getTime();
-    var reqKind = taskData.requestKind === 'store' ? 'store' : 'employee';
+    var reqKind = normalizeRequestKind_(taskData.requestKind);
 
     const row = [
       newId, new Date(), taskData.sender, taskData.cycle, taskData.deadlineOffset,
@@ -772,7 +788,7 @@ function getScheduledTasks(userName) {
       images: [String(row[9]||""), String(row[10]||""), String(row[11]||"")].filter(Boolean),
       targetTags: String(row[12]),
       targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
-      requestKind: String(row[14] || '').toLowerCase() === 'store' ? 'store' : 'employee'
+      requestKind: normalizeRequestKind_(row[14])
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }
@@ -799,7 +815,7 @@ function updateScheduledTask(id, taskData) {
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][0]) === id) {
         const rowNum = i + 1;
-        var rk = taskData.requestKind === 'store' ? 'store' : 'employee';
+        var rk = normalizeRequestKind_(taskData.requestKind);
         sheet.getRange(rowNum, 4, rowNum, 15).setValues([[
           taskData.cycle,
           taskData.deadlineOffset,
@@ -989,7 +1005,7 @@ function createNewTask(taskData) {
     sheet.appendRow(['ID', '日時', 'タスク種別', '期限', '申請者', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '対象エリア', 'ターゲット一覧', '完了データ', '依頼単位']);
   }
 
-  var reqKind = taskData.requestKind === 'store' ? 'store' : 'employee';
+  var reqKind = normalizeRequestKind_(taskData.requestKind);
   var initialO = reqKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
 
   const newId = 't_' + new Date().getTime();
@@ -1070,7 +1086,7 @@ function processScheduledTasksBatch() {
       const i1 = String(row[9]); const i2 = String(row[10]); const i3 = String(row[11]);
       const targetTags = String(row[12]);
       const targets = String(row[13]).split(',');
-      var requestKind = String(row[14] || 'employee').toLowerCase() === 'store' ? 'store' : 'employee';
+      var requestKind = normalizeRequestKind_(row[14]);
       var initialO = requestKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
 
       const reqSheet = ss.getSheetByName('申請データ') || ss.insertSheet('申請データ');
@@ -1203,8 +1219,8 @@ function getIncompleteTasksForUserRows_(values, userNorm, userEmailRaw, userStor
       contentPreview:
         String(row[5] || '').length > 80 ? String(row[5]).substring(0, 80) + '…' : String(row[5] || ''),
       deadline: deadlineStr,
-      requestKind: requestKind === 'store' ? 'store' : 'employee',
-      requestKindLabel: requestKind === 'store' ? '店舗依頼' : '社員依頼',
+      requestKind: requestKind,
+      requestKindLabel: getRequestKindLabel_(requestKind),
       overdue: overdue
     });
   });
@@ -1422,7 +1438,7 @@ function buildAdminTaskSummaryFromRow_(row, allStores, areasList, today) {
   return {
     id: String(row[0] || '').trim(),
     requestKind: progress.kind,
-    requestKindLabel: progress.kind === 'store' ? '店舗依頼' : '社員依頼',
+    requestKindLabel: getRequestKindLabel_(progress.kind),
     type: String(row[2] || ''),
     sender: String(row[4] || ''),
     contentPreview: preview,
@@ -1447,7 +1463,7 @@ function getAdminScheduledRows_() {
     .map(function (row) {
       var id = String(row[0] || '').trim();
       if (!id) return null;
-      var rk = String(row[14] || '').toLowerCase() === 'store' ? 'store' : 'employee';
+      var rk = normalizeRequestKind_(row[14]);
       var targets = String(row[13] || '')
         .split(',')
         .map(function (e) {
@@ -1465,7 +1481,7 @@ function getAdminScheduledRows_() {
         targetTags: String(row[12] || ''),
         targetCount: targets.length,
         requestKind: rk,
-        requestKindLabel: rk === 'store' ? '店舗依頼' : '社員依頼'
+        requestKindLabel: getRequestKindLabel_(rk)
       };
     })
     .filter(Boolean)
@@ -1648,7 +1664,7 @@ function computeTaskProgressAdmin_(row, allStores, areasList) {
     done: doneP,
     total: totalP,
     label: totalP ? doneP + '/' + totalP + '名' : doneP + '名',
-    kind: 'employee'
+    kind: requestKind
   };
 }
 
@@ -1763,8 +1779,9 @@ function getAdminDashboardData() {
       } else {
         summary.open++;
         if (taskObj.overdue) summary.overdueOpen++;
-        if (progress.kind === 'employee') summary.employeeOpen++;
-        else summary.storeOpen++;
+        if (progress.kind === 'store') summary.storeOpen++;
+        else if (progress.kind === 'tf') summary.tfOpen = (summary.tfOpen || 0) + 1;
+        else summary.employeeOpen++;
       }
 
       taskObj.recipients = buildAdminTaskRecipients_(row, progress.kind, employees, allStores, areasList);
@@ -1782,6 +1799,9 @@ function getAdminDashboardData() {
     });
     var storeTasks = tasks.filter(function (t) {
       return t.requestKind === 'store';
+    });
+    var tfTasks = tasks.filter(function (t) {
+      return t.requestKind === 'tf';
     });
     var scheduledTasks = getAdminScheduledRows_();
 
@@ -1826,6 +1846,7 @@ function getAdminDashboardData() {
       tasks: tasks,
       employeeTasks: employeeTasks,
       storeTasks: storeTasks,
+      tfTasks: tfTasks,
       scheduledTasks: scheduledTasks,
       userProgress: {
         userRows: userRows,
