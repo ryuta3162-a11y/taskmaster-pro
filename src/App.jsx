@@ -290,20 +290,21 @@ function normalizeRecipientEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
-/** 役職・チーム・店舗条件に一致する社員か（役職は社員依頼のみ） */
+/** 配信先候補の一致判定（社員依頼=役職のみ / 店舗・TF=チーム＋店舗など） */
 function employeeMatchesTargetFilters(
   emp,
   { requestKind, selectedStores, selectedRoles, selectedTeams, rolesList, teamsList }
 ) {
   const kind = normalizeRequestKind(requestKind);
-  const teamMatch = employeeMatchesTeams(emp, selectedTeams, teamsList);
-  if (!teamMatch || !emp.email) return false;
-  if (kind === REQUEST_KIND.tf) return true;
+  if (!emp.email) return false;
   if (kind === REQUEST_KIND.employee) {
-    const roleMatch =
-      (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role);
-    return roleMatch;
+    return (
+      (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role)
+    );
   }
+  const teamMatch = employeeMatchesTeams(emp, selectedTeams, teamsList);
+  if (!teamMatch) return false;
+  if (kind === REQUEST_KIND.tf) return true;
   return !!(emp.stores && emp.stores.some((s) => selectedStores.includes(s)));
 }
 
@@ -1470,11 +1471,9 @@ export default function App() {
     }
 
     if (rk === REQUEST_KIND.employee) {
-      let storeTag = '全店';
-      let roleTag = '';
-      if (selectedRoles.length < ROLES.length) roleTag = `[${selectedRoles.join(', ')}]`;
-      if (!teamTag && !roleTag) return storeTag;
-      return `${storeTag}${teamTag}${roleTag ? (teamTag ? ' ' : '') + roleTag : ''}`.trim();
+      const roleTag =
+        selectedRoles.length < ROLES.length ? `[${selectedRoles.join(', ')}]` : '';
+      return roleTag ? `全店 ${roleTag}`.trim() : '全店';
     }
 
     let storeTag = '';
@@ -1500,10 +1499,11 @@ export default function App() {
 
   const validateTargetSelection = (kind, { roles, teams, stores }) => {
     const rk = normalizeRequestKind(kind);
-    if (!teams.length) return '配信先のチームを少なくとも1つ選択してください。';
-    if (rk === REQUEST_KIND.employee && !roles.length) {
-      return '配信先の役職を少なくとも1つ選択してください。';
+    if (rk === REQUEST_KIND.employee) {
+      if (!roles.length) return '配信先の役職を少なくとも1つ選択してください。';
+      return null;
     }
+    if (!teams.length) return '配信先のチームを少なくとも1つ選択してください。';
     if (rk === REQUEST_KIND.store && !stores.length) {
       return '配信先の店舗を少なくとも1つ選択してください。';
     }
@@ -1524,7 +1524,11 @@ export default function App() {
       requestRecipientExcluded
     );
     if (requestRecipientCandidates.length === 0) {
-      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
+      const emptyMsg =
+        normalizeRequestKind(requestKind) === REQUEST_KIND.employee
+          ? '配信先となる社員がいません。役職の選択を見直してください。'
+          : '配信先となる社員がいません。チーム・店舗などの条件を見直してください。';
+      return alert(emptyMsg);
     }
     if (includedRecipients.length === 0) {
       return alert('配信対象が0名です。配信先の最終確認で1名以上を「配信」にしてください。');
@@ -1635,7 +1639,11 @@ export default function App() {
       scheduleRecipientExcluded
     );
     if (scheduleRecipientCandidates.length === 0) {
-      return alert('配信先となる社員がいません。役職・チーム・店舗の組み合わせを見直してください。');
+      const emptyMsg =
+        normalizeRequestKind(scheduleRequestKind) === REQUEST_KIND.employee
+          ? '配信先となる社員がいません。役職の選択を見直してください。'
+          : '配信先となる社員がいません。チーム・店舗などの条件を見直してください。';
+      return alert(emptyMsg);
     }
     if (includedRecipients.length === 0) {
       return alert('配信対象が0名です。配信先の最終確認で1名以上を「配信」にしてください。');
@@ -1957,7 +1965,7 @@ export default function App() {
   ) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
     const rosterStep =
-      mode === REQUEST_KIND.employee ? startNum + 2 : mode === REQUEST_KIND.tf ? startNum + 1 : startNum + 3;
+      mode === REQUEST_KIND.employee ? startNum + 1 : mode === REQUEST_KIND.tf ? startNum + 1 : startNum + 3;
 
     const blockRecipientRoster = () => (
       <RecipientRosterPanel
@@ -2084,7 +2092,6 @@ export default function App() {
       return (
         <div className="w-full flex flex-col gap-6">
           {blockRoles(startNum)}
-          {blockTeams(startNum + 1)}
           {blockRecipientRoster()}
         </div>
       );
