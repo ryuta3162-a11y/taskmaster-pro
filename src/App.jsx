@@ -577,11 +577,90 @@ function isPdfFile(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 }
 
+function isPdfAttachmentUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return /\.pdf(\?|#|$)/.test(u) || u.includes('export=download');
+}
+
+function extractDriveFileId_(url) {
+  const m = String(url || '').match(/[?&]id=([^&]+)/);
+  return m ? m[1] : null;
+}
+
+/** Drive 保存 URL を一覧サムネ用に変換（失敗時は元 URL） */
+function attachmentPreviewSrc_(url) {
+  const id = extractDriveFileId_(url);
+  if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w256`;
+  return url;
+}
+
+function attachmentFromStoredUrl_(url, idx) {
+  const u = String(url || '').trim();
+  if (!u) return null;
+  const pdf = isPdfAttachmentUrl(u);
+  return {
+    name: pdf ? `参考PDF${idx + 1}.pdf` : `参考画像${idx + 1}.jpg`,
+    type: pdf ? 'application/pdf' : 'image/jpeg',
+    preview: u,
+    reuseUrl: u,
+    isPdf: pdf,
+  };
+}
+
+/** 再投稿・定期一覧：保存済み添付の小さなサムネ（クリックで新しいタブで開く） */
+function SavedAttachmentStrip({ urls, className = '' }) {
+  const list = (Array.isArray(urls) ? urls : []).map((u) => String(u || '').trim()).filter(Boolean);
+  if (list.length === 0) return null;
+
+  return (
+    <div className={`mt-4 ${className}`}>
+      <p className="text-xs font-bold text-slate-500 mb-2">添付（タップで拡大・確認）</p>
+      <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+        {list.map((url, i) => (
+          <SavedAttachmentMini key={`${url}-${i}`} url={url} index={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SavedAttachmentMini({ url, index }) {
+  const [imgError, setImgError] = useState(false);
+  const pdf = isPdfAttachmentUrl(url);
+  const openUrl = url;
+  const thumbSrc = attachmentPreviewSrc_(url);
+
+  return (
+    <a
+      href={openUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="添付を開く"
+      className="block w-20 h-20 rounded-lg overflow-hidden border-2 border-slate-300 bg-slate-50 hover:border-[var(--acc-400)] hover:shadow-md transition-all shrink-0"
+    >
+      {pdf || imgError ? (
+        <span className="w-full h-full flex flex-col items-center justify-center p-1 text-center">
+          <span className="inline-flex text-rose-600 scale-90"><Icon name="filePdf" /></span>
+          <span className="text-[9px] font-bold text-slate-600 mt-1">PDF {index + 1}</span>
+        </span>
+      ) : (
+        <img
+          src={thumbSrc}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      )}
+    </a>
+  );
+}
+
 function AttachmentThumb({ img, onRemove, removeBtnClass, sizeClass = 'w-32 h-32' }) {
   const [imgError, setImgError] = useState(false);
   const showFileCard =
     img.isPdf ||
     (img.type && String(img.type).toLowerCase() === 'application/pdf') ||
+    (img.reuseUrl && isPdfAttachmentUrl(img.reuseUrl)) ||
     (img.reuseUrl && imgError);
 
   return (
@@ -1236,15 +1315,8 @@ export default function App() {
     const repostImages = [];
     if (Array.isArray(task.images)) {
       task.images.forEach((url, idx) => {
-        const u = String(url || '').trim();
-        if (u) {
-          repostImages.push({
-            name: `参考画像${idx + 1}.jpg`,
-            type: 'image/jpeg',
-            preview: u,
-            reuseUrl: u
-          });
-        }
+        const item = attachmentFromStoredUrl_(url, idx);
+        if (item) repostImages.push(item);
       });
     }
 
@@ -1367,15 +1439,8 @@ export default function App() {
     const imgs = [];
     if (Array.isArray(task.images)) {
       task.images.forEach((url, idx) => {
-        const u = String(url || '').trim();
-        if (u) {
-          imgs.push({
-            name: `参考画像${idx + 1}.jpg`,
-            type: 'image/jpeg',
-            preview: u,
-            reuseUrl: u
-          });
-        }
+        const item = attachmentFromStoredUrl_(url, idx);
+        if (item) imgs.push(item);
       });
     }
     setScheduleImages(imgs);
@@ -1424,18 +1489,22 @@ export default function App() {
     return full.filter((s) => myStores.indexOf(s) >= 0);
   };
 
-  /** 店舗チップ選択時は選択店舗のみ。未実施・全店表示時は未完了行のみ、店舗絞り込み時は完了行も表示 */
+  /** 未実施タブ: 担当店舗をすべて表示（完了分はグレー＋実施者・時刻）。実施済みタブ: 完了店舗のみ */
   const getVisibleStoreRowsForTask = (task) => {
     if (task.requestKind !== REQUEST_KIND.store) return [];
     let names = getMyRelevantStoreNamesForTask(task, checklistUserStores);
     const sel = asUserStoreList(selectedChecklistStores);
     if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
-    if (taskTab === 'active' && !hasChecklistStoreFilter(selectedChecklistStores)) {
-      const sc = task.storeCompletions || {};
-      names = names.filter((s) => !sc[s]);
-    } else if (taskTab === 'completed') {
-      const sc = task.storeCompletions || {};
+    const sc = task.storeCompletions || {};
+    if (taskTab === 'completed') {
       names = names.filter((s) => !!sc[s]);
+    } else {
+      names = [...names].sort((a, b) => {
+        const ad = !!sc[a];
+        const bd = !!sc[b];
+        if (ad === bd) return a.localeCompare(b, 'ja');
+        return ad ? 1 : -1;
+      });
     }
     return names;
   };
@@ -2305,7 +2374,7 @@ export default function App() {
                   <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
                     <br />
-                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・添付（JPEG・PNG・PDF 合計{MAX_ATTACHMENTS}件まで）・配信先を引き継いでタスク配信画面を開きます。期限だけ選び直してください。</span>
+                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・添付・配信先を引き継ぎます。添付はサムネイルをタップすると開けます。期限だけ選び直してください。</span>
                   </p>
                   
                   <div className="space-y-6 w-full">
@@ -2320,6 +2389,7 @@ export default function App() {
                              {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
                            </div>
                            <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
+                           <SavedAttachmentStrip urls={task.images} />
                          </div>
                          <button onClick={() => handleRepostClick(task)} className={brutalBtnSecondary + " w-full md:w-auto px-8 flex-shrink-0"}>
                            再利用して作成
@@ -2491,6 +2561,7 @@ export default function App() {
                                {task.targetTags && <span className={`${appTagPill} text-slate-700 bg-slate-50`}>宛先: {task.targetTags}</span>}
                              </div>
                              <p className={`${appText.title} text-slate-800 leading-relaxed`}>{formatContent(task.content)}</p>
+                             <SavedAttachmentStrip urls={task.images} />
                            </div>
                            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
                              <button type="button" onClick={() => handleEditScheduleClick(task)} className={`${appBtnSecondary} w-full md:w-auto px-5`}>
@@ -2674,16 +2745,27 @@ export default function App() {
                                       const canUndo =
                                         mine && done && emailsMatch(done.by, currentUser?.email);
                                       const interactive = canComplete || canUndo;
+                                      const doneOnActiveTab = !!done && taskTab === 'active';
                                       return (
                                         <li
                                           key={storeName}
-                                          className={`flex flex-wrap items-center gap-3 ${appText.body} border border-slate-300 rounded-xl px-3 py-2.5 bg-white`}
+                                          className={`flex flex-wrap items-center gap-3 ${appText.body} border rounded-xl px-3 py-2.5 ${
+                                            doneOnActiveTab
+                                              ? 'border-slate-200 bg-slate-100 text-slate-500'
+                                              : 'border-slate-300 bg-white'
+                                          }`}
                                         >
                                           <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                            <span className="font-bold text-slate-900 min-w-0 break-words">{storeName}</span>
+                                            <span
+                                              className={`font-bold min-w-0 break-words ${
+                                                doneOnActiveTab ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-900'
+                                              }`}
+                                            >
+                                              {storeName}
+                                            </span>
                                             {done ? (
-                                              <span className="text-xs text-slate-600">
-                                                <span className="font-bold text-slate-900">完了</span>
+                                              <span className={`text-xs ${doneOnActiveTab ? 'text-slate-500' : 'text-slate-600'}`}>
+                                                <span className={`font-bold ${doneOnActiveTab ? 'text-slate-600' : 'text-slate-900'}`}>完了</span>
                                                 {' · '}
                                                 {resolveEmployeeName(done.by, allEmployees)}
                                                 {done.at && <span className="text-slate-400">（{done.at}）</span>}
