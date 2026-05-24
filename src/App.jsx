@@ -290,7 +290,7 @@ function normalizeRecipientEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
-/** 配信先候補の一致判定（社員依頼=役職のみ / 店舗・TF=チーム＋店舗など） */
+/** 配信先候補の一致判定（社員=役職 / 店舗=管轄店舗 / TF=所属チーム） */
 function employeeMatchesTargetFilters(
   emp,
   { requestKind, selectedStores, selectedRoles, selectedTeams, rolesList, teamsList }
@@ -302,10 +302,10 @@ function employeeMatchesTargetFilters(
       (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role)
     );
   }
-  const teamMatch = employeeMatchesTeams(emp, selectedTeams, teamsList);
-  if (!teamMatch) return false;
-  if (kind === REQUEST_KIND.tf) return true;
-  return !!(emp.stores && emp.stores.some((s) => selectedStores.includes(s)));
+  if (kind === REQUEST_KIND.store) {
+    return !!(emp.stores && emp.stores.some((s) => selectedStores.includes(s)));
+  }
+  return employeeMatchesTeams(emp, selectedTeams, teamsList);
 }
 
 /** 配信先候補一覧（名前・役職など付き） */
@@ -420,6 +420,18 @@ const api = {
   fetchTasksForUser: (email) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getTasksForUser(email);
+  }),
+  fetchAppDataForUser: (email, senderName) => new Promise((res, rej) => {
+    if (!isGAS) {
+      return setTimeout(
+        () => res({ tasks: [], sentTasks: [], scheduledTasks: [] }),
+        800
+      );
+    }
+    google.script.run
+      .withSuccessHandler(res)
+      .withFailureHandler(rej)
+      .getAppDataForUser(email, senderName);
   }),
   createTask: (data) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({ status: 'success', id: 'mock', driveErrors: [] }), 1000);
@@ -1161,18 +1173,61 @@ export default function App() {
     }).catch(() => setAuthStep('login'));
   }, []);
 
-  const refreshTasks = () => {
-    if (!currentUser) return;
-    setTasksLoading(true);
-    api.fetchTasksForUser(currentUser.email).then(data => {
-      setTasks(Array.isArray(data) ? data : []);
-      setTasksLoading(false);
-    }).catch(() => setTasksLoading(false));
-    api.getSentTasks(currentUser.name).then(res => setSentTasks(Array.isArray(res) ? res : []));
-    api.getScheduledTasks(currentUser.name).then(res => setScheduledTasks(Array.isArray(res) ? res : []));
-  };
+  const refreshChecklistTasks = useCallback(
+    (opts = {}) => {
+      const { silent = false } = opts;
+      if (!currentUser?.email) return;
+      if (!silent) setTasksLoading(true);
+      api
+        .fetchTasksForUser(currentUser.email)
+        .then((data) => {
+          setTasks(Array.isArray(data) ? data : []);
+          if (!silent) setTasksLoading(false);
+        })
+        .catch(() => {
+          if (!silent) setTasksLoading(false);
+        });
+    },
+    [currentUser?.email]
+  );
 
-  useEffect(() => { if (authStep === 'ready') refreshTasks(); }, [authStep, currentUser, activeTab]);
+  const refreshSentTasks = useCallback(() => {
+    if (!currentUser?.name) return;
+    api.getSentTasks(currentUser.name).then((res) => setSentTasks(Array.isArray(res) ? res : []));
+  }, [currentUser?.name]);
+
+  const refreshScheduledTasks = useCallback(() => {
+    if (!currentUser?.name) return;
+    api.getScheduledTasks(currentUser.name).then((res) => setScheduledTasks(Array.isArray(res) ? res : []));
+  }, [currentUser?.name]);
+
+  const refreshAllAppData = useCallback(() => {
+    if (!currentUser?.email) return;
+    setTasksLoading(true);
+    api
+      .fetchAppDataForUser(currentUser.email, currentUser.name)
+      .then((data) => {
+        setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
+        setSentTasks(Array.isArray(data?.sentTasks) ? data.sentTasks : []);
+        setScheduledTasks(Array.isArray(data?.scheduledTasks) ? data.scheduledTasks : []);
+        setTasksLoading(false);
+      })
+      .catch(() => setTasksLoading(false));
+  }, [currentUser?.email, currentUser?.name]);
+
+  useEffect(() => {
+    if (authStep === 'ready' && currentUser) refreshAllAppData();
+  }, [authStep, currentUser, refreshAllAppData]);
+
+  useEffect(() => {
+    if (authStep !== 'ready' || !currentUser) return;
+    if (activeTab === 'repost') refreshSentTasks();
+  }, [activeTab, authStep, currentUser, refreshSentTasks]);
+
+  useEffect(() => {
+    if (authStep !== 'ready' || !currentUser) return;
+    if (activeTab === 'scheduled') refreshScheduledTasks();
+  }, [activeTab, authStep, currentUser, refreshScheduledTasks]);
 
   useEffect(() => {
     if (checklistKindFilter === 'employee') setSelectedChecklistStores([]);
@@ -1476,25 +1531,19 @@ export default function App() {
       return roleTag ? `全店 ${roleTag}`.trim() : '全店';
     }
 
-    let storeTag = '';
-    if (selectedStoreNames.length === 0) storeTag = '';
-    else if (selectedStoreNames.length === allStores.length && allStores.length > 0) storeTag = '全店';
-    else {
-      const tags = [];
-      AREAS.forEach((area) => {
-        const storesInArea = allStores.filter((s) => s.area === area).map((s) => s.storeName);
-        if (storesInArea.length === 0) return;
-        const selectedInArea = storesInArea.filter((s) => selectedStoreNames.includes(s));
-        if (selectedInArea.length > 0) {
-          if (selectedInArea.length === storesInArea.length) tags.push(area);
-          else tags.push(...selectedInArea);
-        }
-      });
-      storeTag = tags.join(', ');
-    }
-    const base = storeTag || (teamTag ? '全店' : '');
-    if (!base && !teamTag) return '指定なし';
-    return `${base}${teamTag}`.trim();
+    if (selectedStoreNames.length === 0) return '指定なし';
+    if (selectedStoreNames.length === allStores.length && allStores.length > 0) return '全店';
+    const tags = [];
+    AREAS.forEach((area) => {
+      const storesInArea = allStores.filter((s) => s.area === area).map((s) => s.storeName);
+      if (storesInArea.length === 0) return;
+      const selectedInArea = storesInArea.filter((s) => selectedStoreNames.includes(s));
+      if (selectedInArea.length > 0) {
+        if (selectedInArea.length === storesInArea.length) tags.push(area);
+        else tags.push(...selectedInArea);
+      }
+    });
+    return tags.length ? tags.join(', ') : '指定なし';
   };
 
   const validateTargetSelection = (kind, { roles, teams, stores }) => {
@@ -1503,7 +1552,9 @@ export default function App() {
       if (!roles.length) return '配信先の役職を少なくとも1つ選択してください。';
       return null;
     }
-    if (!teams.length) return '配信先のチームを少なくとも1つ選択してください。';
+    if (rk === REQUEST_KIND.tf && !teams.length) {
+      return '配信先のチームを少なくとも1つ選択してください。';
+    }
     if (rk === REQUEST_KIND.store && !stores.length) {
       return '配信先の店舗を少なくとも1つ選択してください。';
     }
@@ -1524,10 +1575,13 @@ export default function App() {
       requestRecipientExcluded
     );
     if (requestRecipientCandidates.length === 0) {
+      const rkEmpty = normalizeRequestKind(requestKind);
       const emptyMsg =
-        normalizeRequestKind(requestKind) === REQUEST_KIND.employee
+        rkEmpty === REQUEST_KIND.employee
           ? '配信先となる社員がいません。役職の選択を見直してください。'
-          : '配信先となる社員がいません。チーム・店舗などの条件を見直してください。';
+          : rkEmpty === REQUEST_KIND.store
+            ? '配信先となる社員がいません。店舗の選択を見直してください。'
+            : '配信先となる社員がいません。チームの選択を見直してください。';
       return alert(emptyMsg);
     }
     if (includedRecipients.length === 0) {
@@ -1573,7 +1627,8 @@ export default function App() {
       setRequestSelectedRoles(ROLES);
       setRequestRecipientExcluded([]);
       setActiveTab('home');
-      refreshTasks();
+      refreshChecklistTasks({ silent: true });
+      refreshSentTasks();
     } catch (error) { alert('送信失敗: ' + formatGasError(error)); } finally { setIsSubmitting(false); }
   };
 
@@ -1639,10 +1694,13 @@ export default function App() {
       scheduleRecipientExcluded
     );
     if (scheduleRecipientCandidates.length === 0) {
+      const rkEmpty = normalizeRequestKind(scheduleRequestKind);
       const emptyMsg =
-        normalizeRequestKind(scheduleRequestKind) === REQUEST_KIND.employee
+        rkEmpty === REQUEST_KIND.employee
           ? '配信先となる社員がいません。役職の選択を見直してください。'
-          : '配信先となる社員がいません。チーム・店舗などの条件を見直してください。';
+          : rkEmpty === REQUEST_KIND.store
+            ? '配信先となる社員がいません。店舗の選択を見直してください。'
+            : '配信先となる社員がいません。チームの選択を見直してください。';
       return alert(emptyMsg);
     }
     if (includedRecipients.length === 0) {
@@ -1713,7 +1771,8 @@ export default function App() {
       setScheduleSelectedRoles(ROLES);
       setScheduleSelectedTeams(TEAMS);
       setScheduleRecipientExcluded([]);
-      refreshTasks(); 
+      refreshScheduledTasks();
+      refreshChecklistTasks({ silent: true });
     } catch (error) {
       alert((scheduleEditingId ? '保存に失敗しました: ' : '登録失敗: ') + formatGasError(error));
     } finally { setIsSubmitting(false); }
@@ -1777,7 +1836,7 @@ export default function App() {
   const handleDeleteSchedule = async (id) => {
     if (window.confirm('この定期配信を削除（停止）しますか？')) {
       await api.deleteScheduledTask(id);
-      refreshTasks();
+      refreshScheduledTasks();
     }
   };
 
@@ -1839,7 +1898,6 @@ export default function App() {
         })
       );
       showActionToast('完了しました');
-      refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
     } finally {
@@ -1857,7 +1915,6 @@ export default function App() {
       }
       setConfirmModal({ isOpen: false, task: null, step: 'confirm' });
       showActionToast('完了しました');
-      refreshTasks();
     } catch (e) {
       setConfirmModal({ isOpen: false, task: null, step: 'confirm' });
     }
@@ -1892,7 +1949,6 @@ export default function App() {
       setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
       const doneCount = result?.completed ?? Object.keys(updated).length;
       showActionToast(doneCount > 1 ? `${doneCount}件完了しました` : '完了しました');
-      refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
       setStoreBulkModal({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
@@ -1910,7 +1966,6 @@ export default function App() {
         return;
       }
       setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, completed: false } : t)));
-      refreshTasks();
     } catch (e) {
       alert('取り消しに失敗しました');
     }
@@ -1932,7 +1987,6 @@ export default function App() {
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? applyStoreCompletionToTask(t, nextCompletions, checklistUserStores) : t))
       );
-      refreshTasks();
     } catch (e) {
       alert(formatGasError(e));
     } finally {
@@ -1964,8 +2018,7 @@ export default function App() {
     mode = REQUEST_KIND.store
   ) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
-    const rosterStep =
-      mode === REQUEST_KIND.employee ? startNum + 1 : mode === REQUEST_KIND.tf ? startNum + 1 : startNum + 3;
+    const rosterStep = startNum + 1;
 
     const blockRecipientRoster = () => (
       <RecipientRosterPanel
@@ -2108,8 +2161,7 @@ export default function App() {
 
     return (
       <div className="w-full flex flex-col gap-6">
-        {blockTeams(startNum)}
-        {blockStores(startNum + 1)}
+        {blockStores(startNum)}
         {blockRecipientRoster()}
       </div>
     );

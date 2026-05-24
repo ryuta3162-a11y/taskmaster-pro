@@ -34,6 +34,7 @@
 | フロント（App.jsx） | Code.gs 関数 | 備考 |
 |---------------------|--------------|------|
 | `fetchTasksForUser` | `getTasksForUser` | `targetStoreNames` / `storeCompletions` 付き |
+| `fetchAppDataForUser` | `getAppDataForUser` | 初回表示用（tasks + sent + scheduled を1往復） |
 | `completeTask` | `completeTask` | 店舗1件完了 |
 | `completeTaskStoresBulk` | `completeTaskStoresBulk` | **一括完了（必須ペア）** |
 | `uncompleteTask` | `uncompleteTask` | 第3引数 `storeName` で店舗取り消し |

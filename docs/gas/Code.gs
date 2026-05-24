@@ -339,8 +339,14 @@ function getTasksForUser(userEmail) {
     const myStores = myEmp && myEmp.stores ? myEmp.stores : [];
 
     const tasks = [];
+    const userEmailRaw = String(userEmail || '').trim().toLowerCase();
     values.forEach(function (row) {
       const targetsStr = String(row[13] || '');
+      if (!targetsStr) return;
+      const targetsQuick = targetsStr.toLowerCase();
+      if (targetsQuick.indexOf(userNorm) < 0 && (!userEmailRaw || targetsQuick.indexOf(userEmailRaw) < 0)) {
+        return;
+      }
       const targetList = parseTargetEmails(targetsStr);
       var isTarget = targetList.indexOf(userNorm) >= 0;
       if (!isTarget && targetsStr) {
@@ -415,6 +421,16 @@ function getTasksForUser(userEmail) {
   } catch (e) {
     return [];
   }
+}
+
+/** 初回表示用：リスト・再投稿・定期を1回の呼び出しで取得（往復を減らす） */
+function getAppDataForUser(userEmail, senderName) {
+  var name = String(senderName || '').trim();
+  return {
+    tasks: getTasksForUser(userEmail),
+    sentTasks: getSentTasks(name),
+    scheduledTasks: getScheduledTasks(name)
+  };
 }
 
 /**
