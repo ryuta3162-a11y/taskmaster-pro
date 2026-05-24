@@ -417,6 +417,10 @@ const api = {
     if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).registerEmployee(data);
   }),
+  updateEmployee: (data) => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res({ status: 'success' }), 1000);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).updateEmployee(data);
+  }),
   fetchTasksForUser: (email) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getTasksForUser(email);
@@ -535,6 +539,44 @@ function asUserStoreList(stores) {
   }
   return [];
 }
+
+/** スプレッドシートの従業員行 → 登録フォーム用 regData */
+function parseEmployeeToRegData(emp) {
+  const teams = parseEmployeeTeams(emp?.team);
+  const areas = String(emp?.area || '')
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const territory = {};
+  String(emp?.territory || '')
+    .split(' / ')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .forEach((part) => {
+      const idx = part.indexOf(':');
+      if (idx < 0) return;
+      const areaName = part.slice(0, idx).trim();
+      const terrPart = part.slice(idx + 1).trim();
+      if (!areaName) return;
+      territory[areaName] = terrPart
+        .split(/,\s*/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+    });
+  areas.forEach((areaName) => {
+    if (!territory[areaName]?.length) territory[areaName] = [...getTerritories(areaName)];
+  });
+  return {
+    name: emp?.name || '',
+    role: emp?.role || '',
+    team: teams,
+    area: areas,
+    territory,
+    stores: asUserStoreList(emp?.stores),
+  };
+}
+
+const emptyRegData = () => ({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
 
 function getTaskTargetStoreNames(task) {
   if (Array.isArray(task?.targetStoreNames) && task.targetStoreNames.length) {
@@ -1015,7 +1057,9 @@ export default function App() {
   
   const [allEmployees, setAllEmployees] = useState([]);
   const [allStores, setAllStores] = useState([]);
-  const [regData, setRegData] = useState({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
+  const [regData, setRegData] = useState(emptyRegData);
+  /** create=新規登録 / edit=ログイン情報の変更 */
+  const [regMode, setRegMode] = useState('create');
 
   const [appEntry] = useState(() => readAppEntryFromUrl());
   const [checklistOnlyMode, setChecklistOnlyMode] = useState(() => appEntry.checklistOnlyMode);
@@ -1308,9 +1352,29 @@ export default function App() {
         setLoginError(`新規登録は社内メール（${CORP_EMAIL_DOMAIN}）のみご利用いただけます。`);
         return;
       }
+      setRegMode('create');
+      setRegData(emptyRegData());
       setTempUser({ email });
       setAuthStep('register');
     }
+  };
+
+  const handleStartEditProfile = () => {
+    setLoginError('');
+    const email = normalizeEmail(inputEmail);
+    if (!email) {
+      setLoginError('メールアドレスを入力してください。');
+      return;
+    }
+    const user = allEmployees.find((emp) => normalizeEmail(emp.email) === email);
+    if (!user) {
+      setLoginError('このメールは未登録です。「ログイン / 新規登録」から登録してください。');
+      return;
+    }
+    setRegMode('edit');
+    setRegData(parseEmployeeToRegData(user));
+    setTempUser(user);
+    setAuthStep('register');
   };
 
   const handleConfirmLogin = () => {
@@ -1407,13 +1471,38 @@ export default function App() {
     const newEmployee = { ...regData, team: formattedTeam, area: formattedArea, territory: formattedTerritory, email: newEmail, stores: finalStores, role: regData.role };
 
     try {
-      await api.registerEmployee(newEmployee);
-      alert('登録が完了しました！');
-      setAllEmployees(prev => [...prev, newEmployee]);
-      setCurrentUser(newEmployee);
-      localStorage.setItem('taskmaster_user_email', newEmployee.email);
-      setAuthStep('ready');
-    } catch (err) { alert('登録失敗'); } finally { setIsSubmitting(false); }
+      if (regMode === 'edit') {
+        const res = await api.updateEmployee(newEmployee);
+        if (res?.status === 'error') {
+          alert(res.message || '保存に失敗しました');
+          return;
+        }
+        setAllEmployees((prev) =>
+          prev.map((e) => (normalizeEmail(e.email) === newEmail ? newEmployee : e))
+        );
+        setTempUser(newEmployee);
+        if (currentUser && normalizeEmail(currentUser.email) === newEmail) {
+          setCurrentUser(newEmployee);
+        }
+        alert('ログイン情報を更新しました！');
+        setAuthStep('confirm');
+      } else {
+        const res = await api.registerEmployee(newEmployee);
+        if (res?.status === 'error') {
+          alert(res.message || '登録に失敗しました');
+          return;
+        }
+        alert('登録が完了しました！');
+        setAllEmployees((prev) => [...prev, newEmployee]);
+        setCurrentUser(newEmployee);
+        localStorage.setItem('taskmaster_user_email', newEmployee.email);
+        setAuthStep('ready');
+      }
+    } catch (err) {
+      alert(regMode === 'edit' ? '保存に失敗しました' : '登録に失敗しました');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleLogout = () => {
@@ -2311,6 +2400,13 @@ export default function App() {
               <button type="submit" className={brutalBtnPrimary + ' w-full py-5 sm:py-6 text-lg sm:text-xl login-btn-shine'}>
                 ログイン / 新規登録
               </button>
+              <button
+                type="button"
+                onClick={handleStartEditProfile}
+                className={brutalBtnSecondary + ' w-full py-4 text-base sm:text-lg font-bold'}
+              >
+                ログイン情報を変更
+              </button>
             </form>
           </div>
         </div>
@@ -2319,8 +2415,16 @@ export default function App() {
       {authStep === 'register' && (
         <div className="min-h-[100dvh] bg-[#f2f2f7] flex flex-col p-6 relative overflow-y-auto w-full">
           <div className={appCard + " max-w-3xl w-full relative z-10 mx-auto my-auto animate-fade-in !p-8 md:!p-12"}>
-            <h2 className="text-3xl font-bold text-slate-900 mb-4 text-center tracking-tight">アカウント作成</h2>
-            <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">初めてのログインですね。<br/>プロフィールを登録して開始してください。</p>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4 text-center tracking-tight">
+              {regMode === 'edit' ? 'ログイン情報の変更' : 'アカウント作成'}
+            </h2>
+            <p className="text-gray-600 text-lg font-bold mb-10 text-center leading-relaxed">
+              {regMode === 'edit' ? (
+                <>チーム・エリア・管轄店舗・役職を更新できます。<br />保存後、内容を確認してログインしてください。</>
+              ) : (
+                <>初めてのログインですね。<br />プロフィールを登録して開始してください。</>
+              )}
+            </p>
             <form onSubmit={handleRegisterSubmit} className="space-y-10">
               <div>
                 <label className="text-sm font-black text-black uppercase mb-3 block tracking-widest">メールアドレス (固定)</label>
@@ -2432,8 +2536,28 @@ export default function App() {
                 </div>
               )}
               <div className="pt-8 flex gap-6">
-                <button type="button" onClick={() => {setAuthStep('login'); setInputEmail('');}} className={brutalBtnSecondary + " w-1/3"}>戻る</button>
-                <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + " w-2/3"}>{isSubmitting ? <span className="animate-spin"><Icon name="loader" /></span> : '登録して開始'}</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthStep('login');
+                    setRegMode('create');
+                    setRegData(emptyRegData());
+                  }}
+                  className={brutalBtnSecondary + ' w-1/3'}
+                >
+                  戻る
+                </button>
+                <button type="submit" disabled={isSubmitting} className={brutalBtnPrimary + ' w-2/3'}>
+                  {isSubmitting ? (
+                    <span className="animate-spin">
+                      <Icon name="loader" />
+                    </span>
+                  ) : regMode === 'edit' ? (
+                    '変更を保存'
+                  ) : (
+                    '登録して開始'
+                  )}
+                </button>
               </div>
             </form>
           </div>

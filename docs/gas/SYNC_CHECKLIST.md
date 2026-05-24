@@ -35,6 +35,7 @@
 |---------------------|--------------|------|
 | `fetchTasksForUser` | `getTasksForUser` | `targetStoreNames` / `storeCompletions` 付き |
 | `fetchAppDataForUser` | `getAppDataForUser` | 初回表示用（tasks + sent + scheduled を1往復） |
+| `updateEmployee` | `updateEmployee` | ログイン情報（チーム・店舗・役職など）の更新 |
 | `completeTask` | `completeTask` | 店舗1件完了 |
 | `completeTaskStoresBulk` | `completeTaskStoresBulk` | **一括完了（必須ペア）** |
 | `uncompleteTask` | `uncompleteTask` | 第3引数 `storeName` で店舗取り消し |

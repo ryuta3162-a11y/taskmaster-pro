@@ -179,22 +179,65 @@ function getStoreData() {
   } catch (e) { return []; }
 }
 
+function buildEmployeeSheetRow_(empData) {
+  let row = [
+    empData.name,
+    empData.email,
+    empData.team,
+    'なし',
+    empData.area,
+    empData.territory,
+    empData.role
+  ];
+  var stores = (empData.stores || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
+  if (stores.length > EMPLOYEE_STORE_COL_MAX) {
+    return { error: '管轄店舗は最大' + EMPLOYEE_STORE_COL_MAX + '件まで登録できます。' };
+  }
+  if (stores.length > 0) row = row.concat(stores);
+  return { row: row };
+}
+
 function registerEmployee(empData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('従業員データ') || ss.insertSheet('従業員データ');
-    // ★役職(role)を挿入する
-    let row = [
-      empData.name, empData.email, empData.team, 'なし', empData.area, empData.territory, empData.role
-    ];
-    var stores = (empData.stores || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
-    if (stores.length > EMPLOYEE_STORE_COL_MAX) {
-      return { status: 'error', message: '管轄店舗は最大' + EMPLOYEE_STORE_COL_MAX + '件まで登録できます。' };
-    }
-    if (stores.length > 0) row = row.concat(stores);
-    sheet.appendRow(row);
+    var built = buildEmployeeSheetRow_(empData);
+    if (built.error) return { status: 'error', message: built.error };
+    sheet.appendRow(built.row);
     return { status: 'success' };
   } catch(e) { return { status: 'error', message: e.toString() }; }
+}
+
+/** 登録済みメールのプロフィール（チーム・エリア・管轄店舗・役職など）を更新 */
+function updateEmployee(empData) {
+  try {
+    var emailNorm = normalizeTaskEmail(empData.email);
+    if (!emailNorm) return { status: 'error', message: 'メールアドレスが無効です' };
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('従業員データ');
+    if (!sheet) return { status: 'error', message: '従業員データがありません' };
+    var built = buildEmployeeSheetRow_(empData);
+    if (built.error) return { status: 'error', message: built.error };
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (normalizeTaskEmail(values[i][1]) !== emailNorm) continue;
+      var rowNum = i + 1;
+      var oldRow = values[i];
+      var oldStoreCols = 0;
+      for (var c = 7; c < oldRow.length; c++) {
+        if (String(oldRow[c] || '').trim()) oldStoreCols++;
+      }
+      sheet.getRange(rowNum, 1, 1, built.row.length).setValues([built.row]);
+      var newStoreCols = Math.max(0, built.row.length - 7);
+      if (oldStoreCols > newStoreCols) {
+        sheet.getRange(rowNum, 8 + newStoreCols, 1, oldStoreCols - newStoreCols).clearContent();
+      }
+      return { status: 'success' };
+    }
+    return { status: 'error', message: '登録情報が見つかりません' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
 }
 
 // ==============================================================
