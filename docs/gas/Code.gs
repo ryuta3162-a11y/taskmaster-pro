@@ -17,6 +17,18 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
+  if (page === 'progress') {
+    var teamParam = e && e.parameter ? String(e.parameter.team || '').trim() : '';
+    var progressHtml = HtmlService.createHtmlOutputFromFile('progress').getContent();
+    var progressBoot = '<script>window.__TM_PROGRESS_TEAM__=' + JSON.stringify(teamParam) + ';</script>';
+    progressHtml = progressHtml.indexOf('<head>') !== -1
+      ? progressHtml.replace('<head>', '<head>' + progressBoot)
+      : progressBoot + progressHtml;
+    return HtmlService.createHtmlOutput(progressHtml)
+      .setTitle('チーム進捗ビュー')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   var title = page === 'checklist' ? 'リストチェック' : 'ToDo List';
   if (page === 'checklist') {
     var html = HtmlService.createHtmlOutputFromFile('index').getContent();
@@ -1018,9 +1030,11 @@ function buildTodoEmailShellHtml_(opts) {
   );
 }
 
-function sendBrandedEmail_(to, subject, plainBody, htmlBody) {
+function sendBrandedEmail_(to, subject, plainBody, htmlBody, options) {
   var mail = { to: to, subject: subject, body: plainBody };
   if (htmlBody) mail.htmlBody = htmlBody;
+  if (options && options.replyTo) mail.replyTo = options.replyTo;
+  if (options && options.name) mail.name = options.name;
   MailApp.sendEmail(mail);
 }
 
@@ -1574,7 +1588,7 @@ function buildIncompleteTaskItemForEmail_(row, allStores, areasList) {
  * @param {string[]} keys
  * @param {string} mode 'employee' | 'store'
  */
-function sendAdminTaskReminder(taskId, keys, mode) {
+function sendAdminTaskReminder(taskId, keys, mode, customIntro) {
   try {
     var adminEmail = Session.getActiveUser().getEmail();
     if (!adminEmail) {
@@ -1654,21 +1668,41 @@ function sendAdminTaskReminder(taskId, keys, mode) {
   var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
   var sent = 0;
   var errors = [];
-  var subject = '【To-Do List】未完了タスクのリマインド（管理者からの送信）';
+
+  var employeesByEmail = getEmployeesByEmailMap_(employees);
+  var adminEmp = employeesByEmail[normalizeTaskEmail(adminEmail)] || null;
+  var adminName = adminEmp ? String(adminEmp.name || '').trim() : '';
+  if (!adminName) adminName = String(adminEmail).split('@')[0];
+  var adminTeam = adminEmp ? String(adminEmp.team || '').trim() : '';
+  var fromLabel = adminTeam
+    ? adminName + '（' + adminTeam + ' チーム）'
+    : adminName + '（管理者）';
+  var subject = '【To-Do List】' + (adminTeam ? adminTeam + 'チーム ' : '管理者 ') + 'からのリマインド';
+  var introText = String(customIntro || '').trim();
+  if (!introText) introText = buildDefaultTeamReminderIntro_(adminName, adminTeam);
 
   emailsToSend.forEach(function (target) {
     try {
       var plain;
       var html;
       if (mode === 'store' && target.stores && target.stores.length) {
-        var bodies = buildAdminStoreTaskReminderBodies_(target.name, taskItem, target.stores, checklistUrl);
+        var bodies = buildTeamProgressStoreReminderBodies_(
+          target.name, introText, taskItem, target.stores, checklistUrl, fromLabel, adminEmail
+        );
         plain = bodies.plain;
         html = bodies.html;
       } else {
-        plain = buildAdminReminderBody_(target.name, [taskItem], checklistUrl);
-        html = buildAdminReminderHtml_(target.name, [taskItem], checklistUrl);
+        plain = buildTeamProgressReminderBody_(
+          target.name, introText, taskItem, checklistUrl, fromLabel, adminEmail
+        );
+        html = buildTeamProgressReminderHtml_(
+          target.name, introText, taskItem, checklistUrl, fromLabel, adminEmail
+        );
       }
-      sendBrandedEmail_(target.email, subject, plain, html);
+      sendBrandedEmail_(target.email, subject, plain, html, {
+        name: fromLabel,
+        replyTo: adminEmail
+      });
       sent++;
     } catch (mailErr) {
       errors.push(target.email + ': ' + String(mailErr));
@@ -1894,6 +1928,17 @@ function getAdminDashboardData() {
       return u.assignedCount === 0;
     });
 
+    var viewerEmp = null;
+    var viewerNorm = normalizeTaskEmail(email);
+    for (var vi = 0; vi < employees.length; vi++) {
+      if (normalizeTaskEmail(employees[vi].email) === viewerNorm) {
+        viewerEmp = employees[vi];
+        break;
+      }
+    }
+    var viewerName = viewerEmp ? String(viewerEmp.name || '').trim() : '';
+    var viewerTeam = viewerEmp ? String(viewerEmp.team || '').trim() : '';
+
     return {
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -1901,6 +1946,8 @@ function getAdminDashboardData() {
       appUrl: appUrlBase,
       checklistUrl: checklistUrlBase,
       viewerEmail: email,
+      viewerName: viewerName,
+      viewerTeam: viewerTeam,
       summary: summary,
       tasks: tasks,
       employeeTasks: employeeTasks,
@@ -1979,6 +2026,457 @@ function sendAdminReminderEmail(targetEmail) {
       html
     );
     return { ok: true, message: 'リマインドメールを送信しました。', count: incomplete.length };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
+}
+
+/** 進捗画面のチーム別URL用（App.jsx の TEAMS と揃える） */
+var TM_PROGRESS_TEAMS_ = [
+  'QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション',
+  'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル',
+  'リスクアセスメント', 'ヨガ＆ピラティスチーム'
+];
+
+function buildTeamProgressUrl_(teamName) {
+  var base = getTaskWebAppUrl_() || '';
+  if (!base) return '';
+  var q = base.indexOf('?') >= 0 ? '&' : '?';
+  if (!String(teamName || '').trim()) {
+    return base + q + 'page=progress';
+  }
+  return base + q + 'page=progress&team=' + encodeURIComponent(String(teamName).trim());
+}
+
+function getTeamProgressUrlBook_() {
+  var allUrl = buildTeamProgressUrl_('');
+  var teams = TM_PROGRESS_TEAMS_.slice();
+  var teamUrls = teams.map(function (name) {
+    return { team: name, url: buildTeamProgressUrl_(name) };
+  });
+  return { progressUrlAll: allUrl, teamUrls: teamUrls, teams: teams };
+}
+
+function getTeamProgressAccessMap_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('TEAM_PROGRESS_ACCESS');
+  if (!raw || !String(raw).trim()) return {};
+  try {
+    var parsed = JSON.parse(raw);
+    var out = {};
+    Object.keys(parsed || {}).forEach(function (k) {
+      var arr = Array.isArray(parsed[k]) ? parsed[k] : [];
+      out[String(k).trim()] = arr.map(function (email) { return normalizeTaskEmail(email); }).filter(Boolean);
+    });
+    return out;
+  } catch (e) {
+    return {};
+  }
+}
+
+function extractTfTeamsFromTargetTags_(tags) {
+  var src = String(tags || '');
+  var teams = [];
+  var seen = {};
+  var regex = /TF[〈<【\[\(（]([^〉>】\]\)）]+)[〉>】\]\)）]/g;
+  var m;
+  while ((m = regex.exec(src)) !== null) {
+    var name = String(m[1] || '').trim();
+    if (!name || seen[name]) continue;
+    seen[name] = true;
+    teams.push(name);
+  }
+  return teams;
+}
+
+/** 進捗画面に載せる TF 系依頼か（P列が tf、または宛先タグが TF… 形式） */
+function isTfProgressTaskRow_(row, taskSummary) {
+  if (getRequestKindFromRow_(row) === 'tf') return true;
+  var tags = String((taskSummary && taskSummary.targetTags) || row[12] || '').trim();
+  if (!tags) return false;
+  if (/^TF/i.test(tags)) return true;
+  if (tags.indexOf('TF〈') >= 0 || tags.indexOf('TF<') >= 0) return true;
+  if (tags.indexOf('TFチーム') >= 0) return true;
+  return false;
+}
+
+function taskMatchesTeam_(task, team) {
+  var teamName = String(team || '').trim();
+  if (!teamName) return true;
+  var tfTeams = task && task.tfTeams;
+  if (tfTeams && tfTeams.length) {
+    return tfTeams.indexOf(teamName) >= 0;
+  }
+  var tags = String((task && task.targetTags) || '');
+  if (tags.indexOf('全チーム') >= 0 || tags.indexOf('TFチーム（全') >= 0) return true;
+  var sender = String((task && task.sender) || '');
+  var norm = teamName.toLowerCase();
+  return tags.toLowerCase().indexOf(norm) >= 0 || sender.toLowerCase().indexOf(norm) >= 0;
+}
+
+function isTeamProgressViewer_(viewerEmail, teamName) {
+  var norm = normalizeTaskEmail(viewerEmail);
+  if (!norm) return false;
+  if (isAdminUser_(norm)) return true;
+  var accessMap = getTeamProgressAccessMap_();
+  var team = String(teamName || '').trim();
+  var allowed = [];
+  if (team && accessMap[team]) allowed = allowed.concat(accessMap[team]);
+  if (accessMap['*']) allowed = allowed.concat(accessMap['*']);
+  return allowed.indexOf(norm) >= 0;
+}
+
+function getTeamProgressData(teamName) {
+  try {
+    var email = Session.getActiveUser().getEmail();
+    if (!email) {
+      return { ok: false, message: 'Google アカウントでログインした状態で開いてください。' };
+    }
+    var requestedTeam = String(teamName || '').trim();
+    if (!isTeamProgressViewer_(email, requestedTeam)) {
+      return { ok: false, message: 'この進捗画面を閲覧する権限がありません。' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('申請データ');
+    var appUrlBase = getTaskWebAppUrl_() || '';
+    var urlBook = getTeamProgressUrlBook_();
+    if (!sheet) {
+      return {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        viewerEmail: email,
+        spreadsheetUrl: ss.getUrl(),
+        appUrl: appUrlBase,
+        selectedTeam: requestedTeam,
+        availableTeams: urlBook.teams.slice(),
+        progressUrlAll: urlBook.progressUrlAll,
+        teamUrls: urlBook.teamUrls,
+        tfTasks: [],
+        summary: { total: 0, open: 0, overdueOpen: 0, completed: 0 }
+      };
+    }
+
+    var values = sheet.getDataRange().getValues();
+    if (values.length <= 1) {
+      return {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        viewerEmail: email,
+        spreadsheetUrl: ss.getUrl(),
+        appUrl: appUrlBase,
+        selectedTeam: requestedTeam,
+        availableTeams: urlBook.teams.slice(),
+        progressUrlAll: urlBook.progressUrlAll,
+        teamUrls: urlBook.teamUrls,
+        tfTasks: [],
+        summary: { total: 0, open: 0, overdueOpen: 0, completed: 0 }
+      };
+    }
+    values.shift();
+
+    var allStores = getStoreData();
+    var areasList = getAreasListFromStores_(allStores);
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    var employees = getEmployees();
+    var tfTasks = [];
+    var teamSet = {};
+    values.forEach(function (row) {
+      var id = String(row[0] || '').trim();
+      if (!id) return;
+      var task = buildAdminTaskSummaryFromRow_(row, allStores, areasList, today);
+      if (!isTfProgressTaskRow_(row, task)) return;
+      var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+      task.recipients = buildAdminTaskRecipients_(row, progress.kind, employees, allStores, areasList);
+      var teams = extractTfTeamsFromTargetTags_(task.targetTags || '');
+      teams.forEach(function (t) { teamSet[t] = true; });
+      task.tfTeams = teams;
+      if (!taskMatchesTeam_(task, requestedTeam)) return;
+      tfTasks.push(task);
+    });
+
+    tfTasks.sort(function (a, b) {
+      if (a.complete !== b.complete) return a.complete ? 1 : -1;
+      if (a.overdue !== b.overdue) return b.overdue ? 1 : -1;
+      return String(a.deadline).localeCompare(String(b.deadline));
+    });
+
+    var summary = { total: tfTasks.length, open: 0, overdueOpen: 0, completed: 0 };
+    tfTasks.forEach(function (t) {
+      if (t.complete) summary.completed++;
+      else {
+        summary.open++;
+        if (t.overdue) summary.overdueOpen++;
+      }
+    });
+
+    var fromData = Object.keys(teamSet);
+    var availableTeams = TM_PROGRESS_TEAMS_.slice();
+    fromData.forEach(function (t) {
+      if (availableTeams.indexOf(t) < 0) availableTeams.push(t);
+    });
+    var viewerEmployee = null;
+    var employeesAll = employees;
+    var viewerNorm = normalizeTaskEmail(email);
+    for (var ev = 0; ev < employeesAll.length; ev++) {
+      if (normalizeTaskEmail(employeesAll[ev].email) === viewerNorm) {
+        viewerEmployee = employeesAll[ev];
+        break;
+      }
+    }
+    var viewerName = viewerEmployee ? String(viewerEmployee.name || '').trim() : '';
+    var viewerTeam = viewerEmployee ? String(viewerEmployee.team || '').trim() : '';
+
+    return {
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      viewerEmail: email,
+      viewerName: viewerName,
+      viewerTeam: viewerTeam,
+      spreadsheetUrl: ss.getUrl(),
+      appUrl: appUrlBase,
+      selectedTeam: requestedTeam,
+      availableTeams: availableTeams,
+      progressUrlAll: urlBook.progressUrlAll,
+      teamUrls: urlBook.teamUrls,
+      tfTasks: tfTasks,
+      summary: summary
+    };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
+}
+
+/** チーム進捗リマインド用の既定本文（リーダー名・チーム名を差し込み） */
+function buildDefaultTeamReminderIntro_(viewerName, viewerTeam) {
+  var teamLabel = viewerTeam ? viewerTeam + 'チーム' : 'TFチーム';
+  var nameLabel = viewerName || '担当';
+  return [
+    'お元気様です。',
+    teamLabel + '　の' + nameLabel + 'です。',
+    '',
+    '下記、未完了の依頼がありましたので、ご確認・ご対応のほどよろしくお願いいたします。'
+  ].join('\n');
+}
+
+function buildTeamProgressReminderBody_(recipientName, intro, taskItem, checklistUrl, fromLabel, viewerEmail) {
+  var lines = [];
+  lines.push(recipientName + ' 様');
+  lines.push('');
+  String(intro || '').split('\n').forEach(function (line) { lines.push(line); });
+  lines.push('');
+  lines.push('▼ 対象の依頼');
+  var mark = taskItem.overdue ? '【期限超過】' : '';
+  lines.push(mark + '[' + taskItem.requestKindLabel + '] ' + (taskItem.contentPreview || '').replace(/\n/g, ' '));
+  lines.push('期限: ' + (taskItem.deadline || '—') + ' / 依頼者: ' + (taskItem.sender || '—'));
+  lines.push('');
+  lines.push('▼ リストチェックを開く');
+  lines.push(checklistUrl || '');
+  lines.push('');
+  lines.push('— 送信者: ' + fromLabel);
+  lines.push('   返信先: ' + viewerEmail);
+  return lines.join('\n');
+}
+
+function buildTeamProgressReminderHtml_(recipientName, intro, taskItem, checklistUrl, fromLabel, viewerEmail) {
+  var introHtml = String(intro || '')
+    .split('\n')
+    .map(function (line) { return escapeHtmlEmail_(line); })
+    .join('<br>');
+  var footer =
+    '<p style="margin:20px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px;">' +
+    '— 送信者: <strong style="color:#475569;">' + escapeHtmlEmail_(fromLabel) + '</strong><br>' +
+    '返信先: ' + escapeHtmlEmail_(viewerEmail) +
+    '</p>';
+  return buildTodoEmailShellHtml_({
+    greeting: escapeHtmlEmail_(recipientName) + ' 様',
+    intro: introHtml,
+    taskItem: taskItem,
+    ctaUrl: checklistUrl,
+    ctaLabel: 'リストチェックを開く',
+    extraHtml: footer
+  });
+}
+
+function buildTeamProgressStoreReminderBodies_(recipientName, intro, taskItem, storeNames, checklistUrl, fromLabel, viewerEmail) {
+  var lines = [];
+  lines.push(recipientName + ' 様');
+  lines.push('');
+  String(intro || '').split('\n').forEach(function (line) { lines.push(line); });
+  lines.push('');
+  lines.push('▼ 対象の依頼');
+  lines.push(String(taskItem.contentPreview || '').replace(/\n/g, ' '));
+  lines.push('期限: ' + (taskItem.deadline || '—') + ' / 依頼者: ' + (taskItem.sender || '—'));
+  if (taskItem.overdue) lines.push('※期限超過');
+  lines.push('');
+  lines.push('未実施の店舗（' + storeNames.length + '）:');
+  storeNames.forEach(function (s, i) { lines.push('  ' + (i + 1) + '. ' + s); });
+  lines.push('');
+  lines.push('▼ リストチェックを開く');
+  lines.push(checklistUrl || '');
+  lines.push('');
+  lines.push('— 送信者: ' + fromLabel);
+  lines.push('   返信先: ' + viewerEmail);
+
+  var introHtml = String(intro || '')
+    .split('\n')
+    .map(function (line) { return escapeHtmlEmail_(line); })
+    .join('<br>');
+  var listHtml = '<ul style="margin:8px 0 0;padding-left:20px;">';
+  storeNames.forEach(function (s) {
+    listHtml += '<li style="margin:4px 0;font-size:14px;font-weight:600;color:#0f172a;">' + escapeHtmlEmail_(s) + '</li>';
+  });
+  listHtml += '</ul>';
+  var footer =
+    '<p style="margin:20px 0 0;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px;">' +
+    '— 送信者: <strong style="color:#475569;">' + escapeHtmlEmail_(fromLabel) + '</strong><br>' +
+    '返信先: ' + escapeHtmlEmail_(viewerEmail) +
+    '</p>';
+  var html = buildTodoEmailShellHtml_({
+    greeting: escapeHtmlEmail_(recipientName) + ' 様',
+    intro: introHtml,
+    taskItem: taskItem,
+    listTitle: '未実施の店舗（' + storeNames.length + '）',
+    listHtml: listHtml,
+    ctaUrl: checklistUrl,
+    ctaLabel: 'リストチェックを開く',
+    extraHtml: footer
+  });
+  return { plain: lines.join('\n'), html: html };
+}
+
+/**
+ * チーム進捗ビュー用：依頼1件のリマインドを未実施者へ送信。
+ * - 認可: 該当チームの閲覧者（または管理者）であること
+ * - 送信元(From): スクリプトの実行アカウント（GAS の制約で変更不可）
+ * - 表示名: 「○○（チームリーダー）」 — リーダー本人として見える
+ * - 返信先(Reply-To): リーダーのメールに自動で返るよう設定
+ * - 本文: リーダー名の署名つき
+ */
+function sendTeamProgressReminder(taskId, keys, mode, teamName, customIntro) {
+  try {
+    var viewerEmail = Session.getActiveUser().getEmail();
+    if (!viewerEmail) {
+      return { ok: false, message: 'Google アカウントでログインした状態で実行してください。' };
+    }
+    var requestedTeam = String(teamName || '').trim();
+    if (!isTeamProgressViewer_(viewerEmail, requestedTeam)) {
+      return { ok: false, message: 'リマインドを送信する権限がありません。' };
+    }
+    if (!taskId || !keys || !keys.length) {
+      return { ok: false, message: '送信対象が選択されていません。' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('申請データ');
+    if (!sheet) return { ok: false, message: '申請データシートがありません。' };
+    var values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return { ok: false, message: 'タスクがありません。' };
+    values.shift();
+
+    var row = findTaskRowById_(values, taskId);
+    if (!row) return { ok: false, message: 'タスクが見つかりません。' };
+
+    var allStores = getStoreData();
+    var areasList = getAreasListFromStores_(allStores);
+    var employees = getEmployees();
+    var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+    var resolvedMode = mode === 'store' ? 'store' : (progress.kind === 'store' ? 'store' : 'employee');
+    var recipients = buildAdminTaskRecipients_(row, resolvedMode, employees, allStores, areasList);
+
+    var keySet = {};
+    keys.forEach(function (k) {
+      var nk = normalizeTaskEmail(k);
+      if (nk) keySet[nk] = true;
+      keySet[String(k)] = true;
+    });
+
+    var emailsToSend = [];
+    var emailMap = {};
+    if (resolvedMode === 'store') {
+      recipients.forEach(function (r) {
+        if (r.done) return;
+        var sn = String(r.storeName || r.label || r.key || '').trim();
+        if (!sn || (!keySet[sn] && !keySet[r.key])) return;
+        (r.assignees || []).forEach(function (a) {
+          var em = normalizeTaskEmail(a.email);
+          if (!em) return;
+          if (!emailMap[em]) {
+            emailMap[em] = { email: String(a.email).trim(), name: a.name || a.email, stores: [] };
+          }
+          if (emailMap[em].stores.indexOf(sn) < 0) emailMap[em].stores.push(sn);
+        });
+      });
+      Object.keys(emailMap).forEach(function (em) { emailsToSend.push(emailMap[em]); });
+    } else {
+      var seen = {};
+      recipients.forEach(function (r) {
+        if (!keySet[r.key] || r.done) return;
+        var em = normalizeTaskEmail(r.email);
+        if (em && !seen[em]) {
+          seen[em] = true;
+          emailsToSend.push({ email: String(r.email).trim(), name: r.name || r.email });
+        }
+      });
+    }
+
+    if (emailsToSend.length === 0) {
+      return { ok: false, message: '送信できる対象がありません（既に完了済みの可能性があります）。' };
+    }
+
+    var employeesByEmail = getEmployeesByEmailMap_(employees);
+    var viewerEmp = employeesByEmail[normalizeTaskEmail(viewerEmail)] || null;
+    var viewerName = viewerEmp ? String(viewerEmp.name || '').trim() : '';
+    if (!viewerName) viewerName = String(viewerEmail).split('@')[0];
+    var viewerTeam = viewerEmp ? String(viewerEmp.team || '').trim() : '';
+    var fromLabel = viewerTeam
+      ? viewerName + '（' + viewerTeam + ' チーム）'
+      : viewerName + '（チームリーダー）';
+
+    var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
+    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
+    var subject = '【To-Do List】' + (viewerTeam ? viewerTeam + 'チーム ' : '') + 'からのリマインド';
+
+    var introText = String(customIntro || '').trim();
+    if (!introText) introText = buildDefaultTeamReminderIntro_(viewerName, viewerTeam);
+
+    var sent = 0;
+    var errors = [];
+    emailsToSend.forEach(function (target) {
+      try {
+        var plain;
+        var html;
+        if (resolvedMode === 'store' && target.stores && target.stores.length) {
+          var bodies = buildTeamProgressStoreReminderBodies_(
+            target.name, introText, taskItem, target.stores, checklistUrl, fromLabel, viewerEmail
+          );
+          plain = bodies.plain;
+          html = bodies.html;
+        } else {
+          plain = buildTeamProgressReminderBody_(
+            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
+          );
+          html = buildTeamProgressReminderHtml_(
+            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
+          );
+        }
+        sendBrandedEmail_(target.email, subject, plain, html, {
+          name: fromLabel,
+          replyTo: viewerEmail
+        });
+        sent++;
+      } catch (mailErr) {
+        errors.push(target.email + ': ' + String(mailErr));
+      }
+    });
+
+    if (sent === 0) {
+      return { ok: false, message: '送信に失敗しました。\n' + errors.join('\n') };
+    }
+    var msg = sent + ' 名にリマインドを送信しました。\n（送信者表示: ' + fromLabel + ' / 返信先: ' + viewerEmail + '）';
+    if (errors.length) msg += '\n失敗: ' + errors.length + ' 件';
+    return { ok: true, message: msg, sent: sent, failed: errors.length, fromLabel: fromLabel };
   } catch (e) {
     return { ok: false, message: String(e) };
   }

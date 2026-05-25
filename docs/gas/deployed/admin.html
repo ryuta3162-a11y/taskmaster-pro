@@ -380,6 +380,38 @@
       padding: 1.5rem; text-align: center; font-weight: 600; color: #e11d48;
       background: #fff; border-radius: 1rem; border: 1px solid #fecaca;
     }
+
+    .intro-block {
+      margin: 0 0 .75rem; padding: .65rem .8rem;
+      border-radius: .8rem; background: #fff;
+      border: 1px solid color-mix(in oklch, var(--acc-200) 50%, transparent);
+    }
+    .intro-block label {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: var(--tm-meta); font-weight: 700; color: var(--acc-700);
+      margin-bottom: .35rem;
+    }
+    .intro-block label .right { display: flex; gap: .35rem; }
+    .intro-block textarea {
+      width: 100%; min-height: 5.5rem; resize: vertical;
+      border: 1px solid #e2e8f0; border-radius: .55rem;
+      padding: .55rem .65rem; font-size: .82rem; line-height: 1.55;
+      font-family: inherit; color: #0f172a;
+      background: #fafafe; outline: none;
+    }
+    .intro-block textarea:focus { border-color: var(--acc-400); background: #fff; }
+    .btn-link {
+      background: transparent; border: none; padding: 0;
+      font-size: .7rem; font-weight: 700; color: var(--acc-600); cursor: pointer;
+    }
+    .btn-link:hover { text-decoration: underline; }
+    .send-note {
+      margin: .75rem 0 0; padding: .6rem .75rem; border-radius: .65rem;
+      background: color-mix(in oklch, var(--acc-50) 60%, white);
+      border: 1px solid color-mix(in oklch, var(--acc-200) 50%, transparent);
+      font-size: .7rem; color: #475569; line-height: 1.5;
+    }
+    .send-note strong { color: var(--acc-700); }
   </style>
 </head>
 <body>
@@ -484,6 +516,32 @@
       var lastData = null;
       var openTaskId = null;
       var selected = {};
+      var introOverrides = {};
+
+      function viewerNameLabel() {
+        if (lastData && lastData.viewerName && lastData.viewerName.trim()) return lastData.viewerName.trim();
+        if (lastData && lastData.viewerEmail) return String(lastData.viewerEmail).split('@')[0];
+        return '管理者';
+      }
+
+      function defaultIntroText() {
+        var team = (lastData && lastData.viewerTeam) ? lastData.viewerTeam : '';
+        var teamLabel = team ? team + 'チーム' : '管理';
+        var name = viewerNameLabel();
+        return [
+          'お元気様です。',
+          teamLabel + '\u3000の' + name + 'です。',
+          '',
+          '下記、未完了の依頼がありましたので、ご確認・ご対応のほどよろしくお願いいたします。'
+        ].join('\n');
+      }
+
+      function getIntroForTask(taskId) {
+        if (Object.prototype.hasOwnProperty.call(introOverrides, taskId)) {
+          return introOverrides[taskId];
+        }
+        return defaultIntroText();
+      }
 
       function esc(s) {
         if (s == null) return '';
@@ -578,6 +636,18 @@
       function renderRecipients(task) {
         var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
         var recipients = task.recipients || [];
+
+        var introText = getIntroForTask(task.id);
+        h += '<div class="intro-block">';
+        h += '<label>';
+        h += '<span>挨拶文（編集できます）</span>';
+        h += '<span class="right">';
+        h += '<button type="button" class="btn-link" data-reset-intro="' + esc(task.id) + '">テンプレートに戻す</button>';
+        h += '</span>';
+        h += '</label>';
+        h += '<textarea data-intro-task="' + esc(task.id) + '" rows="5" spellcheck="false">' + esc(introText) + '</textarea>';
+        h += '</div>';
+
         h += '<div class="expand-toolbar">';
         h += '<span class="hint">' + (mode === 'store' ? '未完了の店舗を選んでリマインド（完了済み店舗は選択できません）' : '未実施の方を選んでリマインド') + '</span>';
         h += '<button type="button" class="btn btn-sm" data-select-pending="' + esc(task.id) + '">未実施をすべて選択</button>';
@@ -606,6 +676,12 @@
             h += '<p class="hint" style="margin-top:.5rem">すべての店舗が完了済みです</p>';
           }
         }
+
+        var fromLabel = viewerNameLabel();
+        var teamSuffix = (lastData && lastData.viewerTeam) ? '（' + lastData.viewerTeam + ' チーム）' : '（管理者）';
+        var replyTo = (lastData && lastData.viewerEmail) || '—';
+        h += '<div class="send-note">送信時の表示名: <strong>' + esc(fromLabel + teamSuffix) + '</strong><br>返信先（Reply-To）: <strong>' + esc(replyTo) + '</strong><br>※ Gmail の仕様上、送信元アドレスはシステム共通になりますが、表示名と返信先があなたになるため、受信者にはあなたからのリマインドとして届きます。</div>';
+
         h += '</div></div>';
         return h;
       }
@@ -675,6 +751,25 @@
           });
         });
 
+        document.querySelectorAll('textarea[data-intro-task]').forEach(function (ta) {
+          ta.addEventListener('click', function (e) { e.stopPropagation(); });
+          ta.addEventListener('input', function () {
+            var tid = ta.getAttribute('data-intro-task');
+            introOverrides[tid] = ta.value;
+          });
+        });
+
+        document.querySelectorAll('[data-reset-intro]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var tid = btn.getAttribute('data-reset-intro');
+            delete introOverrides[tid];
+            var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
+            if (ta) ta.value = defaultIntroText();
+          });
+        });
+
         document.querySelectorAll('[data-select-pending]').forEach(function (btn) {
           btn.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -705,18 +800,32 @@
               ? n + ' 店舗の担当者にリマインドを送信しますか？'
               : n + ' 名にリマインドを送信しますか？';
             if (!confirm(confirmMsg)) return;
+            var introText = '';
+            var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
+            if (ta) introText = ta.value;
+            else introText = getIntroForTask(tid);
+
             btn.disabled = true;
+            var origLabel = btn.textContent;
+            btn.textContent = '送信中…';
             google.script.run
               .withSuccessHandler(function (res) {
                 btn.disabled = false;
+                btn.textContent = origLabel;
                 alert((res && res.message) || '完了');
-                if (res && res.ok) load();
+                if (res && res.ok) {
+                  Object.keys(selected).forEach(function (sk) {
+                    if (sk.indexOf(tid + '::') === 0) delete selected[sk];
+                  });
+                  load();
+                }
               })
               .withFailureHandler(function (err) {
                 btn.disabled = false;
+                btn.textContent = origLabel;
                 alert(err && err.message ? err.message : String(err));
               })
-              .sendAdminTaskReminder(tid, keys, mode);
+              .sendAdminTaskReminder(tid, keys, mode, introText);
           });
         });
       }
@@ -781,7 +890,9 @@
         var email = data.viewerEmail || '';
         document.getElementById('metaLine').textContent =
           '最終更新: ' + (data.generatedAt ? new Date(data.generatedAt).toLocaleString('ja-JP') : '—');
-        document.getElementById('menuWho').textContent = email ? email.split('@')[0] : '管理者';
+        var displayWho = (data.viewerName && data.viewerName.trim()) ? data.viewerName : (email ? email.split('@')[0] : '管理者');
+        if (data.viewerTeam) displayWho += '（' + data.viewerTeam + ' チーム）';
+        document.getElementById('menuWho').textContent = displayWho;
         document.getElementById('menuMail').textContent = email;
         document.getElementById('btnAccount').textContent = accountInitial(email);
 

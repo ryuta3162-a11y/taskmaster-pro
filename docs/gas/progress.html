@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>管理ダッシュボード</title>
+  <title>チーム進捗ビュー</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root {
-      /* タイポグラフィ（index の appText と同階層） */
       --tm-title: 1rem;
       --tm-section: 0.875rem;
       --tm-body: 0.875rem;
@@ -38,11 +37,8 @@
       display: flex; flex-direction: column; min-height: 100dvh;
       max-width: 32rem; margin: 0 auto; width: 100%;
     }
-    @media (min-width: 768px) {
-      .shell { max-width: none; }
-    }
+    @media (min-width: 768px) { .shell { max-width: none; } }
 
-    /* --- header（利用者アプリと同型） --- */
     .topbar {
       position: sticky; top: 0; z-index: 40; flex-shrink: 0;
       height: 3.5rem;
@@ -72,11 +68,6 @@
       letter-spacing: -.02em; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     @media (min-width: 640px) { .brand-col h1 { font-size: 1.125rem; } }
-    .brand-col h1.sm-only { display: block; }
-    @media (min-width: 640px) {
-      .brand-col { display: flex; }
-      .brand-col h1.sm-only { display: none; }
-    }
     .page-title {
       font-size: .875rem; font-weight: 600; color: #64748b;
       letter-spacing: -.01em; margin-left: .25rem; white-space: nowrap;
@@ -132,15 +123,17 @@
       cursor: pointer; text-decoration: none; text-align: left;
     }
     .menu-link:hover { background: #f1f5f9; }
+    .readonly-note {
+      margin: 0; padding: .5rem .75rem .65rem; font-size: .68rem; color: #64748b;
+      border-top: 1px solid #f1f5f9; background: #f8fafc;
+    }
 
-    /* --- main --- */
     .main { flex: 1; overflow: auto; padding: 1rem .25rem 6rem; background: #f2f2f7; }
     @media (min-width: 768px) { .main { padding: 1.5rem 1rem 6rem; } }
     .main-inner { max-width: 120rem; margin: 0 auto; width: 100%; padding: 0 .25rem; }
     @media (min-width: 768px) { .main-inner { padding: 0 1rem; } }
     .stack { display: flex; flex-direction: column; gap: 1rem; margin-top: .25rem; width: 100%; }
 
-    /* ステータスバー（トップ画面と同型） */
     .status-strip {
       background: #fff; border-radius: 1rem;
       padding: .75rem 1rem;
@@ -153,90 +146,6 @@
     .status-strip .sep { color: #cbd5e1; user-select: none; }
     .status-strip .warn strong { color: #e11d48; }
 
-    /* トップ画面の3メニュー相当（新規投稿・再投稿・定期配信と同サイズ） */
-    .mode-grid {
-      display: flex;
-      flex-direction: column;
-      gap: .625rem;
-      width: 100%;
-    }
-    @media (min-width: 768px) {
-      .mode-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .75rem;
-      }
-    }
-    @media (min-width: 1280px) {
-      .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-    .mode-nav-tile {
-      width: 100%;
-      text-align: left;
-      background: #fff;
-      border-radius: 1rem;
-      padding: 1rem 1.25rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
-      border: 1px solid rgba(0,0,0,.04);
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      cursor: pointer;
-      transition: transform .15s, border-color .15s, box-shadow .15s;
-    }
-    @media (min-width: 768px) {
-      .mode-nav-tile { padding: 1.25rem; border-radius: 1rem; }
-    }
-    .mode-nav-tile:active { transform: scale(.99); }
-    .mode-nav-tile.on {
-      border-color: color-mix(in oklch, var(--acc-500) 55%, transparent);
-      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 0 0 2px color-mix(in oklch, var(--acc-500) 18%, transparent);
-    }
-    .mode-nav-tile.on .mode-nav-icon {
-      background: linear-gradient(to bottom right, var(--acc-500), var(--acc-700));
-      color: #fff;
-    }
-    .mode-nav-icon {
-      width: 3rem;
-      height: 3rem;
-      border-radius: .75rem;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--acc-50);
-      color: var(--acc-700);
-    }
-    .mode-nav-icon svg { width: 1.25rem; height: 1.25rem; transform: scale(.85); }
-    .mode-nav-label {
-      margin: 0;
-      flex: 1;
-      font-size: var(--tm-title);
-      font-weight: 600;
-      color: #0f172a;
-      line-height: 1.3;
-    }
-    .mode-nav-badge {
-      background: var(--acc-600);
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-      padding: .15rem .5rem;
-      border-radius: 9999px;
-      flex-shrink: 0;
-      min-width: 1.25rem;
-      text-align: center;
-    }
-    .mode-nav-badge.empty { display: none; }
-    .mode-nav-chev {
-      color: #cbd5e1;
-      flex-shrink: 0;
-      display: inline-flex;
-      transform: scale(.75) rotate(180deg);
-    }
-    .mode-nav-chev svg { width: 1.25rem; height: 1.25rem; }
-
-    /* PanelFrame + chip arena（フィルタ用） */
     .panel-frame {
       position: relative; border-radius: 1rem; overflow: hidden;
       border: 1px solid color-mix(in oklch, var(--acc-300) 40%, transparent);
@@ -251,6 +160,17 @@
       background: linear-gradient(to bottom, #34d399, var(--acc-500), var(--acc-700));
     }
     .panel-inner { position: relative; padding: 1rem 1rem 1rem 1.35rem; }
+    .team-row {
+      display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem;
+    }
+    .team-row label { font-size: var(--tm-meta); font-weight: 700; color: #64748b; }
+    .team-row select {
+      flex: 1; min-width: 8rem; max-width: 14rem;
+      padding: .55rem .75rem; border-radius: .75rem;
+      border: 1px solid color-mix(in oklch, var(--acc-200) 60%, transparent);
+      background: #fff; font-size: var(--tm-body); font-weight: 600; color: #334155;
+      font-family: inherit;
+    }
     .chip-arena {
       display: flex; flex-wrap: wrap; gap: .5rem;
       border-radius: .75rem;
@@ -273,27 +193,27 @@
       color: #fff; border-color: transparent;
       box-shadow: 0 4px 14px -4px var(--acc-500);
     }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: .55rem 1rem; font-size: .8rem; font-weight: 600; border-radius: 1rem;
+      border: 1px solid rgba(0,0,0,.06); background: #fff; color: #334155;
+      cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .btn-sm { padding: .4rem .75rem; font-size: .75rem; }
 
-    /* 依頼カード（一覧・展開用） */
     .task-list { display: flex; flex-direction: column; gap: .625rem; }
     .menu-tile {
       width: 100%; text-align: left; background: #fff;
-      border-radius: 1rem; padding: 1rem 1.25rem;
+      border-radius: 1rem; padding: 1rem 1.15rem;
       box-shadow: 0 1px 3px rgba(0,0,0,.08);
       border: 1px solid rgba(0,0,0,.04);
-      display: flex; align-items: flex-start; gap: 1rem;
-      cursor: pointer; transition: transform .15s;
+      display: block;
+      cursor: pointer; transition: transform .15s, border-color .15s;
     }
-    @media (min-width: 768px) { .menu-tile { padding: 1.25rem; } }
+    @media (min-width: 768px) { .menu-tile { padding: 1.1rem 1.25rem; } }
     .menu-tile:active { transform: scale(.99); }
     .menu-tile.open { border-color: color-mix(in oklch, var(--acc-300) 50%, transparent); }
-    .menu-icon {
-      width: 3rem; height: 3rem; border-radius: .75rem; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--acc-50); color: var(--acc-700);
-    }
-    .menu-icon svg { width: 1.35rem; height: 1.35rem; }
-    .menu-body { flex: 1; min-width: 0; }
+    .menu-body { width: 100%; min-width: 0; }
     .badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .35rem; }
     .badge {
       font-size: .65rem; font-weight: 700; padding: .12rem .45rem; border-radius: .4rem;
@@ -301,85 +221,82 @@
     .badge-run { background: var(--acc-50); color: var(--acc-900); border: 1px solid var(--acc-200); }
     .badge-ok { background: #f1f5f9; color: #475569; }
     .badge-late { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .badge-kind-e { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
-    .badge-kind-s { background: var(--acc-900); color: #fff; }
+    .badge-kind-tf { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
     .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.45; margin: 0 0 .25rem; word-break: break-word; color: #0f172a; }
     .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; }
-    .prog-wrap { margin-top: .45rem; max-width: 9rem; }
+    .prog-wrap { margin-top: .5rem; max-width: 100%; }
     .prog { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
     .prog > i { display: block; height: 100%; background: linear-gradient(90deg, var(--acc-500), var(--acc-700)); border-radius: 99px; }
-    .tile-chev {
-      color: #cbd5e1; flex-shrink: 0; margin-top: .35rem;
-      transform: rotate(180deg); transition: transform .2s, color .2s;
+    .tap-hint { font-size: .68rem; color: #94a3b8; font-weight: 600; margin-top: .35rem; }
+
+    .url-book {
+      margin-top: .75rem; border-radius: .75rem;
+      border: 1px solid color-mix(in oklch, var(--acc-200) 45%, transparent);
+      background: rgba(255,255,255,.7); padding: .5rem .65rem;
     }
-    .menu-tile.open .tile-chev { transform: rotate(270deg); color: var(--acc-600); }
+    .url-book summary {
+      cursor: pointer; font-size: var(--tm-meta); font-weight: 700; color: var(--acc-700);
+      list-style: none; padding: .25rem .15rem;
+    }
+    .url-book summary::-webkit-details-marker { display: none; }
+    .url-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem;
+      padding: .45rem 0; border-top: 1px solid #f1f5f9;
+    }
+    .url-row:first-of-type { border-top: none; }
+    .url-team { font-size: var(--tm-meta); font-weight: 700; color: #334155; min-width: 6.5rem; }
+    .url-link {
+      flex: 1; min-width: 0; font-size: .68rem; color: #64748b; word-break: break-all;
+      text-decoration: none;
+    }
+    .url-link:hover { color: var(--acc-700); }
+    .btn-copy {
+      padding: .25rem .55rem; font-size: .68rem; font-weight: 700; border-radius: .5rem;
+      border: 1px solid #e2e8f0; background: #fff; color: #475569; cursor: pointer;
+    }
 
     .task-expand-wrap { display: none; margin-top: -.35rem; }
     .task-expand-wrap.open { display: block; }
     .expand-panel { margin-top: 0; }
+    .expand-hint { font-size: var(--tm-meta); color: #64748b; font-weight: 600; margin: 0 0 .65rem; }
+    .recipient {
+      display: flex; align-items: flex-start; gap: .55rem; padding: .6rem .7rem;
+      border: 1px solid rgba(0,0,0,.05); border-radius: .75rem; margin-bottom: .4rem;
+      background: rgba(255,255,255,.85);
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .recipient:hover { border-color: var(--acc-300); background: color-mix(in oklch, var(--acc-50) 30%, white); }
+    .recipient.done { opacity: .55; background: #f1f5f9; border-color: #e2e8f0; cursor: not-allowed; }
+    .recipient.done:hover { border-color: #e2e8f0; background: #f1f5f9; }
+    .recipient.done .recipient-name { color: #94a3b8; }
+    .recipient input[type=checkbox] {
+      width: 1.1rem; height: 1.1rem; margin-top: .15rem;
+      accent-color: var(--acc-600); flex-shrink: 0;
+    }
+    .recipient-label { flex: 1; min-width: 0; }
+    .recipient-name { font-size: var(--tm-body); font-weight: 600; }
+    .recipient-sub { font-size: .68rem; color: #64748b; margin-top: .15rem; }
+    .status-pill { font-size: var(--tm-badge); font-weight: 700; padding: .15rem .45rem; border-radius: .35rem; flex-shrink: 0; }
+    .status-pill.ok { background: #ecfdf5; color: #047857; }
+    .status-pill.ng { background: #fff1f2; color: #be123c; }
+
     .expand-toolbar {
-      display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; align-items: center;
+      display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem;
     }
     .expand-toolbar .hint { font-size: var(--tm-meta); color: #64748b; font-weight: 600; flex: 1; min-width: 8rem; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: .55rem 1rem; font-size: .8rem; font-weight: 600; border-radius: 1rem;
-      border: 1px solid rgba(0,0,0,.06); background: #fff; color: #334155;
-      cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    }
     .btn-primary {
       background: var(--acc-500); color: #fff; border-color: transparent;
       box-shadow: 0 4px 14px -4px var(--acc-500);
     }
     .btn-primary:hover { background: var(--acc-600); }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn-sm { padding: .4rem .75rem; font-size: .75rem; }
-
-    .recipient {
-      display: flex; align-items: flex-start; gap: .55rem; padding: .6rem .7rem;
-      border: 1px solid rgba(0,0,0,.05); border-radius: .75rem; margin-bottom: .4rem;
-      background: rgba(255,255,255,.85);
+    .send-note {
+      margin: .75rem 0 0; padding: .6rem .75rem; border-radius: .65rem;
+      background: color-mix(in oklch, var(--acc-50) 60%, white);
+      border: 1px solid color-mix(in oklch, var(--acc-200) 50%, transparent);
+      font-size: .7rem; color: #475569; line-height: 1.5;
     }
-    .recipient.done {
-      opacity: .5; background: #f1f5f9; border-color: #e2e8f0;
-      cursor: not-allowed; pointer-events: none;
-    }
-    .recipient.done .recipient-name { color: #94a3b8; }
-    .assignee-row {
-      display: flex; align-items: flex-start; gap: .65rem;
-      padding: .65rem .75rem; border: 1px solid rgba(0,0,0,.05);
-      border-radius: .75rem; margin-bottom: .45rem; background: #fff;
-    }
-    .assignee-row input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .2rem; accent-color: var(--acc-600); flex-shrink: 0; }
-    .assignee-name { flex-shrink: 0; min-width: 5.5rem; max-width: 8rem; }
-    .assignee-name .recipient-name { font-size: .82rem; font-weight: 700; color: #0f172a; line-height: 1.35; }
-    .assignee-name .recipient-sub { font-size: .65rem; color: #64748b; margin-top: .1rem; word-break: break-all; }
-    .assignee-stores {
-      flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-      padding-top: .05rem;
-    }
-    .store-chip {
-      font-size: .72rem; font-weight: 600; color: var(--acc-900);
-      background: var(--acc-50); border: 1px solid var(--acc-200);
-      border-radius: .5rem; padding: .2rem .55rem; line-height: 1.3;
-    }
-    .assignee-arrow { color: #cbd5e1; font-size: .75rem; font-weight: 700; flex-shrink: 0; padding-top: .15rem; }
-    .recipient input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--acc-600); flex-shrink: 0; }
-    .recipient-name { font-size: var(--tm-body); font-weight: 600; }
-    .recipient-sub { font-size: .68rem; color: #64748b; margin-top: .15rem; }
-    .recipient-label { flex: 1; min-width: 0; }
-    .status-pill { font-size: var(--tm-badge); font-weight: 700; padding: .15rem .45rem; border-radius: .35rem; flex-shrink: 0; }
-    .status-pill.ok { background: #ecfdf5; color: #047857; }
-    .status-pill.ng { background: #fff1f2; color: #be123c; }
-
-    .empty, .loading {
-      text-align: center; padding: 3rem 1rem; font-weight: 600; font-size: .9rem; color: #94a3b8;
-    }
-    .loading { color: var(--acc-600); }
-    .err {
-      padding: 1.5rem; text-align: center; font-weight: 600; color: #e11d48;
-      background: #fff; border-radius: 1rem; border: 1px solid #fecaca;
-    }
+    .send-note strong { color: var(--acc-700); }
 
     .intro-block {
       margin: 0 0 .75rem; padding: .65rem .8rem;
@@ -405,13 +322,15 @@
       font-size: .7rem; font-weight: 700; color: var(--acc-600); cursor: pointer;
     }
     .btn-link:hover { text-decoration: underline; }
-    .send-note {
-      margin: .75rem 0 0; padding: .6rem .75rem; border-radius: .65rem;
-      background: color-mix(in oklch, var(--acc-50) 60%, white);
-      border: 1px solid color-mix(in oklch, var(--acc-200) 50%, transparent);
-      font-size: .7rem; color: #475569; line-height: 1.5;
+
+    .empty, .loading {
+      text-align: center; padding: 3rem 1rem; font-weight: 600; font-size: .9rem; color: #94a3b8;
     }
-    .send-note strong { color: var(--acc-700); }
+    .loading { color: var(--acc-600); }
+    .err {
+      padding: 1.5rem; text-align: center; font-weight: 600; color: #e11d48;
+      background: #fff; border-radius: 1rem; border: 1px solid #fecaca;
+    }
   </style>
 </head>
 <body>
@@ -425,15 +344,14 @@
           <span class="sub">Task Force Team</span>
           <h1>To-Do List</h1>
         </div>
-        <h1 class="sm-only" style="margin:0;font-size:.95rem;font-weight:700;">To-Do List</h1>
-        <span class="page-title">管理</span>
+        <span class="page-title">進捗（閲覧専用）</span>
       </div>
       <div class="account-wrap">
-        <button type="button" class="account-btn" id="btnAccount" aria-label="メニュー">管</button>
+        <button type="button" class="account-btn" id="btnAccount" aria-label="メニュー">進</button>
         <div class="menu-backdrop" id="menuBackdrop"></div>
         <div class="account-menu" id="accountMenu">
           <div class="menu-head">
-            <div class="who" id="menuWho">管理者</div>
+            <div class="who" id="menuWho">閲覧者</div>
             <div class="mail" id="menuMail"></div>
           </div>
           <p class="menu-meta" id="metaLine">読み込み中…</p>
@@ -447,6 +365,7 @@
             <a class="menu-link" id="linkSheet" href="#" target="_blank" rel="noopener" style="display:none">📊 スプレッドシート</a>
             <a class="menu-link" id="linkApp" href="#" target="_top">↗ 利用者アプリ</a>
           </div>
+          <p class="readonly-note" id="readonlyNote">タスクを開くと、未実施者を選んでリマインド送信できます（送信者: あなた）</p>
         </div>
       </div>
     </header>
@@ -455,36 +374,18 @@
       <div class="main-inner stack">
         <div id="statsBar" class="status-strip">読み込み中…</div>
 
-        <div class="mode-grid" role="tablist" id="modeGrid">
-          <button type="button" class="mode-nav-tile on" data-mode="employee" aria-selected="true">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <h4 class="mode-nav-label">社員依頼</h4>
-            <span class="mode-nav-badge empty" id="badgeEmployee" data-badge="employee">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="store" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            </div>
-            <h4 class="mode-nav-label">店舗依頼</h4>
-            <span class="mode-nav-badge empty" id="badgeStore" data-badge="store">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="scheduled" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            </div>
-            <h4 class="mode-nav-label">定期配信</h4>
-            <span class="mode-nav-badge empty" id="badgeScheduled" data-badge="scheduled">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
-          </button>
-        </div>
-
-        <div class="panel-frame" id="filtersPanel">
+        <div class="panel-frame" id="teamPanel">
           <div class="panel-inner">
+            <div class="team-row">
+              <label for="teamSelect">チーム</label>
+              <select id="teamSelect" aria-label="チームを選択"></select>
+              <button type="button" class="btn btn-sm" id="btnApply">表示更新</button>
+            </div>
             <div id="filtersBar" class="chip-arena"></div>
+            <details class="url-book" id="urlBook">
+              <summary>チーム別ブックマークURL（配布用）</summary>
+              <div id="urlBookBody"></div>
+            </details>
           </div>
         </div>
 
@@ -508,25 +409,26 @@
         { id: 'rose', label: 'ローズ', 50: 'oklch(96.9% 0.015 12.422)', 100: 'oklch(94.1% 0.03 12.58)', 200: 'oklch(89.2% 0.058 10.001)', 300: 'oklch(81% 0.117 11.638)', 400: 'oklch(71.2% 0.194 13.428)', 500: 'oklch(64.5% 0.246 16.439)', 600: 'oklch(58.6% 0.253 17.585)', 700: 'oklch(51.4% 0.222 16.935)', 900: 'oklch(41% 0.159 10.272)' }
       ];
       var ACCENT_STORAGE_KEY = 'taskmaster_accent_id';
-      var CHEV = '<svg class="tile-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>';
-      var ICON_CLIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>';
 
-      var mode = 'employee';
+      var initialTeam = (window.__TM_PROGRESS_TEAM__ || '').trim();
       var filter = 'all';
       var lastData = null;
       var openTaskId = null;
       var selected = {};
       var introOverrides = {};
+      var teamSelect = document.getElementById('teamSelect');
+
+      function selKey(taskId, key) { return taskId + '::' + key; }
 
       function viewerNameLabel() {
         if (lastData && lastData.viewerName && lastData.viewerName.trim()) return lastData.viewerName.trim();
         if (lastData && lastData.viewerEmail) return String(lastData.viewerEmail).split('@')[0];
-        return '管理者';
+        return '担当';
       }
 
       function defaultIntroText() {
         var team = (lastData && lastData.viewerTeam) ? lastData.viewerTeam : '';
-        var teamLabel = team ? team + 'チーム' : '管理';
+        var teamLabel = team ? team + 'チーム' : 'TFチーム';
         var name = viewerNameLabel();
         return [
           'お元気様です。',
@@ -549,9 +451,9 @@
       }
 
       function accountInitial(email) {
-        if (!email) return '管';
+        if (!email) return '進';
         var local = String(email).split('@')[0];
-        return local ? local.charAt(0).toUpperCase() : '管';
+        return local ? local.charAt(0).toUpperCase() : '進';
       }
 
       function applyAccent(id) {
@@ -575,13 +477,8 @@
         return 'indigo';
       }
 
-      function selKey(taskId, key) { return taskId + '::' + key; }
-
-      function getTasksForMode() {
-        if (!lastData) return [];
-        if (mode === 'employee') return lastData.employeeTasks || [];
-        if (mode === 'store') return lastData.storeTasks || [];
-        return [];
+      function getTasks() {
+        return (lastData && lastData.tfTasks) ? lastData.tfTasks : [];
       }
 
       function filterTasks(list) {
@@ -592,20 +489,70 @@
         });
       }
 
-      function renderStats() {
-        var bar = document.getElementById('statsBar');
-        if (mode === 'scheduled') {
-          var n = (lastData.scheduledTasks || []).length;
-          bar.innerHTML = '定期配信 <strong>' + n + '</strong><span style="font-weight:700;color:#64748b"> 件</span> 登録中';
-          return;
+      function buildClientProgressUrl(teamName) {
+        var base = window.location.href.split('?')[0];
+        var q = '?page=progress';
+        if (teamName) q += '&team=' + encodeURIComponent(teamName);
+        return base + q;
+      }
+
+      function copyUrl(text, btn) {
+        if (!text) return;
+        function done() {
+          if (!btn) return;
+          var prev = btn.textContent;
+          btn.textContent = 'コピー済';
+          setTimeout(function () { btn.textContent = prev; }, 1200);
         }
-        var list = getTasksForMode();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            window.prompt('URLをコピーしてください', text);
+          });
+        } else {
+          window.prompt('URLをコピーしてください', text);
+        }
+      }
+
+      function renderUrlBook() {
+        var body = document.getElementById('urlBookBody');
+        if (!body) return;
+        var allUrl = (lastData && lastData.progressUrlAll) || buildClientProgressUrl('');
+        var rows = (lastData && lastData.teamUrls) || [];
+        if (!rows.length && lastData && lastData.availableTeams) {
+          rows = lastData.availableTeams.map(function (t) {
+            return { team: t, url: buildClientProgressUrl(t) };
+          });
+        }
+        var html = '';
+        html += '<div class="url-row"><span class="url-team">全チーム</span>';
+        html += '<a class="url-link" href="' + esc(allUrl) + '" target="_blank" rel="noopener">' + esc(allUrl) + '</a>';
+        html += '<button type="button" class="btn-copy" data-copy="' + esc(allUrl) + '">コピー</button></div>';
+        rows.forEach(function (row) {
+          var u = row.url || buildClientProgressUrl(row.team);
+          html += '<div class="url-row"><span class="url-team">' + esc(row.team) + '</span>';
+          html += '<a class="url-link" href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + '</a>';
+          html += '<button type="button" class="btn-copy" data-copy="' + esc(u) + '">コピー</button></div>';
+        });
+        body.innerHTML = html;
+        body.querySelectorAll('.btn-copy').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            copyUrl(btn.getAttribute('data-copy'), btn);
+          });
+        });
+      }
+
+      function renderStats() {
+        var list = getTasks();
         var open = list.filter(function (t) { return !t.complete; }).length;
         var late = list.filter(function (t) { return !t.complete && t.overdue; }).length;
         var done = list.filter(function (t) { return t.complete; }).length;
         var total = list.length;
         var rate = total ? Math.round((done / total) * 100) : 0;
-        bar.innerHTML =
+        var teamLabel = (lastData && lastData.selectedTeam) ? lastData.selectedTeam : '全チーム';
+        document.getElementById('statsBar').innerHTML =
+          'チーム <strong>' + esc(teamLabel) + '</strong>' +
+          '<span class="sep">/</span>' +
           '未完了 <strong>' + open + '</strong><span style="font-weight:700;color:#64748b"> 件</span>' +
           '<span class="sep">/</span>' +
           '<span class="warn">期限超過 <strong>' + late + '</strong><span style="font-weight:700;color:#64748b"> 件</span></span>' +
@@ -614,13 +561,7 @@
       }
 
       function renderFilters() {
-        var panel = document.getElementById('filtersPanel');
         var bar = document.getElementById('filtersBar');
-        if (mode === 'scheduled') {
-          panel.style.display = 'none';
-          return;
-        }
-        panel.style.display = '';
         bar.innerHTML =
           '<button type="button" class="chip' + (filter === 'all' ? ' on' : '') + '" data-f="all">すべて</button>' +
           '<button type="button" class="chip' + (filter === 'open' ? ' on' : '') + '" data-f="open">未完了のみ</button>' +
@@ -628,14 +569,29 @@
         bar.querySelectorAll('.chip').forEach(function (el) {
           el.addEventListener('click', function () {
             filter = el.getAttribute('data-f') || 'all';
+            openTaskId = null;
             renderAll();
           });
         });
       }
 
+      function renderTeamOptions() {
+        var teams = (lastData && lastData.availableTeams) ? lastData.availableTeams.slice() : [];
+        var selected = (lastData && lastData.selectedTeam) ? lastData.selectedTeam : '';
+        var html = '<option value="">全チーム（すべてのTF依頼）</option>';
+        teams.forEach(function (name) {
+          html += '<option value="' + esc(name) + '"' + (selected === name ? ' selected' : '') + '>' + esc(name) + '</option>';
+        });
+        if (selected && teams.indexOf(selected) < 0) {
+          html += '<option value="' + esc(selected) + '" selected>' + esc(selected) + '</option>';
+        }
+        teamSelect.innerHTML = html;
+      }
+
       function renderRecipients(task) {
         var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
         var recipients = task.recipients || [];
+        var isStore = task.requestKind === 'store';
 
         var introText = getIntroForTask(task.id);
         h += '<div class="intro-block">';
@@ -649,64 +605,66 @@
         h += '</div>';
 
         h += '<div class="expand-toolbar">';
-        h += '<span class="hint">' + (mode === 'store' ? '未完了の店舗を選んでリマインド（完了済み店舗は選択できません）' : '未実施の方を選んでリマインド') + '</span>';
+        h += '<span class="hint">' + (isStore ? '未完了の店舗を選んでリマインド（完了済みは選択不可）' : '未実施の方を選んでリマインド') + '</span>';
         h += '<button type="button" class="btn btn-sm" data-select-pending="' + esc(task.id) + '">未実施をすべて選択</button>';
-        h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '">' + (mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド') + '</button>';
+        h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '" data-mode="' + (isStore ? 'store' : 'employee') + '">' + (isStore ? '選択した店舗にリマインド' : '選択した人にリマインド') + '</button>';
         h += '</div>';
 
         if (!recipients.length) {
-          h += '<p class="hint">対象データがありません</p>';
+          h += '<p class="expand-hint">対象データがありません</p>';
         } else {
-          var rows = recipients.slice().sort(function (a, b) {
+          recipients.slice().sort(function (a, b) {
             if (!!a.done !== !!b.done) return a.done ? 1 : -1;
             return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
-          });
-          rows.forEach(function (r) {
+          }).forEach(function (r) {
             var sk = selKey(task.id, r.key);
-            var checked = selected[sk] ? ' checked' : '';
+            var statusLabel = isStore ? (r.done ? '完了' : '未完了') : (r.done ? '実施済' : '未実施');
+            var checked = selected[sk] && !r.done ? ' checked' : '';
             var disabled = r.done ? ' disabled' : '';
-            var cls = 'recipient' + (r.done ? ' done' : '');
-            var statusLabel = mode === 'store' ? (r.done ? '完了' : '未完了') : (r.done ? '実施済' : '未実施');
-            h += '<label class="' + cls + '">';
+            h += '<label class="recipient' + (r.done ? ' done' : '') + '">';
             h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + disabled + ' />';
-            h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name || r.storeName) + '</div></div>';
-            h += '<span class="status-pill ' + (r.done ? 'ok' : 'ng') + '">' + statusLabel + '</span></label>';
+            h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name || r.storeName) + '</div>';
+            if (r.email) h += '<div class="recipient-sub">' + esc(r.email) + '</div>';
+            h += '</div>';
+            h += '<span class="status-pill ' + (r.done ? 'ok' : 'ng') + '">' + statusLabel + '</span>';
+            h += '</label>';
           });
-          if (mode === 'store' && !recipients.some(function (r) { return !r.done; })) {
-            h += '<p class="hint" style="margin-top:.5rem">すべての店舗が完了済みです</p>';
-          }
         }
 
-        var fromLabel = viewerNameLabel();
-        var teamSuffix = (lastData && lastData.viewerTeam) ? '（' + lastData.viewerTeam + ' チーム）' : '（管理者）';
+        var fromLabel = (lastData && (lastData.viewerName || lastData.viewerEmail)) || '—';
+        var teamSuffix = (lastData && lastData.viewerTeam) ? '（' + lastData.viewerTeam + ' チーム）' : '';
         var replyTo = (lastData && lastData.viewerEmail) || '—';
-        h += '<div class="send-note">送信時の表示名: <strong>' + esc(fromLabel + teamSuffix) + '</strong><br>返信先（Reply-To）: <strong>' + esc(replyTo) + '</strong><br>※ Gmail の仕様上、送信元アドレスはシステム共通になりますが、表示名と返信先があなたになるため、受信者にはあなたからのリマインドとして届きます。</div>';
+        h += '<div class="send-note">送信時の表示名: <strong>' + esc(fromLabel + teamSuffix) + '</strong><br>返信先（Reply-To）: <strong>' + esc(replyTo) + '</strong><br>※ Gmail の仕様上、送信元アドレスはシステム共通になりますが、表示名と返信先がリーダーになるため、受信者にはあなたからのリマインドとして届きます。</div>';
 
         h += '</div></div>';
         return h;
       }
 
       function renderTaskList() {
-        var list = filterTasks(getTasksForMode());
-        if (!list.length) return '<div class="empty">該当する依頼はありません</div>';
+        var list = filterTasks(getTasks());
+        if (!list.length) {
+          var teamNote = (lastData && lastData.selectedTeam)
+            ? '（チーム: ' + esc(lastData.selectedTeam) + '）'
+            : '';
+          return '<div class="empty">該当するTF依頼はありません' + teamNote + '<br><span style="font-size:.8rem;font-weight:500;color:#94a3b8;margin-top:.5rem;display:block">To-Doの「TFチーム依頼」で配信したもの、または宛先タグが TF… の依頼が対象です。<br>社員依頼・店舗依頼のみの場合はここには出ません。</span></div>';
+        }
         var h = '<div class="task-list">';
         list.forEach(function (t) {
           var isOpen = openTaskId === t.id;
           var st = t.complete ? 'badge-ok' : t.overdue ? 'badge-late' : 'badge-run';
           h += '<div>';
           h += '<button type="button" class="menu-tile' + (isOpen ? ' open' : '') + '" data-task-id="' + esc(t.id) + '" aria-expanded="' + isOpen + '">';
-          h += '<div class="menu-icon">' + ICON_CLIP + '</div>';
           h += '<div class="menu-body">';
           h += '<div class="badges">';
           h += '<span class="badge ' + st + '">' + esc(t.statusLabel) + '</span>';
-          h += '<span class="badge ' + (t.requestKind === 'store' ? 'badge-kind-s' : 'badge-kind-e') + '">' + (t.requestKind === 'store' ? '店舗' : '社員') + '</span>';
-          h += '<span class="badge badge-run">' + esc(t.type) + '</span>';
+          h += '<span class="badge badge-kind-tf">' + esc(t.requestKindLabel || 'TFチーム依頼') + '</span>';
           h += '</div>';
           h += '<p class="task-title">' + esc(t.contentPreview) + '</p>';
           h += '<div class="task-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender) + ' · ' + esc(t.progressLabel) + '</div>';
+          if (t.targetTags) h += '<div class="task-meta" style="margin-top:.2rem">宛先: ' + esc(t.targetTags) + '</div>';
           h += '<div class="prog-wrap"><div class="prog"><i style="width:' + (t.progressPct || 0) + '%"></i></div></div>';
+          h += '<div class="tap-hint">' + (isOpen ? 'タップで閉じる' : 'タップで実施状況を見る') + '</div>';
           h += '</div>';
-          h += CHEV;
           h += '</button>';
           h += '<div class="task-expand-wrap' + (isOpen ? ' open' : '') + '">' + (isOpen ? renderRecipients(t) : '') + '</div>';
           h += '</div>';
@@ -715,22 +673,12 @@
         return h;
       }
 
-      function renderScheduled() {
-        var list = lastData.scheduledTasks || [];
-        if (!list.length) return '<div class="empty">定期配信の登録はありません</div>';
-        var h = '<div class="task-list">';
-        list.forEach(function (s) {
-          h += '<div class="menu-tile" style="cursor:default">';
-          h += '<div class="menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>';
-          h += '<div class="menu-body">';
-          h += '<div class="badges"><span class="badge ' + (s.requestKind === 'store' ? 'badge-kind-s' : 'badge-kind-e') + '">' + esc(s.requestKindLabel) + '</span></div>';
-          h += '<p class="task-title">' + esc(s.contentPreview) + '</p>';
-          h += '<div class="task-meta">周期 ' + esc(s.cycle) + ' · 期限 ' + esc(s.deadlineOffset) + ' · ' + esc(s.sender) + ' · 配信先 ' + s.targetCount + ' 名</div>';
-          if (s.targetTags) h += '<div class="task-meta" style="margin-top:.25rem">宛先: ' + esc(s.targetTags) + '</div>';
-          h += '</div></div>';
-        });
-        h += '</div>';
-        return h;
+      function getCurrentTeam() {
+        return (lastData && lastData.selectedTeam) ? lastData.selectedTeam : '';
+      }
+
+      function findTask(id) {
+        return getTasks().find(function (t) { return String(t.id) === String(id); }) || null;
       }
 
       function bindTaskEvents() {
@@ -743,6 +691,7 @@
         });
 
         document.querySelectorAll('input[data-sk]').forEach(function (cb) {
+          cb.addEventListener('click', function (e) { e.stopPropagation(); });
           cb.addEventListener('change', function (e) {
             e.stopPropagation();
             var sk = cb.getAttribute('data-sk');
@@ -772,9 +721,10 @@
 
         document.querySelectorAll('[data-select-pending]').forEach(function (btn) {
           btn.addEventListener('click', function (e) {
+            e.preventDefault();
             e.stopPropagation();
             var tid = btn.getAttribute('data-select-pending');
-            var task = getTasksForMode().find(function (t) { return t.id === tid; });
+            var task = findTask(tid);
             if (!task) return;
             (task.recipients || []).forEach(function (r) {
               if (!r.done) selected[selKey(tid, r.key)] = true;
@@ -785,95 +735,69 @@
 
         document.querySelectorAll('[data-remind]').forEach(function (btn) {
           btn.addEventListener('click', function (e) {
+            e.preventDefault();
             e.stopPropagation();
             var tid = btn.getAttribute('data-remind');
+            var mode = btn.getAttribute('data-mode') || 'employee';
             var keys = [];
             Object.keys(selected).forEach(function (sk) {
-              if (sk.indexOf(tid + '::') === 0) keys.push(sk.split('::')[1]);
+              if (sk.indexOf(tid + '::') === 0) keys.push(sk.substring((tid + '::').length));
             });
             if (!keys.length) {
               alert('リマインドする対象にチェックを入れてください。');
               return;
             }
             var n = keys.length;
-            var confirmMsg = mode === 'store'
-              ? n + ' 店舗の担当者にリマインドを送信しますか？'
-              : n + ' 名にリマインドを送信しますか？';
-            if (!confirm(confirmMsg)) return;
+            var msg = mode === 'store'
+              ? n + ' 店舗の担当者にリマインドを送信しますか？\n（送信者表示: あなた）'
+              : n + ' 名にリマインドを送信しますか？\n（送信者表示: あなた）';
+            if (!confirm(msg)) return;
             var introText = '';
             var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
             if (ta) introText = ta.value;
             else introText = getIntroForTask(tid);
 
             btn.disabled = true;
-            var origLabel = btn.textContent;
             btn.textContent = '送信中…';
             google.script.run
               .withSuccessHandler(function (res) {
                 btn.disabled = false;
-                btn.textContent = origLabel;
+                btn.textContent = mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド';
                 alert((res && res.message) || '完了');
                 if (res && res.ok) {
                   Object.keys(selected).forEach(function (sk) {
                     if (sk.indexOf(tid + '::') === 0) delete selected[sk];
                   });
-                  load();
+                  load(getCurrentTeam());
                 }
               })
               .withFailureHandler(function (err) {
                 btn.disabled = false;
-                btn.textContent = origLabel;
+                btn.textContent = mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド';
                 alert(err && err.message ? err.message : String(err));
               })
-              .sendAdminTaskReminder(tid, keys, mode, introText);
+              .sendTeamProgressReminder(tid, keys, mode, getCurrentTeam(), introText);
           });
         });
       }
 
       function renderRoot() {
         var root = document.getElementById('root');
-        if (mode === 'scheduled') root.innerHTML = renderScheduled();
-        else {
-          root.innerHTML = renderTaskList();
-          bindTaskEvents();
-        }
-      }
-
-      function openCount(list) {
-        return (list || []).filter(function (t) { return !t.complete; }).length;
-      }
-
-      function renderModeBadges() {
-        if (!lastData) return;
-        var emp = openCount(lastData.employeeTasks);
-        var store = openCount(lastData.storeTasks);
-        var sched = (lastData.scheduledTasks || []).length;
-        [
-          { id: 'badgeEmployee', n: emp },
-          { id: 'badgeStore', n: store },
-          { id: 'badgeScheduled', n: sched }
-        ].forEach(function (b) {
-          var el = document.getElementById(b.id);
-          if (!el) return;
-          el.textContent = String(b.n);
-          el.classList.toggle('empty', b.n <= 0);
-        });
+        root.innerHTML = renderTaskList();
+        bindTaskEvents();
       }
 
       function renderAll() {
-        document.querySelectorAll('.mode-nav-tile[data-mode]').forEach(function (c) {
-          var on = c.getAttribute('data-mode') === mode;
-          c.classList.toggle('on', on);
-          c.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-        renderModeBadges();
+        renderTeamOptions();
         renderStats();
         renderFilters();
+        renderUrlBook();
         renderRoot();
       }
 
       function showError(msg) {
         document.getElementById('root').innerHTML = '<div class="err">' + esc(msg) + '</div>';
+        document.getElementById('statsBar').textContent = '—';
       }
 
       function setMenuOpen(open) {
@@ -882,60 +806,60 @@
       }
 
       function applyData(data) {
-        if (!data.ok) {
-          showError(data.message || '読み込みに失敗しました');
+        if (!data || !data.ok) {
+          showError((data && data.message) || '読み込みに失敗しました');
           return;
         }
         lastData = data;
+        openTaskId = null;
         var email = data.viewerEmail || '';
         document.getElementById('metaLine').textContent =
           '最終更新: ' + (data.generatedAt ? new Date(data.generatedAt).toLocaleString('ja-JP') : '—');
-        var displayWho = (data.viewerName && data.viewerName.trim()) ? data.viewerName : (email ? email.split('@')[0] : '管理者');
+        var displayWho = (data.viewerName && data.viewerName.trim()) ? data.viewerName : (email ? email.split('@')[0] : '閲覧者');
         if (data.viewerTeam) displayWho += '（' + data.viewerTeam + ' チーム）';
         document.getElementById('menuWho').textContent = displayWho;
         document.getElementById('menuMail').textContent = email;
+        var note = document.getElementById('readonlyNote');
+        if (note) {
+          note.textContent = 'リマインドは「' + displayWho + '」名で送信されます（返信は ' + (email || 'あなた') + ' に届きます）';
+        }
         document.getElementById('btnAccount').textContent = accountInitial(email);
-
         if (data.spreadsheetUrl) {
           var a = document.getElementById('linkSheet');
           a.href = data.spreadsheetUrl;
           a.style.display = 'flex';
         }
-        var app = document.getElementById('linkApp');
-        app.href = data.appUrl || window.location.href.split('?')[0];
-
+        document.getElementById('linkApp').href = data.appUrl || window.location.href.split('?')[0];
         renderAll();
       }
 
-      function load() {
+      function load(teamName) {
         document.getElementById('root').innerHTML = '<div class="loading">読み込み中…</div>';
+        document.getElementById('statsBar').textContent = '読み込み中…';
         if (typeof google === 'undefined' || !google.script || !google.script.run) {
-          showError('Google Apps Script の Web アプリとして開いてください。');
+          applyData({ ok: false, message: 'Google Apps Script の Web アプリとして開いてください。' });
           return;
         }
-        google.script.run.withSuccessHandler(applyData).withFailureHandler(function (e) {
-          showError(e && e.message ? e.message : String(e));
-        }).getAdminDashboardData();
+        google.script.run
+          .withSuccessHandler(applyData)
+          .withFailureHandler(function (e) {
+            applyData({ ok: false, message: e && e.message ? e.message : String(e) });
+          })
+          .getTeamProgressData(teamName || '');
       }
 
-      document.querySelectorAll('.mode-nav-tile[data-mode]').forEach(function (tab) {
-        tab.addEventListener('click', function () {
-          mode = tab.getAttribute('data-mode') || 'employee';
-          openTaskId = null;
-          filter = 'all';
-          renderAll();
-        });
+      document.getElementById('btnApply').addEventListener('click', function () {
+        filter = 'all';
+        openTaskId = null;
+        load(teamSelect.value || '');
       });
-
       document.getElementById('btnRefresh').addEventListener('click', function () {
         setMenuOpen(false);
-        load();
+        load((lastData && lastData.selectedTeam) || teamSelect.value || '');
       });
-
       document.getElementById('btnAccount').addEventListener('click', function (e) {
         e.stopPropagation();
-        var menu = document.getElementById('accountMenu');
-        setMenuOpen(!menu.classList.contains('open'));
+        setMenuOpen(!document.getElementById('accountMenu').classList.contains('open'));
       });
       document.getElementById('menuBackdrop').addEventListener('click', function () { setMenuOpen(false); });
 
@@ -951,7 +875,7 @@
         grid.appendChild(b);
       });
       applyAccent(readAccent());
-      load();
+      load(initialTeam);
     })();
   </script>
 </body>
