@@ -967,6 +967,11 @@ function escapeHtmlEmail_(s) {
     .replace(/"/g, '&quot;');
 }
 
+/** 改行（\r, \n, \r\n すべて）を <br> に置換した HTML を返す */
+function escapeHtmlEmailMultiline_(s) {
+  return escapeHtmlEmail_(s).replace(/\r\n|\r|\n/g, '<br>');
+}
+
 /** 配信・リマインド共通の HTML ラッパ（To-Do アプリ風） */
 function buildTodoEmailShellHtml_(opts) {
   opts = opts || {};
@@ -983,16 +988,18 @@ function buildTodoEmailShellHtml_(opts) {
     var overdue = t.overdue
       ? '<span style="display:inline-block;font-size:11px;font-weight:700;color:#be123c;background:#fff1f2;border:1px solid #fecaca;border-radius:6px;padding:2px 6px;margin-right:6px;">期限超過</span>'
       : '';
+    var bodyHtml = escapeHtmlEmailMultiline_(t.contentFull || t.contentPreview || '');
     inner +=
-      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px;">' +
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:16px;">' +
       overdue +
-      '<p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#0f172a;line-height:1.5;">' +
-      escapeHtmlEmail_(t.contentPreview || '') +
+      '<p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#0f172a;line-height:1.7;white-space:pre-wrap;word-break:break-word;">' +
+      bodyHtml +
       '</p>' +
-      '<p style="margin:0;font-size:12px;color:#64748b;">期限: ' +
-      escapeHtmlEmail_(t.deadline || '—') +
-      ' · 依頼者: ' +
-      escapeHtmlEmail_(t.sender || '') +
+      '<p style="margin:0;font-size:12px;color:#0f172a;">' +
+      '<span style="color:#64748b;">期限:</span> ' +
+      '<strong style="color:#0f172a;">' + escapeHtmlEmail_(t.deadline || '—') + '</strong>' +
+      ' &nbsp;·&nbsp; <span style="color:#64748b;">依頼者:</span> ' +
+      '<strong style="color:#0f172a;">' + escapeHtmlEmail_(t.sender || '') + '</strong>' +
       '</p></div>';
   }
   if (opts.listTitle && opts.listHtml) {
@@ -1017,14 +1024,16 @@ function buildTodoEmailShellHtml_(opts) {
       '</a></p>';
   }
   return (
-    '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"></head>' +
+    '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '</head>' +
     '<body style="margin:0;padding:0;background:#f2f2f7;font-family:\'Noto Sans JP\',Helvetica,Arial,sans-serif;">' +
     '<table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding:24px 12px;">' +
-    '<table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 3px rgba(0,0,0,.08);" cellpadding="0" cellspacing="0" role="presentation">' +
-    '<tr><td style="padding:16px 20px;border-bottom:1px solid #f1f5f9;">' +
+    '<table width="100%" style="max-width:960px;background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 3px rgba(0,0,0,.08);" cellpadding="0" cellspacing="0" role="presentation">' +
+    '<tr><td style="padding:20px 28px;border-bottom:1px solid #f1f5f9;">' +
     '<div style="font-size:8px;font-weight:600;letter-spacing:.18em;color:#64748b;">TASK FORCE TEAM</div>' +
     '<div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:2px;">To-Do List</div></td></tr>' +
-    '<tr><td style="padding:20px;">' +
+    '<tr><td style="padding:24px 28px;">' +
     inner +
     '</td></tr></table></td></tr></table></body></html>'
   );
@@ -1397,25 +1406,25 @@ function buildAdminStoreTaskReminderBodies_(displayName, taskItem, storeNames, c
 
 function buildTaskEmailHtml_(senderLine, targetTags, deadline, content, appUrl, subtitle) {
   var sub = subtitle || '新規依頼';
-  var safeContent = escapeHtmlEmail_(content).replace(/\n/g, '<br>');
+  var safeContent = escapeHtmlEmailMultiline_(content);
   return buildTodoEmailShellHtml_({
     intro:
-      '<strong style="color:#0f172a;">' +
+      '<strong style="color:#0f172a;font-size:15px;">' +
       escapeHtmlEmail_(sub) +
       '</strong><br><br>' +
-      '<table style="width:100%;font-size:13px;color:#475569;" cellpadding="0" cellspacing="0">' +
-      '<tr><td style="padding:4px 0;width:4.5em;font-weight:600;">名前</td><td>' +
+      '<table style="width:100%;font-size:13px;" cellpadding="0" cellspacing="0">' +
+      '<tr><td style="padding:4px 0;width:4.5em;font-weight:600;color:#64748b;">名前</td><td style="color:#0f172a;font-weight:600;">' +
       escapeHtmlEmail_(senderLine) +
       '</td></tr>' +
-      '<tr><td style="padding:4px 0;font-weight:600;">エリア</td><td>' +
+      '<tr><td style="padding:4px 0;font-weight:600;color:#64748b;">エリア</td><td style="color:#0f172a;font-weight:600;">' +
       escapeHtmlEmail_(targetTags || '指定なし') +
       '</td></tr>' +
-      '<tr><td style="padding:4px 0;font-weight:600;">期限</td><td>' +
+      '<tr><td style="padding:4px 0;font-weight:600;color:#64748b;">期限</td><td style="color:#0f172a;font-weight:600;">' +
       escapeHtmlEmail_(deadline) +
       '</td></tr></table>',
     extraHtml:
       '<p style="margin:16px 0 8px;font-size:12px;font-weight:700;color:#6366f1;">依頼内容</p>' +
-      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;font-size:14px;line-height:1.6;color:#0f172a;">' +
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;font-size:13px;line-height:1.7;color:#0f172a;white-space:pre-wrap;word-break:break-word;">' +
       safeContent +
       '</div>',
     ctaUrl: appUrl,
@@ -1578,6 +1587,7 @@ function buildIncompleteTaskItemForEmail_(row, allStores, areasList) {
     deadline: summary.deadline,
     sender: summary.sender,
     contentPreview: summary.contentPreview,
+    contentFull: String(row[5] || ''),
     overdue: summary.overdue
   };
 }
