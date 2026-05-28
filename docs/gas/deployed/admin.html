@@ -168,7 +168,7 @@
       }
     }
     @media (min-width: 1280px) {
-      .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     .mode-nav-tile {
       width: 100%;
@@ -303,7 +303,7 @@
     .badge-late { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .badge-kind-e { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
     .badge-kind-s { background: var(--acc-900); color: #fff; }
-    .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.45; margin: 0 0 .25rem; word-break: break-word; color: #0f172a; }
+    .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.55; margin: 0 0 .25rem; word-break: break-word; white-space: pre-wrap; color: #0f172a; }
     .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; }
     .prog-wrap { margin-top: .45rem; max-width: 9rem; }
     .prog { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
@@ -472,6 +472,14 @@
             <span class="mode-nav-badge empty" id="badgeStore" data-badge="store">0</span>
             <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
           </button>
+          <button type="button" class="mode-nav-tile" data-mode="tf" aria-selected="false">
+            <div class="mode-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 7 13 16 9 12 2 19"/><polyline points="16 7 22 7 22 13"/></svg>
+            </div>
+            <h4 class="mode-nav-label">TF依頼</h4>
+            <span class="mode-nav-badge empty" id="badgeTf" data-badge="tf">0</span>
+            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
+          </button>
           <button type="button" class="mode-nav-tile" data-mode="scheduled" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -581,6 +589,7 @@
         if (!lastData) return [];
         if (mode === 'employee') return lastData.employeeTasks || [];
         if (mode === 'store') return lastData.storeTasks || [];
+        if (mode === 'tf') return lastData.tfTasks || [];
         return [];
       }
 
@@ -699,10 +708,12 @@
           h += '<div class="menu-body">';
           h += '<div class="badges">';
           h += '<span class="badge ' + st + '">' + esc(t.statusLabel) + '</span>';
-          h += '<span class="badge ' + (t.requestKind === 'store' ? 'badge-kind-s' : 'badge-kind-e') + '">' + (t.requestKind === 'store' ? '店舗' : '社員') + '</span>';
+          var kindClass = t.requestKind === 'store' ? 'badge-kind-s' : (t.requestKind === 'tf' ? 'badge-run' : 'badge-kind-e');
+          var kindLabel = t.requestKind === 'store' ? '店舗' : (t.requestKind === 'tf' ? 'TF' : '社員');
+          h += '<span class="badge ' + kindClass + '">' + kindLabel + '</span>';
           h += '<span class="badge badge-run">' + esc(t.type) + '</span>';
           h += '</div>';
-          h += '<p class="task-title">' + esc(t.contentPreview) + '</p>';
+          h += '<p class="task-title">' + esc(t.contentFull || t.contentPreview || '') + '</p>';
           h += '<div class="task-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender) + ' · ' + esc(t.progressLabel) + '</div>';
           h += '<div class="prog-wrap"><div class="prog"><i style="width:' + (t.progressPct || 0) + '%"></i></div></div>';
           h += '</div>';
@@ -724,7 +735,7 @@
           h += '<div class="menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>';
           h += '<div class="menu-body">';
           h += '<div class="badges"><span class="badge ' + (s.requestKind === 'store' ? 'badge-kind-s' : 'badge-kind-e') + '">' + esc(s.requestKindLabel) + '</span></div>';
-          h += '<p class="task-title">' + esc(s.contentPreview) + '</p>';
+          h += '<p class="task-title">' + esc(s.contentFull || s.contentPreview || '') + '</p>';
           h += '<div class="task-meta">周期 ' + esc(s.cycle) + ' · 期限 ' + esc(s.deadlineOffset) + ' · ' + esc(s.sender) + ' · 配信先 ' + s.targetCount + ' 名</div>';
           if (s.targetTags) h += '<div class="task-meta" style="margin-top:.25rem">宛先: ' + esc(s.targetTags) + '</div>';
           h += '</div></div>';
@@ -847,10 +858,12 @@
         if (!lastData) return;
         var emp = openCount(lastData.employeeTasks);
         var store = openCount(lastData.storeTasks);
+        var tf = openCount(lastData.tfTasks);
         var sched = (lastData.scheduledTasks || []).length;
         [
           { id: 'badgeEmployee', n: emp },
           { id: 'badgeStore', n: store },
+          { id: 'badgeTf', n: tf },
           { id: 'badgeScheduled', n: sched }
         ].forEach(function (b) {
           var el = document.getElementById(b.id);

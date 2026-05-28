@@ -222,7 +222,7 @@
     .badge-ok { background: #f1f5f9; color: #475569; }
     .badge-late { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .badge-kind-tf { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
-    .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.45; margin: 0 0 .25rem; word-break: break-word; color: #0f172a; }
+    .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.55; margin: 0 0 .25rem; word-break: break-word; white-space: pre-wrap; color: #0f172a; }
     .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; }
     .prog-wrap { margin-top: .5rem; max-width: 100%; }
     .prog { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
@@ -365,7 +365,7 @@
             <a class="menu-link" id="linkSheet" href="#" target="_blank" rel="noopener" style="display:none">📊 スプレッドシート</a>
             <a class="menu-link" id="linkApp" href="#" target="_top">↗ 利用者アプリ</a>
           </div>
-          <p class="readonly-note" id="readonlyNote">タスクを開くと、未実施者を選んでリマインド送信できます（送信者: あなた）</p>
+          <p class="readonly-note" id="readonlyNote">この画面は閲覧専用です（リマインド送信はできません）</p>
         </div>
       </div>
     </header>
@@ -592,22 +592,8 @@
         var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
         var recipients = task.recipients || [];
         var isStore = task.requestKind === 'store';
-
-        var introText = getIntroForTask(task.id);
-        h += '<div class="intro-block">';
-        h += '<label>';
-        h += '<span>挨拶文（編集できます）</span>';
-        h += '<span class="right">';
-        h += '<button type="button" class="btn-link" data-reset-intro="' + esc(task.id) + '">テンプレートに戻す</button>';
-        h += '</span>';
-        h += '</label>';
-        h += '<textarea data-intro-task="' + esc(task.id) + '" rows="5" spellcheck="false">' + esc(introText) + '</textarea>';
-        h += '</div>';
-
         h += '<div class="expand-toolbar">';
-        h += '<span class="hint">' + (isStore ? '未完了の店舗を選んでリマインド（完了済みは選択不可）' : '未実施の方を選んでリマインド') + '</span>';
-        h += '<button type="button" class="btn btn-sm" data-select-pending="' + esc(task.id) + '">未実施をすべて選択</button>';
-        h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '" data-mode="' + (isStore ? 'store' : 'employee') + '">' + (isStore ? '選択した店舗にリマインド' : '選択した人にリマインド') + '</button>';
+        h += '<span class="hint">' + (isStore ? '未完了 / 完了 の状況を確認できます（閲覧専用）' : '未実施 / 実施済 の状況を確認できます（閲覧専用）') + '</span>';
         h += '</div>';
 
         if (!recipients.length) {
@@ -619,10 +605,7 @@
           }).forEach(function (r) {
             var sk = selKey(task.id, r.key);
             var statusLabel = isStore ? (r.done ? '完了' : '未完了') : (r.done ? '実施済' : '未実施');
-            var checked = selected[sk] && !r.done ? ' checked' : '';
-            var disabled = r.done ? ' disabled' : '';
             h += '<label class="recipient' + (r.done ? ' done' : '') + '">';
-            h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + disabled + ' />';
             h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name || r.storeName) + '</div>';
             if (r.email) h += '<div class="recipient-sub">' + esc(r.email) + '</div>';
             h += '</div>';
@@ -630,11 +613,6 @@
             h += '</label>';
           });
         }
-
-        var fromLabel = (lastData && (lastData.viewerName || lastData.viewerEmail)) || '—';
-        var teamSuffix = (lastData && lastData.viewerTeam) ? '（' + lastData.viewerTeam + ' チーム）' : '';
-        var replyTo = (lastData && lastData.viewerEmail) || '—';
-        h += '<div class="send-note">送信時の表示名: <strong>' + esc(fromLabel + teamSuffix) + '</strong><br>返信先（Reply-To）: <strong>' + esc(replyTo) + '</strong><br>※ Gmail の仕様上、送信元アドレスはシステム共通になりますが、表示名と返信先がリーダーになるため、受信者にはあなたからのリマインドとして届きます。</div>';
 
         h += '</div></div>';
         return h;
@@ -659,7 +637,7 @@
           h += '<span class="badge ' + st + '">' + esc(t.statusLabel) + '</span>';
           h += '<span class="badge badge-kind-tf">' + esc(t.requestKindLabel || 'TFチーム依頼') + '</span>';
           h += '</div>';
-          h += '<p class="task-title">' + esc(t.contentPreview) + '</p>';
+          h += '<p class="task-title">' + esc(t.contentFull || t.contentPreview || '') + '</p>';
           h += '<div class="task-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender) + ' · ' + esc(t.progressLabel) + '</div>';
           if (t.targetTags) h += '<div class="task-meta" style="margin-top:.2rem">宛先: ' + esc(t.targetTags) + '</div>';
           h += '<div class="prog-wrap"><div class="prog"><i style="width:' + (t.progressPct || 0) + '%"></i></div></div>';
@@ -690,95 +668,7 @@
           });
         });
 
-        document.querySelectorAll('input[data-sk]').forEach(function (cb) {
-          cb.addEventListener('click', function (e) { e.stopPropagation(); });
-          cb.addEventListener('change', function (e) {
-            e.stopPropagation();
-            var sk = cb.getAttribute('data-sk');
-            if (cb.checked) selected[sk] = true;
-            else delete selected[sk];
-          });
-        });
-
-        document.querySelectorAll('textarea[data-intro-task]').forEach(function (ta) {
-          ta.addEventListener('click', function (e) { e.stopPropagation(); });
-          ta.addEventListener('input', function () {
-            var tid = ta.getAttribute('data-intro-task');
-            introOverrides[tid] = ta.value;
-          });
-        });
-
-        document.querySelectorAll('[data-reset-intro]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var tid = btn.getAttribute('data-reset-intro');
-            delete introOverrides[tid];
-            var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
-            if (ta) ta.value = defaultIntroText();
-          });
-        });
-
-        document.querySelectorAll('[data-select-pending]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var tid = btn.getAttribute('data-select-pending');
-            var task = findTask(tid);
-            if (!task) return;
-            (task.recipients || []).forEach(function (r) {
-              if (!r.done) selected[selKey(tid, r.key)] = true;
-            });
-            renderRoot();
-          });
-        });
-
-        document.querySelectorAll('[data-remind]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var tid = btn.getAttribute('data-remind');
-            var mode = btn.getAttribute('data-mode') || 'employee';
-            var keys = [];
-            Object.keys(selected).forEach(function (sk) {
-              if (sk.indexOf(tid + '::') === 0) keys.push(sk.substring((tid + '::').length));
-            });
-            if (!keys.length) {
-              alert('リマインドする対象にチェックを入れてください。');
-              return;
-            }
-            var n = keys.length;
-            var msg = mode === 'store'
-              ? n + ' 店舗の担当者にリマインドを送信しますか？\n（送信者表示: あなた）'
-              : n + ' 名にリマインドを送信しますか？\n（送信者表示: あなた）';
-            if (!confirm(msg)) return;
-            var introText = '';
-            var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
-            if (ta) introText = ta.value;
-            else introText = getIntroForTask(tid);
-
-            btn.disabled = true;
-            btn.textContent = '送信中…';
-            google.script.run
-              .withSuccessHandler(function (res) {
-                btn.disabled = false;
-                btn.textContent = mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド';
-                alert((res && res.message) || '完了');
-                if (res && res.ok) {
-                  Object.keys(selected).forEach(function (sk) {
-                    if (sk.indexOf(tid + '::') === 0) delete selected[sk];
-                  });
-                  load(getCurrentTeam());
-                }
-              })
-              .withFailureHandler(function (err) {
-                btn.disabled = false;
-                btn.textContent = mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド';
-                alert(err && err.message ? err.message : String(err));
-              })
-              .sendTeamProgressReminder(tid, keys, mode, getCurrentTeam(), introText);
-          });
-        });
+        // 閲覧専用のため、送信系イベントはバインドしない
       }
 
       function renderRoot() {
@@ -821,7 +711,7 @@
         document.getElementById('menuMail').textContent = email;
         var note = document.getElementById('readonlyNote');
         if (note) {
-          note.textContent = 'リマインドは「' + displayWho + '」名で送信されます（返信は ' + (email || 'あなた') + ' に届きます）';
+          note.textContent = 'この画面は閲覧専用です（リマインド送信はできません）';
         }
         document.getElementById('btnAccount').textContent = accountInitial(email);
         if (data.spreadsheetUrl) {

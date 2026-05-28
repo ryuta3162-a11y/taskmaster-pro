@@ -1522,6 +1522,7 @@ function buildAdminTaskSummaryFromRow_(row, allStores, areasList, today) {
     type: String(row[2] || ''),
     sender: String(row[4] || ''),
     contentPreview: preview,
+    contentFull: content,
     deadline: deadlineStr,
     targetTags: String(row[12] || ''),
     progressLabel: progress.label,
@@ -2364,6 +2365,7 @@ function buildTeamProgressStoreReminderBodies_(recipientName, intro, taskItem, s
  */
 function sendTeamProgressReminder(taskId, keys, mode, teamName, customIntro) {
   try {
+    return { ok: false, message: 'この画面は閲覧専用のため、リマインド送信はできません。' };
     var viewerEmail = Session.getActiveUser().getEmail();
     if (!viewerEmail) {
       return { ok: false, message: 'Google アカウントでログインした状態で実行してください。' };
