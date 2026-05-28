@@ -2082,6 +2082,25 @@ function getTeamProgressAccessMap_() {
   }
 }
 
+function parseEmployeeTeams_(teamStr) {
+  return String(teamStr || '')
+    .split(/[,，]/)
+    .map(function (s) { return String(s || '').trim(); })
+    .filter(Boolean);
+}
+
+function getViewerTeams_(viewerEmail, employees) {
+  var norm = normalizeTaskEmail(viewerEmail);
+  if (!norm) return [];
+  var emps = Array.isArray(employees) ? employees : [];
+  for (var i = 0; i < emps.length; i++) {
+    if (normalizeTaskEmail(emps[i].email) === norm) {
+      return parseEmployeeTeams_(emps[i].team);
+    }
+  }
+  return [];
+}
+
 function extractTfTeamsFromTargetTags_(tags) {
   var src = String(tags || '');
   var teams = [];
@@ -2122,12 +2141,15 @@ function taskMatchesTeam_(task, team) {
   return tags.toLowerCase().indexOf(norm) >= 0 || sender.toLowerCase().indexOf(norm) >= 0;
 }
 
-function isTeamProgressViewer_(viewerEmail, teamName) {
+function isTeamProgressViewer_(viewerEmail, teamName, viewerTeams) {
   var norm = normalizeTaskEmail(viewerEmail);
   if (!norm) return false;
   if (isAdminUser_(norm)) return true;
   var accessMap = getTeamProgressAccessMap_();
   var team = String(teamName || '').trim();
+  var teams = Array.isArray(viewerTeams) ? viewerTeams : [];
+  if (!team && teams.length > 0) return true;
+  if (team && teams.indexOf(team) >= 0) return true;
   var allowed = [];
   if (team && accessMap[team]) allowed = allowed.concat(accessMap[team]);
   if (accessMap['*']) allowed = allowed.concat(accessMap['*']);
@@ -2140,8 +2162,10 @@ function getTeamProgressData(teamName) {
     if (!email) {
       return { ok: false, message: 'Google アカウントでログインした状態で開いてください。' };
     }
+    var employees = getEmployees();
+    var viewerTeams = getViewerTeams_(email, employees);
     var requestedTeam = String(teamName || '').trim();
-    if (!isTeamProgressViewer_(email, requestedTeam)) {
+    if (!isTeamProgressViewer_(email, requestedTeam, viewerTeams)) {
       return { ok: false, message: 'この進捗画面を閲覧する権限がありません。' };
     }
 
@@ -2188,7 +2212,6 @@ function getTeamProgressData(teamName) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    var employees = getEmployees();
     var tfTasks = [];
     var teamSet = {};
     values.forEach(function (row) {
@@ -2225,6 +2248,16 @@ function getTeamProgressData(teamName) {
     fromData.forEach(function (t) {
       if (availableTeams.indexOf(t) < 0) availableTeams.push(t);
     });
+    if (!isAdminUser_(email)) {
+      var accessMap = getTeamProgressAccessMap_();
+      var wildcardAllowed = Array.isArray(accessMap['*']) && accessMap['*'].indexOf(normalizeTaskEmail(email)) >= 0;
+      if (!wildcardAllowed) {
+        availableTeams = availableTeams.filter(function (t) { return viewerTeams.indexOf(t) >= 0; });
+      }
+    }
+    if (requestedTeam && availableTeams.indexOf(requestedTeam) < 0) {
+      return { ok: false, message: '指定されたチームを閲覧する権限がありません。' };
+    }
     var viewerEmployee = null;
     var employeesAll = employees;
     var viewerNorm = normalizeTaskEmail(email);

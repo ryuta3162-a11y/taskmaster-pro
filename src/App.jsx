@@ -1293,6 +1293,10 @@ export default function App() {
     if (userTeams.includes('DX')) return 'DX';
     return userTeams[0];
   }, [userTeams]);
+  const userTeamsLabel = useMemo(() => {
+    if (!userTeams.length) return '所属チーム未設定';
+    return userTeams.join('・') + 'チーム';
+  }, [userTeams]);
   const isDxAdmin = useMemo(() => userTeams.includes('DX'), [userTeams]);
 
   const openProgressPage = useCallback((teamName) => {
@@ -2685,6 +2689,18 @@ export default function App() {
                         </div>
                       )}
                       <div>
+                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">所属チーム</p>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {userTeams.length > 0
+                            ? userTeams.map((t, i) => (
+                                <span key={i} className="bg-indigo-50 border border-indigo-200 text-indigo-900 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                  {t}
+                                </span>
+                              ))
+                            : <span className="text-[11px] text-slate-500">未設定</span>}
+                        </div>
+                      </div>
+                      <div>
                         <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">担当エリア</p>
                         <p className="text-xs font-bold text-slate-900">{currentUser?.area}</p>
                         {currentUser?.territory && <p className="text-[11px] font-semibold text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap">{String(currentUser.territory).split(' / ').join('\n')}</p>}
@@ -2801,7 +2817,7 @@ export default function App() {
                       <div className="flex-1 min-w-0">
                         <h4 className="text-lg md:text-xl font-bold text-slate-900">TFチームタスク管理</h4>
                         <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1 truncate">
-                          {preferredTeam ? `${preferredTeam}チームのみ` : '所属チーム未設定'}
+                          {userTeamsLabel}
                         </p>
                       </div>
                       <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
