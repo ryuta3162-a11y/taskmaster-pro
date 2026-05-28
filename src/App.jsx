@@ -1288,14 +1288,10 @@ export default function App() {
   ).length;
   const requestedTasksProgress = tasks.length === 0 ? 0 : Math.round((completedTasksCount / tasks.length) * 100);
   const userTeams = useMemo(() => parseEmployeeTeams(currentUser?.team), [currentUser?.team]);
-  const preferredTeam = useMemo(() => {
-    if (!userTeams.length) return '';
-    if (userTeams.includes('DX')) return 'DX';
-    return userTeams[0];
-  }, [userTeams]);
-  const userTeamsLabel = useMemo(() => {
-    if (!userTeams.length) return '所属チーム未設定';
-    return userTeams.join('・') + 'チーム';
+  const teamProgressBanners = useMemo(() => {
+    if (!userTeams.length) return [];
+    const uniq = [...new Set(userTeams)];
+    return uniq.map((name) => ({ key: name, label: name + '管理', sub: name + 'チームのみ' }));
   }, [userTeams]);
   const isDxAdmin = useMemo(() => userTeams.includes('DX'), [userTeams]);
 
@@ -2802,26 +2798,36 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-3 w-full">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!preferredTeam) {
-                          alert('所属チームが未設定のため、自分のチーム進捗を開けません。');
-                          return;
-                        }
-                        openProgressPage(preferredTeam);
-                      }}
-                      className={dashboardMenuTile}
-                    >
-                      <div className={dashboardMenuIcon}><Icon name="trend" /></div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-lg md:text-xl font-bold text-slate-900">TFチームタスク管理</h4>
-                        <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1 truncate">
-                          {userTeamsLabel}
-                        </p>
-                      </div>
-                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
-                    </button>
+                    {teamProgressBanners.length > 0 ? teamProgressBanners.map((team) => (
+                      <button
+                        key={team.key}
+                        type="button"
+                        onClick={() => openProgressPage(team.key)}
+                        className={dashboardMenuTile}
+                      >
+                        <div className={dashboardMenuIcon}><Icon name="trend" /></div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-lg md:text-xl font-bold text-slate-900">{team.label}</h4>
+                          <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1 truncate">
+                            {team.sub}
+                          </p>
+                        </div>
+                        <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                      </button>
+                    )) : (
+                      <button
+                        type="button"
+                        onClick={() => alert('所属チームが未設定のため、進捗を開けません。')}
+                        className={dashboardMenuTile}
+                      >
+                        <div className={dashboardMenuIcon}><Icon name="trend" /></div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-lg md:text-xl font-bold text-slate-900">TFチームタスク管理</h4>
+                          <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1">所属チーム未設定</p>
+                        </div>
+                        <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                      </button>
+                    )}
                     {isDxAdmin && (
                       <button type="button" onClick={openAdminPage} className={dashboardMenuTile}>
                         <div className={dashboardMenuIcon}><Icon name="calendar" /></div>

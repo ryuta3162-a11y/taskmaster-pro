@@ -170,11 +170,11 @@
       display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem;
     }
     .team-row label { font-size: var(--tm-meta); font-weight: 700; color: #64748b; }
-    .team-row select {
+    .team-fixed {
       flex: 1; min-width: 8rem; max-width: 14rem;
       padding: .55rem .75rem; border-radius: .75rem;
       border: 1px solid color-mix(in oklch, var(--acc-200) 60%, transparent);
-      background: #fff; font-size: var(--tm-body); font-weight: 600; color: #334155;
+      background: #fff; font-size: var(--tm-body); font-weight: 700; color: #0f172a;
       font-family: inherit;
     }
     .chip-arena {
@@ -382,15 +382,10 @@
         <div class="panel-frame" id="teamPanel">
           <div class="panel-inner">
             <div class="team-row">
-              <label for="teamSelect">チーム</label>
-              <select id="teamSelect" aria-label="チームを選択"></select>
-              <button type="button" class="btn btn-sm" id="btnApply">表示更新</button>
+              <label>チーム</label>
+              <div id="teamFixed" class="team-fixed">読み込み中…</div>
             </div>
             <div id="filtersBar" class="chip-arena"></div>
-            <details class="url-book" id="urlBook">
-              <summary>チーム別ブックマークURL（配布用）</summary>
-              <div id="urlBookBody"></div>
-            </details>
           </div>
         </div>
 
@@ -421,7 +416,7 @@
       var openTaskId = null;
       var selected = {};
       var introOverrides = {};
-      var teamSelect = document.getElementById('teamSelect');
+      var teamFixed = document.getElementById('teamFixed');
 
       function selKey(taskId, key) { return taskId + '::' + key; }
 
@@ -518,35 +513,6 @@
         }
       }
 
-      function renderUrlBook() {
-        var body = document.getElementById('urlBookBody');
-        if (!body) return;
-        var allUrl = (lastData && lastData.progressUrlAll) || buildClientProgressUrl('');
-        var rows = (lastData && lastData.teamUrls) || [];
-        if (!rows.length && lastData && lastData.availableTeams) {
-          rows = lastData.availableTeams.map(function (t) {
-            return { team: t, url: buildClientProgressUrl(t) };
-          });
-        }
-        var html = '';
-        html += '<div class="url-row"><span class="url-team">全チーム</span>';
-        html += '<a class="url-link" href="' + esc(allUrl) + '" target="_blank" rel="noopener">' + esc(allUrl) + '</a>';
-        html += '<button type="button" class="btn-copy" data-copy="' + esc(allUrl) + '">コピー</button></div>';
-        rows.forEach(function (row) {
-          var u = row.url || buildClientProgressUrl(row.team);
-          html += '<div class="url-row"><span class="url-team">' + esc(row.team) + '</span>';
-          html += '<a class="url-link" href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + '</a>';
-          html += '<button type="button" class="btn-copy" data-copy="' + esc(u) + '">コピー</button></div>';
-        });
-        body.innerHTML = html;
-        body.querySelectorAll('.btn-copy').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            copyUrl(btn.getAttribute('data-copy'), btn);
-          });
-        });
-      }
-
       function renderStats() {
         var list = getTasks();
         var open = list.filter(function (t) { return !t.complete; }).length;
@@ -581,17 +547,8 @@
       }
 
       function renderTeamOptions() {
-        var teams = (lastData && lastData.availableTeams) ? lastData.availableTeams.slice() : [];
         var selected = (lastData && lastData.selectedTeam) ? lastData.selectedTeam : '';
-        var canViewAll = !!(lastData && lastData.canViewAllTeams);
-        var html = canViewAll ? '<option value="">全チーム（すべてのTF依頼）</option>' : '';
-        teams.forEach(function (name) {
-          html += '<option value="' + esc(name) + '"' + (selected === name ? ' selected' : '') + '>' + esc(name) + '</option>';
-        });
-        if (selected && teams.indexOf(selected) < 0) {
-          html += '<option value="' + esc(selected) + '" selected>' + esc(selected) + '</option>';
-        }
-        teamSelect.innerHTML = html;
+        teamFixed.textContent = selected ? selected : '所属チーム';
       }
 
       function renderRecipients(task) {
@@ -687,7 +644,6 @@
         renderTeamOptions();
         renderStats();
         renderFilters();
-        renderUrlBook();
         renderRoot();
       }
 
@@ -751,14 +707,9 @@
           .getTeamProgressData(teamName || '');
       }
 
-      document.getElementById('btnApply').addEventListener('click', function () {
-        filter = 'all';
-        openTaskId = null;
-        load(teamSelect.value || '');
-      });
       document.getElementById('btnRefresh').addEventListener('click', function () {
         setMenuOpen(false);
-        load((lastData && lastData.selectedTeam) || teamSelect.value || '');
+        load((lastData && lastData.selectedTeam) || initialTeam || '');
       });
       document.getElementById('btnAccount').addEventListener('click', function (e) {
         e.stopPropagation();
