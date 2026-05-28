@@ -1296,13 +1296,17 @@ export default function App() {
   const isDxAdmin = useMemo(() => userTeams.includes('DX'), [userTeams]);
 
   const openProgressPage = useCallback((teamName) => {
-    const baseUrl = (window.location.href || '').split('#')[0].split('?')[0];
+    const baseUrl = (typeof window !== 'undefined' && window.__TM_EXEC_BASE__)
+      ? String(window.__TM_EXEC_BASE__)
+      : (window.location.href || '').split('#')[0].split('?')[0];
     const qs = new URLSearchParams({ page: 'progress' });
     if (teamName) qs.set('team', teamName);
     window.open(`${baseUrl}?${qs.toString()}`, '_blank', 'noopener,noreferrer');
   }, []);
   const openAdminPage = useCallback(() => {
-    const baseUrl = (window.location.href || '').split('#')[0].split('?')[0];
+    const baseUrl = (typeof window !== 'undefined' && window.__TM_EXEC_BASE__)
+      ? String(window.__TM_EXEC_BASE__)
+      : (window.location.href || '').split('#')[0].split('?')[0];
     const qs = new URLSearchParams({ page: 'admin' });
     window.open(`${baseUrl}?${qs.toString()}`, '_blank', 'noopener,noreferrer');
   }, []);
@@ -2797,7 +2801,7 @@ export default function App() {
                       <div className="flex-1 min-w-0">
                         <h4 className="text-lg md:text-xl font-bold text-slate-900">TFチームタスク管理</h4>
                         <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1 truncate">
-                          {preferredTeam ? `現在: ${preferredTeam}` : '所属チーム未設定'}
+                          {preferredTeam ? `${preferredTeam}チームのみ` : '所属チーム未設定'}
                         </p>
                       </div>
                       <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>

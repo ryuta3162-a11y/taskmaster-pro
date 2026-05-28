@@ -11,8 +11,12 @@ const UPLOAD_FOLDER_NAME = 'TaskMaster_アップロード画像';
 
 function doGet(e) {
   var page = e && e.parameter && e.parameter.page;
+  var execBase = ScriptApp.getService().getUrl();
+  var execBoot = '<script>window.__TM_EXEC_BASE__=' + JSON.stringify(execBase) + ';</script>';
   if (page === 'admin') {
-    return HtmlService.createHtmlOutputFromFile('admin')
+    var adminHtml = HtmlService.createHtmlOutputFromFile('admin').getContent();
+    adminHtml = adminHtml.indexOf('<head>') !== -1 ? adminHtml.replace('<head>', '<head>' + execBoot) : execBoot + adminHtml;
+    return HtmlService.createHtmlOutput(adminHtml)
       .setTitle('ToDo 管理ダッシュボード')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -20,7 +24,7 @@ function doGet(e) {
   if (page === 'progress') {
     var teamParam = e && e.parameter ? String(e.parameter.team || '').trim() : '';
     var progressHtml = HtmlService.createHtmlOutputFromFile('progress').getContent();
-    var progressBoot = '<script>window.__TM_PROGRESS_TEAM__=' + JSON.stringify(teamParam) + ';</script>';
+    var progressBoot = execBoot + '<script>window.__TM_PROGRESS_TEAM__=' + JSON.stringify(teamParam) + ';</script>';
     progressHtml = progressHtml.indexOf('<head>') !== -1
       ? progressHtml.replace('<head>', '<head>' + progressBoot)
       : progressBoot + progressHtml;
@@ -30,16 +34,10 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
   var title = page === 'checklist' ? 'リストチェック' : 'ToDo List';
-  if (page === 'checklist') {
-    var html = HtmlService.createHtmlOutputFromFile('index').getContent();
-    var boot = '<script>window.__TM_ENTRY_PAGE__="checklist";</script>';
-    html = html.indexOf('<head>') !== -1 ? html.replace('<head>', '<head>' + boot) : boot + html;
-    return HtmlService.createHtmlOutput(html)
-      .setTitle(title)
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  }
-  return HtmlService.createHtmlOutputFromFile('index')
+  var html = HtmlService.createHtmlOutputFromFile('index').getContent();
+  var boot = execBoot + (page === 'checklist' ? '<script>window.__TM_ENTRY_PAGE__="checklist";</script>' : '');
+  html = html.indexOf('<head>') !== -1 ? html.replace('<head>', '<head>' + boot) : boot + html;
+  return HtmlService.createHtmlOutput(html)
     .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
