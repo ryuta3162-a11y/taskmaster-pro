@@ -170,6 +170,7 @@ const Icon = ({ name }) => {
     alertTriangle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>,
     history: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
     repeat: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>,
+    trend: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13 16 9 12 2 19"/><polyline points="16 7 22 7 22 13"/></svg>,
     plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
     trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
     image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
@@ -1286,6 +1287,25 @@ export default function App() {
     shouldIncludeTaskInChecklistTab(t, 'completed', checklistUserStores, [])
   ).length;
   const requestedTasksProgress = tasks.length === 0 ? 0 : Math.round((completedTasksCount / tasks.length) * 100);
+  const userTeams = useMemo(() => parseEmployeeTeams(currentUser?.team), [currentUser?.team]);
+  const preferredTeam = useMemo(() => {
+    if (!userTeams.length) return '';
+    if (userTeams.includes('DX')) return 'DX';
+    return userTeams[0];
+  }, [userTeams]);
+  const isDxAdmin = useMemo(() => userTeams.includes('DX'), [userTeams]);
+
+  const openProgressPage = useCallback((teamName) => {
+    const baseUrl = (window.location.href || '').split('#')[0].split('?')[0];
+    const qs = new URLSearchParams({ page: 'progress' });
+    if (teamName) qs.set('team', teamName);
+    window.open(`${baseUrl}?${qs.toString()}`, '_blank', 'noopener,noreferrer');
+  }, []);
+  const openAdminPage = useCallback(() => {
+    const baseUrl = (window.location.href || '').split('#')[0].split('?')[0];
+    const qs = new URLSearchParams({ page: 'admin' });
+    window.open(`${baseUrl}?${qs.toString()}`, '_blank', 'noopener,noreferrer');
+  }, []);
 
   const toggleChecklistStore = (storeName) => {
     setSelectedChecklistStores((prev) =>
@@ -2759,6 +2779,39 @@ export default function App() {
                       )}
                       <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
+                  </div>
+
+                  <div className="flex flex-col gap-3 w-full">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!preferredTeam) {
+                          alert('所属チームが未設定のため、自分のチーム進捗を開けません。');
+                          return;
+                        }
+                        openProgressPage(preferredTeam);
+                      }}
+                      className={dashboardMenuTile}
+                    >
+                      <div className={dashboardMenuIcon}><Icon name="trend" /></div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-lg md:text-xl font-bold text-slate-900">TFチームタスク管理</h4>
+                        <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1 truncate">
+                          {preferredTeam ? `現在: ${preferredTeam}` : '所属チーム未設定'}
+                        </p>
+                      </div>
+                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                    </button>
+                    {isDxAdmin && (
+                      <button type="button" onClick={openAdminPage} className={dashboardMenuTile}>
+                        <div className={dashboardMenuIcon}><Icon name="calendar" /></div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-lg md:text-xl font-bold text-slate-900">進捗管理admin</h4>
+                          <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1">管理者向けダッシュボード</p>
+                        </div>
+                        <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
