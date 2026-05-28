@@ -1291,7 +1291,7 @@ export default function App() {
   const teamProgressBanners = useMemo(() => {
     if (!userTeams.length) return [];
     const uniq = [...new Set(userTeams)];
-    return uniq.map((name) => ({ key: name, label: name + '管理', sub: name + 'チームのみ' }));
+    return uniq.map((name) => ({ key: name, label: name + 'チーム進捗管理ダッシュボード' }));
   }, [userTeams]);
   const isDxAdmin = useMemo(() => userTeams.includes('DX'), [userTeams]);
 
@@ -2808,9 +2808,6 @@ export default function App() {
                         <div className={dashboardMenuIcon}><Icon name="trend" /></div>
                         <div className="flex-1 min-w-0">
                           <h4 className="text-lg md:text-xl font-bold text-slate-900">{team.label}</h4>
-                          <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1 truncate">
-                            {team.sub}
-                          </p>
                         </div>
                         <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                       </button>
