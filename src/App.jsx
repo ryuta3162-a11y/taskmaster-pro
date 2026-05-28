@@ -2689,6 +2689,17 @@ export default function App() {
                         </div>
                       )}
                       <div>
+                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">担当エリア</p>
+                        <p className="text-xs font-bold text-slate-900">{currentUser?.area}</p>
+                        {currentUser?.territory && <p className="text-[11px] font-semibold text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap">{String(currentUser.territory).split(' / ').join('\n')}</p>}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">管轄店舗</p>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {currentUser?.stores?.length > 0 ? currentUser.stores.map((s, i) => <span key={i} className="bg-gray-100 border border-slate-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-bold">{s}</span>) : <span className="text-[11px] text-slate-500">店舗なし</span>}
+                        </div>
+                      </div>
+                      <div>
                         <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">所属チーム</p>
                         <div className="flex flex-wrap gap-1 mt-0.5">
                           {userTeams.length > 0
@@ -2698,17 +2709,6 @@ export default function App() {
                                 </span>
                               ))
                             : <span className="text-[11px] text-slate-500">未設定</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">担当エリア</p>
-                        <p className="text-xs font-bold text-slate-900">{currentUser?.area}</p>
-                        {currentUser?.territory && <p className="text-[11px] font-semibold text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap">{String(currentUser.territory).split(' / ').join('\n')}</p>}
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">管轄店舗</p>
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {currentUser?.stores?.length > 0 ? currentUser.stores.map((s, i) => <span key={i} className="bg-gray-100 border border-slate-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-bold">{s}</span>) : <span className="text-[11px] text-slate-500">店舗なし</span>}
                         </div>
                       </div>
                     </div>

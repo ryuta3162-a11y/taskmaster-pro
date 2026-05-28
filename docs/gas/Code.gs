@@ -2148,7 +2148,6 @@ function isTeamProgressViewer_(viewerEmail, teamName, viewerTeams) {
   var accessMap = getTeamProgressAccessMap_();
   var team = String(teamName || '').trim();
   var teams = Array.isArray(viewerTeams) ? viewerTeams : [];
-  if (!team && teams.length > 0) return true;
   if (team && teams.indexOf(team) >= 0) return true;
   var allowed = [];
   if (team && accessMap[team]) allowed = allowed.concat(accessMap[team]);
@@ -2164,7 +2163,11 @@ function getTeamProgressData(teamName) {
     }
     var employees = getEmployees();
     var viewerTeams = getViewerTeams_(email, employees);
+    var isAdmin = isAdminUser_(email);
     var requestedTeam = String(teamName || '').trim();
+    if (!requestedTeam && !isAdmin) {
+      requestedTeam = viewerTeams.length ? viewerTeams[0] : '';
+    }
     if (!isTeamProgressViewer_(email, requestedTeam, viewerTeams)) {
       return { ok: false, message: 'この進捗画面を閲覧する権限がありません。' };
     }
@@ -2248,11 +2251,13 @@ function getTeamProgressData(teamName) {
     fromData.forEach(function (t) {
       if (availableTeams.indexOf(t) < 0) availableTeams.push(t);
     });
-    if (!isAdminUser_(email)) {
-      var accessMap = getTeamProgressAccessMap_();
-      var wildcardAllowed = Array.isArray(accessMap['*']) && accessMap['*'].indexOf(normalizeTaskEmail(email)) >= 0;
-      if (!wildcardAllowed) {
-        availableTeams = availableTeams.filter(function (t) { return viewerTeams.indexOf(t) >= 0; });
+    if (!isAdmin) {
+      var allowedTeams = viewerTeams.slice();
+      if (allowedTeams.length) {
+        availableTeams = allowedTeams.filter(function (t) { return availableTeams.indexOf(t) >= 0 || fromData.indexOf(t) >= 0; });
+        if (!availableTeams.length) availableTeams = allowedTeams;
+      } else {
+        availableTeams = [];
       }
     }
     if (requestedTeam && availableTeams.indexOf(requestedTeam) < 0) {
@@ -2269,6 +2274,10 @@ function getTeamProgressData(teamName) {
     }
     var viewerName = viewerEmployee ? String(viewerEmployee.name || '').trim() : '';
     var viewerTeam = viewerEmployee ? String(viewerEmployee.team || '').trim() : '';
+    var viewerRole = viewerEmployee ? String(viewerEmployee.role || '').trim() : '';
+    var viewerArea = viewerEmployee ? String(viewerEmployee.area || '').trim() : '';
+    var viewerTerritory = viewerEmployee ? String(viewerEmployee.territory || '').trim() : '';
+    var viewerStores = viewerEmployee && Array.isArray(viewerEmployee.stores) ? viewerEmployee.stores : [];
 
     return {
       ok: true,
@@ -2276,6 +2285,12 @@ function getTeamProgressData(teamName) {
       viewerEmail: email,
       viewerName: viewerName,
       viewerTeam: viewerTeam,
+      viewerRole: viewerRole,
+      viewerArea: viewerArea,
+      viewerTerritory: viewerTerritory,
+      viewerStores: viewerStores,
+      viewerTeams: viewerTeams,
+      canViewAllTeams: isAdmin,
       spreadsheetUrl: ss.getUrl(),
       appUrl: appUrlBase,
       selectedTeam: requestedTeam,

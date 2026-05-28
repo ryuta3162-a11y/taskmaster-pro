@@ -102,6 +102,12 @@
     .menu-head .who { font-weight: 600; font-size: .9rem; color: #0f172a; word-break: break-all; }
     .menu-head .mail { font-size: 11px; color: #64748b; margin-top: .15rem; word-break: break-all; }
     .menu-meta { padding: .65rem 1rem; font-size: .68rem; color: #64748b; font-weight: 500; border-bottom: 1px solid #f1f5f9; }
+    .menu-profile { padding: .7rem 1rem; border-bottom: 1px solid #f1f5f9; display: grid; gap: .65rem; }
+    .profile-label { font-size: 10px; font-weight: 800; color: var(--acc-600); letter-spacing: .08em; }
+    .profile-text { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.5; white-space: pre-wrap; }
+    .profile-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .2rem; }
+    .profile-chip { font-size: 11px; font-weight: 700; color: #0f172a; border: 1px solid #94a3b8; border-radius: .35rem; padding: .12rem .45rem; background: #f8fafc; }
+    .profile-chip.team { color: #312e81; border-color: #c7d2fe; background: #eef2ff; }
     .menu-accent { padding: .75rem 1rem; border-top: 1px solid #e2e8f0; background: linear-gradient(to bottom, #f8fafc, #fff); }
     .menu-accent label {
       display: block; font-size: 9px; font-weight: 800; letter-spacing: .12em;
@@ -354,7 +360,7 @@
             <div class="who" id="menuWho">閲覧者</div>
             <div class="mail" id="menuMail"></div>
           </div>
-          <p class="menu-meta" id="metaLine">読み込み中…</p>
+          <div class="menu-profile" id="menuProfile">読み込み中…</div>
           <div class="menu-accent">
             <label>アクセントカラー</label>
             <div class="accent-grid" id="accentGrid"></div>
@@ -362,7 +368,6 @@
           </div>
           <div class="menu-actions">
             <button type="button" class="menu-link" id="btnRefresh">↻ 再読み込み</button>
-            <a class="menu-link" id="linkSheet" href="#" target="_blank" rel="noopener" style="display:none">📊 スプレッドシート</a>
             <a class="menu-link" id="linkApp" href="#" target="_top">↗ 利用者アプリ</a>
           </div>
           <p class="readonly-note" id="readonlyNote">この画面は閲覧専用です（リマインド送信はできません）</p>
@@ -578,7 +583,8 @@
       function renderTeamOptions() {
         var teams = (lastData && lastData.availableTeams) ? lastData.availableTeams.slice() : [];
         var selected = (lastData && lastData.selectedTeam) ? lastData.selectedTeam : '';
-        var html = '<option value="">全チーム（すべてのTF依頼）</option>';
+        var canViewAll = !!(lastData && lastData.canViewAllTeams);
+        var html = canViewAll ? '<option value="">全チーム（すべてのTF依頼）</option>' : '';
         teams.forEach(function (name) {
           html += '<option value="' + esc(name) + '"' + (selected === name ? ' selected' : '') + '>' + esc(name) + '</option>';
         });
@@ -703,22 +709,29 @@
         lastData = data;
         openTaskId = null;
         var email = data.viewerEmail || '';
-        document.getElementById('metaLine').textContent =
-          '最終更新: ' + (data.generatedAt ? new Date(data.generatedAt).toLocaleString('ja-JP') : '—');
         var displayWho = (data.viewerName && data.viewerName.trim()) ? data.viewerName : (email ? email.split('@')[0] : '閲覧者');
         if (data.viewerTeam) displayWho += '（' + data.viewerTeam + ' チーム）';
         document.getElementById('menuWho').textContent = displayWho;
         document.getElementById('menuMail').textContent = email;
+        var stores = Array.isArray(data.viewerStores) ? data.viewerStores : [];
+        var teams = Array.isArray(data.viewerTeams) ? data.viewerTeams : [];
+        var storesHtml = stores.length
+          ? stores.map(function (s) { return '<span class="profile-chip">' + esc(s) + '</span>'; }).join('')
+          : '<span class="profile-text" style="font-size:11px;color:#64748b">店舗なし</span>';
+        var teamsHtml = teams.length
+          ? teams.map(function (t) { return '<span class="profile-chip team">' + esc(t) + '</span>'; }).join('')
+          : '<span class="profile-text" style="font-size:11px;color:#64748b">未設定</span>';
+        document.getElementById('menuProfile').innerHTML =
+          '<div><div class="profile-label">役職</div><div class="profile-text">' + esc(data.viewerRole || '—') + '</div></div>' +
+          '<div><div class="profile-label">担当エリア</div><div class="profile-text">' + esc(data.viewerArea || '—') + (data.viewerTerritory ? '\n' + esc(data.viewerTerritory) : '') + '</div></div>' +
+          '<div><div class="profile-label">管轄店舗</div><div class="profile-chips">' + storesHtml + '</div></div>' +
+          '<div><div class="profile-label">所属チーム</div><div class="profile-chips">' + teamsHtml + '</div></div>' +
+          '<div class="profile-text" style="font-size:11px;color:#64748b">最終更新: ' + esc(data.generatedAt ? new Date(data.generatedAt).toLocaleString('ja-JP') : '—') + '</div>';
         var note = document.getElementById('readonlyNote');
         if (note) {
           note.textContent = 'この画面は閲覧専用です（リマインド送信はできません）';
         }
         document.getElementById('btnAccount').textContent = accountInitial(email);
-        if (data.spreadsheetUrl) {
-          var a = document.getElementById('linkSheet');
-          a.href = data.spreadsheetUrl;
-          a.style.display = 'flex';
-        }
         document.getElementById('linkApp').href = data.appUrl || window.location.href.split('?')[0];
         renderAll();
       }
