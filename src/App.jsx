@@ -1028,21 +1028,29 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
         </span>
       </button>
 
-      <div className={appChipArena}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-        {items.map((item) => {
-          const on = selected.includes(item);
-          return (
-            <button
-              key={item}
-              type="button"
-              onClick={() => toggle(item)}
-              className={`${appChipBase} ${on ? appChipOn : appChipOff}`}
-            >
-              {item}
-            </button>
-          );
-        })}
+      <div className={`${appChipArena} border border-black/[0.06]`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {items.map((item) => {
+            const on = selected.includes(item);
+            return (
+              <label
+                key={item}
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  on
+                    ? 'bg-[var(--acc-50)] border-[var(--acc-300)] text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.05)]'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => toggle(item)}
+                  className="w-4.5 h-4.5 accent-[var(--acc-600)] shrink-0"
+                />
+                <span className="flex-1 text-sm font-bold leading-5">{item}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
     </PanelFrame>
