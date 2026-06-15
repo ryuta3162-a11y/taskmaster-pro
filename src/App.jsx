@@ -397,11 +397,22 @@ function emailsMatch(a, b) {
   return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 }
 
-const getTerritories = (area) => {
-  if (['第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'].includes(area)) return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
-  if (['第1エリア'].includes(area)) return ['テリトリー1', 'テリトリー2'];
-  return ['テリトリー1', 'テリトリー2']; 
-};
+/** 店舗データからエリア別テリトリー一覧（スプレッドシート「店舗データ」と同期） */
+function getTerritoriesForArea(area, allStores) {
+  const fromData = [...new Set(
+    (allStores || [])
+      .filter((s) => s.area === area && String(s.territory || '').trim())
+      .map((s) => String(s.territory).trim())
+      .filter(Boolean),
+  )].sort((a, b) => {
+    const na = parseInt(String(a).replace(/\D/g, ''), 10) || 0;
+    const nb = parseInt(String(b).replace(/\D/g, ''), 10) || 0;
+    return na - nb || a.localeCompare(b, 'ja');
+  });
+  if (fromData.length) return fromData;
+  if (area === '第1エリア') return ['テリトリー1', 'テリトリー2'];
+  return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
+}
 
 // --- API層 ---
 const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
@@ -542,7 +553,7 @@ function asUserStoreList(stores) {
 }
 
 /** スプレッドシートの従業員行 → 登録フォーム用 regData */
-function parseEmployeeToRegData(emp) {
+function parseEmployeeToRegData(emp, allStores = []) {
   const teams = parseEmployeeTeams(emp?.team);
   const areas = String(emp?.area || '')
     .split(/[,，]/)
@@ -565,7 +576,7 @@ function parseEmployeeToRegData(emp) {
         .filter(Boolean);
     });
   areas.forEach((areaName) => {
-    if (!territory[areaName]?.length) territory[areaName] = [...getTerritories(areaName)];
+    if (!territory[areaName]?.length) territory[areaName] = [...getTerritoriesForArea(areaName, allStores)];
   });
   return {
     name: emp?.name || '',
@@ -1404,7 +1415,7 @@ export default function App() {
       return;
     }
     setRegMode('edit');
-    setRegData(parseEmployeeToRegData(user));
+    setRegData(parseEmployeeToRegData(user, allStores));
     setTempUser(user);
     setAuthStep('register');
   };
@@ -1451,7 +1462,7 @@ export default function App() {
       const areaStores = allStores.filter(s => s.area === areaName).map(s => s.storeName);
       newStores = newStores.filter(s => !areaStores.includes(s));
     } else { 
-      newTerritory[areaName] = getTerritories(areaName); 
+      newTerritory[areaName] = getTerritoriesForArea(areaName, allStores); 
       const addedStores = allStores.filter(s => s.area === areaName && newTerritory[areaName].includes(s.territory)).map(s => s.storeName);
       const merged = mergeRegStores(newStores, addedStores);
       if (!merged) return prev;
@@ -2509,7 +2520,7 @@ export default function App() {
                       <div key={areaName} className="border-b border-[var(--acc-200)]/40 pb-5 last:border-0 last:pb-0">
                         <p className="text-sm font-semibold text-[var(--acc-700)] mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-gradient-to-br from-emerald-400 to-[var(--acc-500)]"></span>{areaName}</p>
                         <div className={`flex flex-wrap gap-2 ${appChipArena}`}>
-                          {getTerritories(areaName).map(terr => {
+                          {getTerritoriesForArea(areaName, allStores).map(terr => {
                              const isSelected = regData.territory[areaName]?.includes(terr);
                              return (
                               <RegChip key={terr} selected={isSelected} onClick={() => toggleTerritory(areaName, terr)}>{terr}</RegChip>
