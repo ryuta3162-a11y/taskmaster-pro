@@ -185,6 +185,24 @@ const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '�
 /** 従業員データに旧名称が残っている場合の照合用 */
 const TEAM_LEGACY_ALIASES = { ニュービジネス: 'ヨガ＆ピラティスチーム' };
 const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
+/** 店舗エリア外の本部所属（店舗依頼の配信対象外・社員/TF依頼は対象） */
+const HQ_AREA = 'EAST本部';
+const HQ_STORE = 'EAST本部';
+
+function isHqStoreName(name) {
+  return String(name || '').trim() === HQ_STORE;
+}
+function isHqAreaName(name) {
+  return String(name || '').trim() === HQ_AREA;
+}
+/** 第1〜7エリアの店舗のみ（本部行を除く） */
+function getFieldStores(allStores) {
+  return (allStores || []).filter((s) => !isHqStoreName(s.storeName) && !isHqAreaName(s.area));
+}
+function getFieldStoreNames(allStores) {
+  return getFieldStores(allStores).map((s) => s.storeName);
+}
+
 /** 従業員シートの管轄店舗上限（H列〜、GAS の EMPLOYEE_STORE_COL_MAX と一致） */
 const MAX_EMPLOYEE_STORES = 50;
 
@@ -219,7 +237,9 @@ function employeeMatchesTeams(emp, selectedTeams, teamsList) {
  * チームは 〈DX, 販促〉 形式（無ければ全チーム）
  */
 function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList, teamsList) {
-  const allStoreNames = allStores.map((s) => s.storeName);
+  const fieldStores = getFieldStores(allStores);
+  const allStoreNames = fieldStores.map((s) => s.storeName);
+  const fieldAreasList = areasList.filter((a) => !isHqAreaName(a));
   if (!tagStr || String(tagStr).trim() === '' || tagStr === '指定なし') {
     return { stores: [...allStoreNames], roles: [...rolesList], teams: [...teamsList] };
   }
@@ -249,8 +269,9 @@ function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList, tea
   const parts = storePart.split(/,\s*/).map((x) => x.trim()).filter(Boolean);
   const selected = new Set();
   parts.forEach((p) => {
-    if (areasList.includes(p)) {
-      allStores.filter((st) => st.area === p).forEach((st) => selected.add(st.storeName));
+    if (isHqAreaName(p) || isHqStoreName(p)) return;
+    if (fieldAreasList.includes(p)) {
+      fieldStores.filter((st) => st.area === p).forEach((st) => selected.add(st.storeName));
     } else if (allStoreNames.includes(p)) {
       selected.add(p);
     }
@@ -304,7 +325,10 @@ function employeeMatchesTargetFilters(
     );
   }
   if (kind === REQUEST_KIND.store) {
-    return !!(emp.stores && emp.stores.some((s) => selectedStores.includes(s)));
+    const empStores = (emp.stores || []).filter((s) => !isHqStoreName(s));
+    const fieldSelected = selectedStores.filter((s) => !isHqStoreName(s));
+    if (fieldSelected.length === 0) return false;
+    return empStores.some((s) => fieldSelected.includes(s));
   }
   return employeeMatchesTeams(emp, selectedTeams, teamsList);
 }
@@ -552,13 +576,30 @@ function asUserStoreList(stores) {
   return [];
 }
 
+function isHqEmployee(emp) {
+  if (isHqAreaName(emp?.area)) return true;
+  return asUserStoreList(emp?.stores).some(isHqStoreName);
+}
+
 /** スプレッドシートの従業員行 → 登録フォーム用 regData */
 function parseEmployeeToRegData(emp, allStores = []) {
   const teams = parseEmployeeTeams(emp?.team);
-  const areas = String(emp?.area || '')
+  const rawAreas = String(emp?.area || '')
     .split(/[,，]/)
     .map((s) => s.trim())
     .filter(Boolean);
+  if (isHqEmployee(emp) || rawAreas.some(isHqAreaName)) {
+    return {
+      name: emp?.name || '',
+      role: emp?.role || '',
+      team: teams,
+      area: [],
+      territory: {},
+      stores: [HQ_STORE],
+      hqAffiliation: true,
+    };
+  }
+  const areas = rawAreas.filter((a) => AREAS.includes(a));
   const territory = {};
   String(emp?.territory || '')
     .split(' / ')
@@ -585,10 +626,11 @@ function parseEmployeeToRegData(emp, allStores = []) {
     area: areas,
     territory,
     stores: asUserStoreList(emp?.stores),
+    hqAffiliation: false,
   };
 }
 
-const emptyRegData = () => ({ name: '', role: '', team: [], area: [], territory: {}, stores: [] });
+const emptyRegData = () => ({ name: '', role: '', team: [], area: [], territory: {}, stores: [], hqAffiliation: false });
 
 function getTaskTargetStoreNames(task) {
   if (Array.isArray(task?.targetStoreNames) && task.targetStoreNames.length) {
@@ -1227,7 +1269,7 @@ export default function App() {
       const strData = Array.isArray(stores) ? stores : [];
       setAllStores(strData);
       
-      const allStoreNames = strData.map(s => s.storeName);
+      const allStoreNames = getFieldStoreNames(strData);
       setRequestSelectedStores(allStoreNames);
       setScheduleSelectedStores(allStoreNames);
 
@@ -1459,16 +1501,23 @@ export default function App() {
     let newStores = [...prev.stores];
     if (isSelected) { 
       delete newTerritory[areaName]; 
-      const areaStores = allStores.filter(s => s.area === areaName).map(s => s.storeName);
+      const areaStores = getFieldStores(allStores).filter(s => s.area === areaName).map(s => s.storeName);
       newStores = newStores.filter(s => !areaStores.includes(s));
     } else { 
       newTerritory[areaName] = getTerritoriesForArea(areaName, allStores); 
-      const addedStores = allStores.filter(s => s.area === areaName && newTerritory[areaName].includes(s.territory)).map(s => s.storeName);
+      const addedStores = getFieldStores(allStores).filter(s => s.area === areaName && newTerritory[areaName].includes(s.territory)).map(s => s.storeName);
       const merged = mergeRegStores(newStores, addedStores);
       if (!merged) return prev;
       newStores = merged;
     }
-    return { ...prev, area: newArea, territory: newTerritory, stores: newStores };
+    return { ...prev, hqAffiliation: false, area: newArea, territory: newTerritory, stores: newStores };
+  });
+
+  const toggleHqAffiliation = () => setRegData((prev) => {
+    if (prev.hqAffiliation) {
+      return { ...prev, hqAffiliation: false, area: [], territory: {}, stores: [] };
+    }
+    return { ...prev, hqAffiliation: true, area: [], territory: {}, stores: [HQ_STORE] };
   });
 
   const toggleTerritory = (areaName, terrName) => setRegData(prev => {
@@ -1498,13 +1547,25 @@ export default function App() {
       return;
     }
     if (!regData.role) return alert('役職を選択してください。');
-    if (regData.team.length === 0 || regData.area.length === 0) return alert('チーム名、エリアは選択必須です。');
+    if (regData.team.length === 0) return alert('チーム名は選択必須です。');
+    if (!regData.hqAffiliation && regData.area.length === 0) {
+      return alert('エリアを選択するか、EAST本部所属を選んでください。');
+    }
     setIsSubmitting(true);
     const formattedTeam = regData.team.join(', ');
-    const formattedArea = regData.area.join(', ');
-    const formattedTerritory = Object.entries(regData.territory).filter(([_, ts]) => ts.length > 0).map(([a, ts]) => `${a}: ${ts.join(',')}`).join(' / ');
-    const validStoreNames = allStores.filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory)).map(s => s.storeName);
-    const finalStores = regData.stores.filter(s => validStoreNames.includes(s));
+    let formattedArea;
+    let formattedTerritory;
+    let finalStores;
+    if (regData.hqAffiliation) {
+      formattedArea = HQ_AREA;
+      formattedTerritory = '';
+      finalStores = [HQ_STORE];
+    } else {
+      formattedArea = regData.area.join(', ');
+      formattedTerritory = Object.entries(regData.territory).filter(([_, ts]) => ts.length > 0).map(([a, ts]) => `${a}: ${ts.join(',')}`).join(' / ');
+      const validStoreNames = getFieldStores(allStores).filter(s => regData.area.includes(s.area) && (regData.territory[s.area] || []).includes(s.territory)).map(s => s.storeName);
+      finalStores = regData.stores.filter(s => validStoreNames.includes(s));
+    }
     if (finalStores.length > MAX_EMPLOYEE_STORES) {
       alert(`管轄店舗は最大${MAX_EMPLOYEE_STORES}店舗まで登録できます。担当範囲をご確認ください。`);
       setIsSubmitting(false);
@@ -1664,10 +1725,11 @@ export default function App() {
     }
 
     if (selectedStoreNames.length === 0) return '指定なし';
-    if (selectedStoreNames.length === allStores.length && allStores.length > 0) return '全店';
+    const fieldStoreNames = getFieldStoreNames(allStores);
+    if (selectedStoreNames.length === fieldStoreNames.length && fieldStoreNames.length > 0) return '全店';
     const tags = [];
     AREAS.forEach((area) => {
-      const storesInArea = allStores.filter((s) => s.area === area).map((s) => s.storeName);
+      const storesInArea = getFieldStores(allStores).filter((s) => s.area === area).map((s) => s.storeName);
       if (storesInArea.length === 0) return;
       const selectedInArea = storesInArea.filter((s) => selectedStoreNames.includes(s));
       if (selectedInArea.length > 0) {
@@ -1726,7 +1788,7 @@ export default function App() {
     const validUrls = requestForm.urls.filter(u => u.trim() !== '');
     const finalTagsStr = generateTargetTags(
       requestKind,
-      requestKind === REQUEST_KIND.store ? requestSelectedStores : allStores.map((s) => s.storeName),
+      requestKind === REQUEST_KIND.store ? requestSelectedStores : getFieldStoreNames(allStores),
       requestSelectedRoles,
       requestSelectedTeams
     );
@@ -1755,7 +1817,7 @@ export default function App() {
       setRequestForm({ content: '', deadline: '', urls: [''] });
       setRequestImages([]);
       setRequestKind(REQUEST_KIND.employee);
-      setRequestSelectedStores(allStores.map(s => s.storeName));
+      setRequestSelectedStores(getFieldStoreNames(allStores));
       setRequestSelectedRoles(ROLES);
       setRequestRecipientExcluded([]);
       setActiveTab('home');
@@ -1783,7 +1845,7 @@ export default function App() {
 
     const derived =
       Array.isArray(task.targets) && task.targets.length > 0
-        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES, TEAMS)
+        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, getFieldStoreNames(allStores), ROLES, TEAMS)
         : null;
     const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
 
@@ -1845,7 +1907,7 @@ export default function App() {
     const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
     const finalTagsStr = generateTargetTags(
       scheduleRequestKind,
-      scheduleRequestKind === REQUEST_KIND.store ? scheduleSelectedStores : allStores.map((s) => s.storeName),
+      scheduleRequestKind === REQUEST_KIND.store ? scheduleSelectedStores : getFieldStoreNames(allStores),
       scheduleSelectedRoles,
       scheduleSelectedTeams
     );
@@ -1899,7 +1961,7 @@ export default function App() {
       setScheduleDate('1');
       setScheduleImages([]);
       setScheduleRequestKind(REQUEST_KIND.employee);
-      setScheduleSelectedStores(allStores.map(s => s.storeName));
+      setScheduleSelectedStores(getFieldStoreNames(allStores));
       setScheduleSelectedRoles(ROLES);
       setScheduleSelectedTeams(TEAMS);
       setScheduleRecipientExcluded([]);
@@ -1929,7 +1991,7 @@ export default function App() {
     setScheduleImages(imgs);
     const derived =
       Array.isArray(task.targets) && task.targets.length > 0
-        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, allStores.map((s) => s.storeName), ROLES, TEAMS)
+        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, getFieldStoreNames(allStores), ROLES, TEAMS)
         : null;
     const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
     const rk = normalizeRequestKind(task.requestKind);
@@ -1959,7 +2021,7 @@ export default function App() {
     setScheduleDate('1');
     setScheduleImages([]);
     setScheduleRequestKind(REQUEST_KIND.employee);
-    setScheduleSelectedStores(allStores.map((s) => s.storeName));
+    setScheduleSelectedStores(getFieldStoreNames(allStores));
     setScheduleSelectedRoles(ROLES);
     setScheduleSelectedTeams(TEAMS);
     setScheduleRecipientExcluded([]);
@@ -2191,7 +2253,7 @@ export default function App() {
     );
 
     const blockStores = (num) => {
-      const allStoreNames = allStores.map((s) => s.storeName);
+      const allStoreNames = getFieldStoreNames(allStores);
       const storeCount = selectedStores.length;
       return (
       <PanelFrame>
@@ -2220,7 +2282,7 @@ export default function App() {
         </button>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
           {AREAS.map((area) => {
-            const storesInArea = allStores.filter((s) => s.area === area);
+            const storesInArea = getFieldStores(allStores).filter((s) => s.area === area);
             if (storesInArea.length === 0) return null;
             const isAllAreaSelected = storesInArea.every((s) => selectedStores.includes(s.storeName));
             const areaSelectedCount = storesInArea.filter((s) => selectedStores.includes(s.storeName)).length;
@@ -2502,6 +2564,7 @@ export default function App() {
                 </div>
                 </PanelFrame>
               </div>
+              {!regData.hqAffiliation && (
               <div>
                 <label className={appLabel}>エリア（複数選択可） <span className="text-rose-500">*</span></label>
                 <PanelFrame className="mt-2">
@@ -2512,7 +2575,8 @@ export default function App() {
                 </div>
                 </PanelFrame>
               </div>
-              {regData.area.length > 0 && (
+              )}
+              {!regData.hqAffiliation && regData.area.length > 0 && (
                 <div>
                   <label className={appLabel}>テリトリー（不要なものはタップして外す） <span className="text-rose-500">*</span></label>
                   <PanelFrame className="mt-2 space-y-6">
@@ -2532,7 +2596,7 @@ export default function App() {
                   </PanelFrame>
                 </div>
               )}
-              {regData.area.length > 0 && (
+              {!regData.hqAffiliation && regData.area.length > 0 && (
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <label className={`${appLabel} !mb-0`}>
@@ -2546,7 +2610,7 @@ export default function App() {
                   <PanelFrame className="mt-2 space-y-3">
                     {regData.area.map(areaName => {
                       const selectedTerrs = regData.territory[areaName] || [];
-                      const storesInArea = allStores.filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
+                      const storesInArea = getFieldStores(allStores).filter(s => s.area === areaName && selectedTerrs.includes(s.territory));
                       if (storesInArea.length === 0) return null;
                       const areaSelectedCount = storesInArea.filter((s) => regData.stores.includes(s.storeName)).length;
                       return (
@@ -2578,6 +2642,19 @@ export default function App() {
                   </PanelFrame>
                 </div>
               )}
+              <div>
+                <label className={appLabel}>本部所属 <span className="text-xs font-normal text-slate-500 ml-1">（店舗エリアに所属しない方）</span></label>
+                <PanelFrame className="mt-2">
+                  <div className={`flex flex-wrap gap-2 ${appChipArena}`}>
+                    <RegChip selected={regData.hqAffiliation} onClick={toggleHqAffiliation}>{HQ_AREA}</RegChip>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                    {regData.hqAffiliation
+                      ? 'エリア・店舗の選択は不要です。社員依頼・TF依頼は役職・チームで配信されます。店舗依頼のエリア配信には含まれません。'
+                      : '第1〜7エリアに所属しない方はこちらを選択してください（エリア選択と同時には選べません）。'}
+                  </p>
+                </PanelFrame>
+              </div>
               <div className="pt-8 flex gap-6">
                 <button
                   type="button"
@@ -2704,16 +2781,22 @@ export default function App() {
                         </div>
                       )}
                       <div>
-                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">担当エリア</p>
+                        <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">
+                          {isHqEmployee(currentUser) ? '所属' : '担当エリア'}
+                        </p>
                         <p className="text-xs font-bold text-slate-900">{currentUser?.area}</p>
-                        {currentUser?.territory && <p className="text-[11px] font-semibold text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap">{String(currentUser.territory).split(' / ').join('\n')}</p>}
+                        {!isHqEmployee(currentUser) && currentUser?.territory && (
+                          <p className="text-[11px] font-semibold text-slate-600 mt-1 leading-relaxed whitespace-pre-wrap">{String(currentUser.territory).split(' / ').join('\n')}</p>
+                        )}
                       </div>
+                      {!isHqEmployee(currentUser) && (
                       <div>
                         <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">管轄店舗</p>
                         <div className="flex flex-wrap gap-1 mt-0.5">
                           {currentUser?.stores?.length > 0 ? currentUser.stores.map((s, i) => <span key={i} className="bg-gray-100 border border-slate-400 text-slate-900 text-[9px] px-1.5 py-0.5 rounded font-bold">{s}</span>) : <span className="text-[11px] text-slate-500">店舗なし</span>}
                         </div>
                       </div>
+                      )}
                       <div>
                         <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">所属チーム</p>
                         <div className="flex flex-wrap gap-1 mt-0.5">

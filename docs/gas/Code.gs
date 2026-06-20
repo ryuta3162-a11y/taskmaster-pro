@@ -143,6 +143,26 @@ function saveImagesToDrive(images, senderName) {
 /** 従業員シートの管轄店舗列: H列(7) から最大50店舗（H〜BE列） */
 var EMPLOYEE_STORE_COL_START = 7;
 var EMPLOYEE_STORE_COL_MAX = 50;
+/** 店舗エリア外の本部（店舗依頼の配信対象外） */
+var HQ_AREA = 'EAST本部';
+var HQ_STORE = 'EAST本部';
+
+function isHqStoreName_(name) {
+  return String(name || '').trim() === HQ_STORE;
+}
+function isHqAreaName_(name) {
+  return String(name || '').trim() === HQ_AREA;
+}
+function getFieldStores_(allStores) {
+  return (allStores || []).filter(function (s) {
+    return !isHqStoreName_(s.storeName) && !isHqAreaName_(s.area);
+  });
+}
+function getFieldStoreNames_(allStores) {
+  return getFieldStores_(allStores).map(function (s) {
+    return s.storeName;
+  });
+}
 
 function parseEmployeeStoresFromRow_(row) {
   var end = Math.min(row.length, EMPLOYEE_STORE_COL_START + EMPLOYEE_STORE_COL_MAX);
@@ -267,11 +287,11 @@ function parseTargetEmails(targetsStr) {
     .filter(Boolean);
 }
 
-/** 店舗データからエリア名一覧（ターゲットタグ解析用） */
+/** 店舗データからエリア名一覧（ターゲットタグ解析用・本部エリアは除外） */
 function getAreasListFromStores_(allStores) {
   var seen = {};
   var out = [];
-  (allStores || []).forEach(function (s) {
+  getFieldStores_(allStores).forEach(function (s) {
     var a = String(s.area || '').trim();
     if (a && !seen[a]) {
       seen[a] = true;
@@ -285,9 +305,8 @@ function getAreasListFromStores_(allStores) {
  * targetTags 文字列から「対象店舗名」の配列を復元（フロントの parseTargetTagsToSelection と同趣旨）
  */
 function parseTargetStoresFromTags_(tagStr, allStores, areasList) {
-  var allStoreNames = (allStores || []).map(function (s) {
-    return s.storeName;
-  });
+  var fieldStores = getFieldStores_(allStores);
+  var allStoreNames = getFieldStoreNames_(allStores);
   if (!tagStr || String(tagStr).trim() === '' || tagStr === '指定なし') {
     return allStoreNames.slice();
   }
@@ -305,8 +324,9 @@ function parseTargetStoresFromTags_(tagStr, allStores, areasList) {
   }).filter(Boolean);
   var selected = [];
   parts.forEach(function (p) {
+    if (isHqAreaName_(p) || isHqStoreName_(p)) return;
     if (areasList.indexOf(p) >= 0) {
-      allStores.filter(function (st) {
+      fieldStores.filter(function (st) {
         return st.area === p;
       }).forEach(function (st) {
         if (selected.indexOf(st.storeName) < 0) selected.push(st.storeName);
