@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="To Do List の使い方ガイド。動画とテキストで新規投稿・リストチェックなどを解説します。" />
+  <title>To Do List 活用ガイド</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-brand" href="#top">
+      <span class="brand-mark">TD</span>
+      <span>To Do List 活用ガイド</span>
+    </a>
+    <div class="header-actions">
+      <a id="btn-app" class="btn btn-primary" href="#" target="_blank" rel="noopener" style="display:none">アプリを開く</a>
+      <button type="button" class="menu-toggle" id="menu-toggle" aria-label="メニュー">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="layout" id="top">
+    <aside class="sidebar" id="sidebar">
+      <p class="sidebar-label">目次</p>
+      <ul class="nav-list">
+        <li><a href="#overview">はじめに</a></li>
+        <li><a href="#register" class="nav-sub">ログイン・登録</a></li>
+        <li><a href="#checklist">リストチェック</a></li>
+        <li><a href="#request">新規投稿</a></li>
+        <li><a href="#mail-notify" class="nav-sub">通知メール</a></li>
+        <li><a href="#gmail-label" class="nav-sub">Gmailラベル</a></li>
+        <li><a href="#repost" class="nav-sub">再投稿</a></li>
+        <li><a href="#scheduled" class="nav-sub">定期配信</a></li>
+        <li><a href="#progress">チーム進捗</a></li>
+        <li><a href="#admin" class="nav-sub">進捗管理admin</a></li>
+        <li><a href="#faq">よくある質問</a></li>
+        <li><a href="#contact">お問い合わせ</a></li>
+      </ul>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <span class="hero-badge" id="launch-date">2025年7月1日 より本番運用</span>
+        <h1>To Do List の使い方</h1>
+        <p class="hero-lead">
+          テキストと動画で、依頼の出し方・受け方・進捗の見方をかんたんにご案内します。
+          まずは<strong>リストチェック</strong>、依頼を出す方は<strong>新規投稿</strong>をご覧ください。
+        </p>
+        <div class="hero-cards">
+          <div class="hero-card"><strong>新規投稿</strong><span>依頼を送る</span></div>
+          <div class="hero-card"><strong>再投稿</strong><span>同内容を再送</span></div>
+          <div class="hero-card"><strong>定期配信</strong><span>毎月自動</span></div>
+          <div class="hero-card"><strong>リストチェック</strong><span>To Do を完了</span></div>
+        </div>
+      </section>
+
+      <!-- はじめに -->
+      <article class="section" id="overview">
+        <header class="section-header">
+          <h2>はじめに（全体の流れ）</h2>
+          <p class="section-meta">動画 約3分 ／ 全員向け</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="overview">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs" title="全画面">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>
+            ホーム画面には4つのメニューがあります。<strong>新規投稿</strong>で依頼を出し、
+            <strong>再投稿</strong>で過去の依頼をもう一度送り、<strong>定期配信</strong>で毎月自動配信し、
+            <strong>リストチェック</strong>で自分の To Do を完了します。
+          </p>
+          <p>チームの進捗は、ホーム下部の<strong>〇〇チーム進捗管理ダッシュボード</strong>から確認できます。</p>
+        </div>
+      </article>
+
+      <!-- 登録 -->
+      <article class="section" id="register">
+        <header class="section-header">
+          <h2>ログイン・初回登録</h2>
+          <p class="section-meta">動画 約2分</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="register">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>社内メールアドレスでログインし、プロフィールを登録します。</p>
+          <ul>
+            <li><strong>チーム・役職</strong>は必ず選択してください。</li>
+            <li>店舗エリア所属の方は <strong>第1〜7エリア</strong> と <strong>管轄店舗</strong> を選びます。<strong>EAST本部は選択不要</strong>です。</li>
+            <li><strong>EAST本部</strong>所属の方は、エリアの代わりに <strong>EAST本部</strong> を選べば、エリア・店舗の選択は不要です。</li>
+          </ul>
+          <div class="callout-box">
+            <p class="callout-title">管轄店舗について</p>
+            <p>管理したい店舗を多く選択いただいても構いません。エリア・テリトリー内で社員間で相談し、<strong>誰がどの店舗のタスク管理をするか</strong>を決めてから登録してください。</p>
+          </div>
+          <p>登録後は「<strong>ログイン情報の変更</strong>」からいつでも更新できます。</p>
+        </div>
+      </article>
+
+      <!-- リストチェック -->
+      <article class="section" id="checklist">
+        <header class="section-header">
+          <h2>リストチェック</h2>
+          <p class="section-meta">動画 約4分 ／ 全員必須</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="checklist">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>
+            依頼を受け取った方は、ホームの<strong>リストチェック</strong>を開きます。
+            配信が完了すると <a href="#mail-notify">通知メール</a> が届き、メール内のリンクからも同じ画面を開けます。
+            ホームのバッジ数字は<strong>未完了件数</strong>です。
+          </p>
+
+          <table class="info-table">
+            <tr>
+              <th>未実施</th>
+              <td>対応が必要な To Do 一覧。内容を確認し、対応後に<strong>完了</strong>を押します。</td>
+            </tr>
+            <tr>
+              <th>実施済み</th>
+              <td>完了した To Do 一覧。誤って完了した場合はここから<strong>取り消し</strong>できます。</td>
+            </tr>
+            <tr>
+              <th>依頼の種類</th>
+              <td><strong>社員依頼</strong>・<strong>店舗依頼</strong>・<strong>TFチーム依頼</strong>で絞り込みできます。</td>
+            </tr>
+            <tr>
+              <th>店舗依頼</th>
+              <td>担当店舗ごとに完了します。画面上部の<strong>店舗名チップ</strong>で絞り込み、店舗単位で完了操作ができます。</td>
+            </tr>
+          </table>
+
+          <div class="callout-box">
+            <p class="callout-title">依頼を出さない方へ</p>
+            <p>
+              <a id="link-checklist" href="#">リストチェック専用URL</a>
+              だけブックマークしておくと、毎回ホームを開かずに To Do を確認できます。
+              Gmail では件名 <strong>【TODOリスト】新しいタスクが届きました</strong> でラベル振り分けすると便利です（<a href="#gmail-label">設定手順</a>）。
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <!-- 新規投稿 -->
+      <article class="section" id="request">
+        <header class="section-header">
+          <h2>新規投稿（To Do 申請）</h2>
+          <p class="section-meta">動画 約4分 ／ 依頼を出す方</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="request">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>ホーム画面の <strong>新規投稿</strong> をタップして、依頼を作成します。まず <strong>依頼の種類</strong> を選びます。</p>
+          <table class="info-table">
+            <tr>
+              <th>社員への依頼</th>
+              <td><strong>役職別</strong>で配信できます（社員へ依頼したい場合）。該当する役職の方が、それぞれリストチェックで完了します。</td>
+            </tr>
+            <tr>
+              <th>店舗への依頼</th>
+              <td><strong>エリア・店舗別</strong>で配信できます（店舗へ依頼したい場合）。担当店舗ごとに完了します。</td>
+            </tr>
+            <tr>
+              <th>TFチームの依頼</th>
+              <td><strong>所属チーム別</strong>に配信できます。社員への依頼と同じタスク配信形式のため、<strong>各チームで1名が完了しても、チーム全体の完了にはなりません</strong>（該当チームのメンバーそれぞれが完了が必要です）。</td>
+            </tr>
+          </table>
+          <p>
+            依頼内容・期限を入力し、配信先を確認して <strong>送信</strong> します。
+            配信が完了すると <strong>メールが届き</strong>、受信者の <strong>リストチェック</strong> に To Do が表示されます。
+          </p>
+          <p><a href="#mail-notify">届くメールの見本はこちら →</a></p>
+        </div>
+      </article>
+
+      <!-- 通知メール -->
+      <article class="section" id="mail-notify">
+        <header class="section-header">
+          <h2>届く通知メールの見本</h2>
+          <p class="section-meta">配信完了後に届くメール</p>
+        </header>
+        <div class="section-body">
+          <p>依頼を送ると、配信先の方に次のようなメールが届きます。件名は <strong>【TODOリスト】新しいタスクが届きました</strong> です。</p>
+
+          <div class="gmail-shell" aria-label="Gmail通知メールの見本">
+            <div class="gmail-toolbar">
+              <span class="gmail-label-pill inbox">受信トレイ</span>
+              <span class="gmail-label-pill custom">To-Do List</span>
+            </div>
+            <h3 class="gmail-subject">【TODOリスト】新しいタスクが届きました</h3>
+            <div class="gmail-meta">
+              <span class="gmail-avatar" aria-hidden="true">RK</span>
+              <div>
+                <strong>r-kusaka@okamoto-group.co.jp</strong>
+                <span class="gmail-to">To 自分</span>
+              </div>
+            </div>
+            <div class="gmail-body-mock">
+              <p class="gmail-body-title">[ ToDo List ] 新着タスク通知</p>
+              <hr class="gmail-hr" />
+              <ul class="gmail-facts">
+                <li><span>依頼者</span> 日下 竜太</li>
+                <li><span>対象エリア</span> 全店</li>
+                <li><span>期限 (DL)</span> 2026-03-31</li>
+              </ul>
+              <hr class="gmail-hr" />
+              <p class="gmail-section-label">[ 依頼内容 ]</p>
+              <p class="gmail-content-sample">（依頼時に入力した内容がここに表示されます）</p>
+              <p class="gmail-cta-hint">▼ 以下のリンクから確認・完了報告をしてください。</p>
+              <p class="gmail-link-sample">https://script.google.com/…/exec?tab=checklist</p>
+            </div>
+          </div>
+
+          <p>メール内のリンクを開くと <strong>リストチェック</strong> に移動できます。ブックマークしておくと便利です。</p>
+        </div>
+      </article>
+
+      <!-- Gmailラベル -->
+      <article class="section" id="gmail-label">
+        <header class="section-header">
+          <h2>Gmail でラベルを付ける（おすすめ）</h2>
+          <p class="section-meta">件名で自動振り分け ／ 約2分</p>
+        </header>
+        <div class="section-body">
+          <p>
+            To Do の通知メールは件名が <strong>【TODOリスト】新しいタスクが届きました</strong> で統一されています。
+            Gmail のフィルタで <strong>To-Do List</strong> ラベルを自動で付けると、受信トレイが整理されて管理しやすくなります。
+          </p>
+
+          <ol class="steps-list">
+            <li>
+              <strong>Gmail を開き、検索ボックスに次を入力</strong>
+              <div class="code-chip">subject:【TODOリスト】新しいタスクが届きました</div>
+            </li>
+            <li><strong>検索オプション（フィルタ作成）を開く</strong> →「この検索条件で検索」で一度確認してもOK</li>
+            <li><strong>「フィルタを作成」</strong> をクリック</li>
+            <li>
+              <strong>「ラベルを付ける」</strong> にチェック → ラベルで <strong>To-Do List</strong> を選択
+              <span class="steps-note">（なければ「新規作成」で To-Do List を作ります）</span>
+            </li>
+            <li>必要なら「○件の一致するスレッドにもフィルタを適用する」にチェック（過去の通知もまとめられます）</li>
+            <li><strong>「フィルタを作成」</strong> で完了</li>
+          </ol>
+
+          <div class="callout-box callout-success">
+            <p class="callout-title">設定後のイメージ</p>
+            <p>件名が <strong>【TODOリスト】新しいタスクが届きました</strong> のメールに、自動で <strong>To-Do List</strong> ラベルが付きます。左メニューから To-Do 通知だけを一覧できます。</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- 再投稿 -->
+      <article class="section" id="repost">
+        <header class="section-header">
+          <h2>再投稿</h2>
+          <p class="section-meta">動画 約2分</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="repost">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>
+            <strong>再投稿</strong>は、過去に新規投稿で送った依頼だけが一覧に出ます（定期配信とは別）。
+            選ぶと内容・配信先が復元されるので、必要なら直してから再送信できます。
+          </p>
+        </div>
+      </article>
+
+      <!-- 定期配信 -->
+      <article class="section" id="scheduled">
+        <header class="section-header">
+          <h2>定期配信</h2>
+          <p class="section-meta">動画 約3分</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="scheduled">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>
+            毎月決まった日に自動で同じ To Do を送る機能です。
+            新規投稿と同様に内容・配信先を設定し、<strong>毎月何日に送るか</strong>を選びます。
+            編集・停止も一覧から行えます。
+          </p>
+        </div>
+      </article>
+
+      <!-- 進捗 -->
+      <article class="section" id="progress">
+        <header class="section-header">
+          <h2>チーム進捗管理ダッシュボード</h2>
+          <p class="section-meta">動画 約2分 ／ リーダー・TF向け</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="progress">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>
+            ホーム下部の<strong>〇〇チーム進捗管理ダッシュボード</strong>から、
+            そのチームの To Do 進捗を<strong>閲覧</strong>できます（完了操作はしません）。
+            所属チームが複数ある方は、チームごとにボタンが表示されます。
+          </p>
+        </div>
+      </article>
+
+      <!-- admin -->
+      <article class="section" id="admin">
+        <header class="section-header">
+          <h2>進捗管理admin（管理者向け）</h2>
+          <p class="section-meta">動画 約2分 ／ DX・管理者のみ</p>
+        </header>
+        <div class="section-body">
+          <div class="video-block" data-video="admin">
+            <div class="video-toolbar">
+              <span class="video-label">解説動画</span>
+              <button type="button" class="btn-fs">全画面</button>
+            </div>
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p>
+            管理者向け画面です。社員依頼・店舗依頼の未完了者や未完了店舗を確認し、
+            必要に応じて<strong>リマインドメール</strong>を送れます。一般の方は利用しません。
+          </p>
+        </div>
+      </article>
+
+      <!-- FAQ -->
+      <article class="section" id="faq">
+        <header class="section-header">
+          <h2>よくある質問</h2>
+        </header>
+        <div class="section-body">
+          <div class="faq-item">
+            <h3>Gmail で To-Do 通知だけ見たい</h3>
+            <p>件名 <strong>【TODOリスト】新しいタスクが届きました</strong> でフィルタを作り、ラベル <strong>To-Do List</strong> を付けてください。<a href="#gmail-label">設定手順はこちら</a>。</p>
+          </div>
+          <div class="faq-item">
+            <h3>テリトリー4や管轄店舗が出ない</h3>
+            <p>エリアとテリトリーを正しく選んでください。第4エリアのみテリトリー4があります。解決しない場合は一時登録後、「ログイン情報の変更」で修正できます。</p>
+          </div>
+          <div class="faq-item">
+            <h3>EAST本部所属はどう登録する？</h3>
+            <p>登録画面で「EAST本部」を選びます。エリア・店舗の選択は不要です。店舗依頼のエリア配信には含まれませんが、社員依頼・TF依頼は受け取れます。</p>
+          </div>
+          <div class="faq-item">
+            <h3>再投稿と定期配信の違いは？</h3>
+            <p>再投稿は過去の新規投稿を手動でもう一度送る機能。定期配信は毎月自動で送る設定です。一覧も別です。</p>
+          </div>
+          <div class="faq-item">
+            <h3>動画が再生されない</h3>
+            <p>MP4 を使う場合は <code>videos/</code> にファイルがあるか、<code>guide-config.js</code> のパスを確認してください。ブラウザはタップ後の再生に対応しています（自動再生は音ありでは制限されます）。</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- Contact -->
+      <article class="section" id="contact">
+        <header class="section-header">
+          <h2>お問い合わせ</h2>
+        </header>
+        <div class="section-body" id="contact-block">
+          <p>ご不明点は担当者までご連絡ください。（<code>guide-config.js</code> の contactEmail を設定するとメールリンクが表示されます）</p>
+        </div>
+      </article>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <p>To Do List 活用ガイド</p>
+  </footer>
+
+  <script src="guide-config.js"></script>
+  <script src="guide.js"></script>
+</body>
+</html>
