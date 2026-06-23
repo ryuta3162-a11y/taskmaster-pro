@@ -676,13 +676,6 @@ a:hover {
   color: #5f6368;
 }
 
-.gmail-link-sample {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--accent-600);
-  word-break: break-all;
-}
-
 /* Steps */
 .steps-list {
   margin: 1.25rem 0;
@@ -712,6 +705,36 @@ a:hover {
   font-family: Consolas, 'Courier New', monospace;
   font-size: 0.82rem;
   word-break: break-all;
+}
+
+.code-chip-link {
+  display: block;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.code-chip-link:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.callout-footnote {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.gmail-link-sample {
+  display: block;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--accent-600);
+  word-break: break-all;
+  text-decoration: none;
+}
+
+.gmail-link-sample:hover {
+  text-decoration: underline;
 }
 
 /* Mobile */

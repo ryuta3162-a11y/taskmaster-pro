@@ -14,7 +14,7 @@
       <span>To Do List 活用ガイド</span>
     </a>
     <div class="header-actions">
-      <a id="btn-app" class="btn btn-primary" href="#" target="_blank" rel="noopener" style="display:none">アプリを開く</a>
+      <a id="btn-app" class="btn btn-primary" href="#" target="_blank" rel="noopener">アプリを開く</a>
       <button type="button" class="menu-toggle" id="menu-toggle" aria-label="メニュー">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -29,8 +29,7 @@
     <aside class="sidebar" id="sidebar">
       <p class="sidebar-label">目次</p>
       <ul class="nav-list">
-        <li><a href="#overview">はじめに</a></li>
-        <li><a href="#register" class="nav-sub">ログイン・登録</a></li>
+        <li><a href="#register">ログイン・登録</a></li>
         <li><a href="#checklist">リストチェック</a></li>
         <li><a href="#request">新規投稿</a></li>
         <li><a href="#mail-notify" class="nav-sub">通知メール</a></li>
@@ -40,7 +39,6 @@
         <li><a href="#progress">チーム進捗</a></li>
         <li><a href="#admin" class="nav-sub">進捗管理admin</a></li>
         <li><a href="#faq">よくある質問</a></li>
-        <li><a href="#contact">お問い合わせ</a></li>
       </ul>
     </aside>
 
@@ -59,29 +57,6 @@
           <div class="hero-card"><strong>リストチェック</strong><span>To Do を完了</span></div>
         </div>
       </section>
-
-      <!-- はじめに -->
-      <article class="section" id="overview">
-        <header class="section-header">
-          <h2>はじめに（全体の流れ）</h2>
-          <p class="section-meta">動画 約3分 ／ 全員向け</p>
-        </header>
-        <div class="section-body">
-          <div class="video-block" data-video="overview">
-            <div class="video-toolbar">
-              <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs" title="全画面">全画面</button>
-            </div>
-            <div class="video-frame-wrap"></div>
-          </div>
-          <p>
-            ホーム画面には4つのメニューがあります。<strong>新規投稿</strong>で依頼を出し、
-            <strong>再投稿</strong>で過去の依頼をもう一度送り、<strong>定期配信</strong>で毎月自動配信し、
-            <strong>リストチェック</strong>で自分の To Do を完了します。
-          </p>
-          <p>チームの進捗は、ホーム下部の<strong>〇〇チーム進捗管理ダッシュボード</strong>から確認できます。</p>
-        </div>
-      </article>
 
       <!-- 登録 -->
       <article class="section" id="register">
@@ -151,10 +126,10 @@
           </table>
 
           <div class="callout-box">
-            <p class="callout-title">依頼を出さない方へ</p>
-            <p>
-              <a id="link-checklist" href="#">リストチェック専用URL</a>
-              だけブックマークしておくと、毎回ホームを開かずに To Do を確認できます。
+            <p class="callout-title">依頼を出さない方へ（ブックマーク登録）</p>
+            <p>次のURLをブラウザの<strong>ブックマーク</strong>に登録してください。ホームを開かず、リストチェックだけ開けます。</p>
+            <a id="link-checklist" class="code-chip code-chip-link" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
+            <p class="callout-footnote">
               Gmail では件名 <strong>【TODOリスト】新しいタスクが届きました</strong> でラベル振り分けすると便利です（<a href="#gmail-label">設定手順</a>）。
             </p>
           </div>
@@ -232,7 +207,7 @@
               <p class="gmail-section-label">[ 依頼内容 ]</p>
               <p class="gmail-content-sample">（依頼時に入力した内容がここに表示されます）</p>
               <p class="gmail-cta-hint">▼ 以下のリンクから確認・完了報告をしてください。</p>
-              <p class="gmail-link-sample">https://script.google.com/…/exec?tab=checklist</p>
+              <a id="mail-checklist-link" class="gmail-link-sample" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
             </div>
           </div>
 
@@ -278,7 +253,7 @@
       <article class="section" id="repost">
         <header class="section-header">
           <h2>再投稿</h2>
-          <p class="section-meta">動画 約2分</p>
+          <p class="section-meta">動画 約2分 ／ 依頼を出す方</p>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="repost">
@@ -289,9 +264,31 @@
             <div class="video-frame-wrap"></div>
           </div>
           <p>
-            <strong>再投稿</strong>は、過去に新規投稿で送った依頼だけが一覧に出ます（定期配信とは別）。
-            選ぶと内容・配信先が復元されるので、必要なら直してから再送信できます。
+            ホームの <strong>再投稿</strong> を開くと、過去に <strong>新規投稿</strong> で送った依頼だけが一覧に出ます。
+            <strong>定期配信</strong>で登録したものはここには表示されません（一覧は別です）。
           </p>
+          <table class="info-table">
+            <tr>
+              <th>一覧から選ぶ</th>
+              <td>送りたい依頼の <strong>再利用して作成</strong> を押します。</td>
+            </tr>
+            <tr>
+              <th>引き継がれるもの</th>
+              <td>依頼内容・URL・添付ファイル・配信先（役職・店舗・チームなど）。</td>
+            </tr>
+            <tr>
+              <th>選び直すもの</th>
+              <td><strong>期限</strong> は毎回選び直してください。</td>
+            </tr>
+            <tr>
+              <th>送信</th>
+              <td>内容を確認して <strong>送信</strong> すれば、新規投稿と同様に配信・通知メールが届きます。</td>
+            </tr>
+          </table>
+          <div class="callout-box">
+            <p class="callout-title">こんなときに使う</p>
+            <p>「先月と同じ内容を、もう一度手動で送りたい」「内容はほぼ同じで期限だけ変えたい」といったときに便利です。毎月自動で送りたい場合は <a href="#scheduled">定期配信</a> を使います。</p>
+          </div>
         </div>
       </article>
 
@@ -299,7 +296,7 @@
       <article class="section" id="scheduled">
         <header class="section-header">
           <h2>定期配信</h2>
-          <p class="section-meta">動画 約3分</p>
+          <p class="section-meta">動画 約3分 ／ 依頼を出す方</p>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="scheduled">
@@ -310,10 +307,31 @@
             <div class="video-frame-wrap"></div>
           </div>
           <p>
-            毎月決まった日に自動で同じ To Do を送る機能です。
-            新規投稿と同様に内容・配信先を設定し、<strong>毎月何日に送るか</strong>を選びます。
-            編集・停止も一覧から行えます。
+            ホームの <strong>定期配信</strong> では、毎月決まった日に同じ To Do を<strong>自動で送る</strong>設定ができます。
+            新規投稿と同様に、依頼の種類・内容・配信先を設定します。
           </p>
+          <table class="info-table">
+            <tr>
+              <th>配信日</th>
+              <td><strong>毎月何日に配信するか</strong> を選びます。配信時刻は <strong>午前10:00</strong> 固定です。</td>
+            </tr>
+            <tr>
+              <th>期限</th>
+              <td>毎月のタスク期限（<strong>月末</strong> または <strong>○日まで</strong>）を選びます。</td>
+            </tr>
+            <tr>
+              <th>今月は送らない</th>
+              <td>新規登録時、「<strong>今月の初回分は作成しない</strong>」にチェックすると、翌月の配信日から開始できます。</td>
+            </tr>
+            <tr>
+              <th>編集・停止</th>
+              <td>下部の <strong>稼働中の定期配信</strong> 一覧から編集・削除（停止）できます。編集内容は<strong>次回の定期配信から</strong>反映されます。</td>
+            </tr>
+          </table>
+          <div class="callout-box">
+            <p class="callout-title">再投稿との違い</p>
+            <p><strong>再投稿</strong>は手動でもう一度送る機能。<strong>定期配信</strong>は毎月自動で送る設定です。一覧も別なので、混同しないようご注意ください。</p>
+          </div>
         </div>
       </article>
 
@@ -321,7 +339,7 @@
       <article class="section" id="progress">
         <header class="section-header">
           <h2>チーム進捗管理ダッシュボード</h2>
-          <p class="section-meta">動画 約2分 ／ リーダー・TF向け</p>
+          <p class="section-meta">動画 約2分 ／ チームリーダー・TF向け</p>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="progress">
@@ -332,10 +350,27 @@
             <div class="video-frame-wrap"></div>
           </div>
           <p>
-            ホーム下部の<strong>〇〇チーム進捗管理ダッシュボード</strong>から、
-            そのチームの To Do 進捗を<strong>閲覧</strong>できます（完了操作はしません）。
-            所属チームが複数ある方は、チームごとにボタンが表示されます。
+            ホーム画面の下部にある <strong>〇〇チーム進捗管理ダッシュボード</strong> から、
+            そのチームの TF 依頼などの進捗を<strong>閲覧</strong>できます。
           </p>
+          <table class="info-table">
+            <tr>
+              <th>できること</th>
+              <td>依頼ごとの進捗状況・期限・完了率を確認できます。</td>
+            </tr>
+            <tr>
+              <th>できないこと</th>
+              <td><strong>完了操作はできません</strong>（見るだけの画面です）。</td>
+            </tr>
+            <tr>
+              <th>複数チーム</th>
+              <td>所属チームが複数ある方は、チームごとにボタンが表示されます。</td>
+            </tr>
+          </table>
+          <div class="callout-box">
+            <p class="callout-title">管理者画面との違い</p>
+            <p>チームリーダー向けはこの<strong>進捗ダッシュボード</strong>。DX などが未完了者にメールを送るのは <a href="#admin">進捗管理admin</a> です。役割が違います。</p>
+          </div>
         </div>
       </article>
 
@@ -354,9 +389,32 @@
             <div class="video-frame-wrap"></div>
           </div>
           <p>
-            管理者向け画面です。社員依頼・店舗依頼の未完了者や未完了店舗を確認し、
-            必要に応じて<strong>リマインドメール</strong>を送れます。一般の方は利用しません。
+            <strong>進捗管理admin</strong> は、DX チームなど<strong>管理者だけ</strong>が使う画面です。
+            ホームに表示される方のみアクセスできます（一般の方は利用しません）。
           </p>
+          <table class="info-table">
+            <tr>
+              <th>社員依頼</th>
+              <td>社員向け依頼の進捗一覧。未完了の方を確認できます。</td>
+            </tr>
+            <tr>
+              <th>店舗依頼</th>
+              <td>店舗向け依頼の進捗一覧。未完了の店舗を確認できます。</td>
+            </tr>
+            <tr>
+              <th>定期配信</th>
+              <td>登録されている定期配信の一覧（参照のみ）。</td>
+            </tr>
+            <tr>
+              <th>リマインド</th>
+              <td>依頼を展開し、未完了の人（または店舗）を選んで <strong>リマインドメール</strong> を送れます。</td>
+            </tr>
+          </table>
+          <div class="callout-box">
+            <p class="callout-title">開き方（管理者用）</p>
+            <p>管理者用 URL は利用者アプリの URL の末尾に <code>?page=admin</code> を付けたものです。ブックマークしておくと便利です。</p>
+            <a id="link-admin" class="code-chip code-chip-link" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
+          </div>
         </div>
       </article>
 
@@ -389,15 +447,6 @@
         </div>
       </article>
 
-      <!-- Contact -->
-      <article class="section" id="contact">
-        <header class="section-header">
-          <h2>お問い合わせ</h2>
-        </header>
-        <div class="section-body" id="contact-block">
-          <p>ご不明点は担当者までご連絡ください。（<code>guide-config.js</code> の contactEmail を設定するとメールリンクが表示されます）</p>
-        </div>
-      </article>
     </main>
   </div>
 

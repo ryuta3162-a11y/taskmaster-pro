@@ -15,11 +15,9 @@ window.GUIDE_CONFIG = {
   siteTitle: 'To Do List 活用ガイド',
   launchDate: '2025年7月1日',
 
-  appUrl: '',
-  checklistUrl: '',
-
-  contactLabel: 'お問い合わせ',
-  contactEmail: '',
+  appUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec',
+  checklistUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec?page=checklist',
+  adminUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec?page=admin',
 
   /** true = mp4 未設定の章にサンプル動画を表示（本番公開前に false 推奨） */
   useDemoWhenEmpty: true,
@@ -28,14 +26,6 @@ window.GUIDE_CONFIG = {
   demoMp4: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
 
   videos: {
-    overview: {
-      title: '全体の流れ（はじめに）',
-      duration: '約3分',
-      mp4: '', // 例: 'videos/overview.mp4'
-      poster: '', // 任意: 'videos/overview-poster.jpg'
-      youtube: '',
-      drive: '',
-    },
     register: {
       title: 'ログイン・初回登録',
       duration: '約2分',

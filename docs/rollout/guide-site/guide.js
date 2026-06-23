@@ -246,16 +246,20 @@
     const checklistLink = document.getElementById('link-checklist');
     if (checklistLink && cfg.checklistUrl) {
       checklistLink.href = cfg.checklistUrl;
+      checklistLink.textContent = cfg.checklistUrl;
     }
 
-    const contact = document.getElementById('contact-block');
-    if (contact && cfg.contactEmail) {
-      contact.innerHTML =
-        '<p>ご不明点は <a href="mailto:' +
-        cfg.contactEmail +
-        '">' +
-        (cfg.contactLabel || 'お問い合わせ') +
-        '</a> までご連絡ください。</p>';
+    const mailChecklistLink = document.getElementById('mail-checklist-link');
+    if (mailChecklistLink && cfg.appUrl) {
+      const mailUrl = cfg.appUrl + (cfg.appUrl.indexOf('?') >= 0 ? '&' : '?') + 'tab=checklist';
+      mailChecklistLink.href = mailUrl;
+      mailChecklistLink.textContent = mailUrl;
+    }
+
+    const adminLink = document.getElementById('link-admin');
+    if (adminLink && cfg.adminUrl) {
+      adminLink.href = cfg.adminUrl;
+      adminLink.textContent = cfg.adminUrl;
     }
   }
 
