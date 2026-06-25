@@ -1,5 +1,6 @@
 /**
  * 動画プレーヤー（MP4 自前ホスト / YouTube / Drive）
+ * 拡張章: 字幕（VTT）・章ジャンプ・所属タブ
  */
 (function () {
   const cfg = window.GUIDE_CONFIG || {};
@@ -32,7 +33,12 @@
   function buildSource(video) {
     const mp4 = resolveMp4Src(video);
     if (mp4) {
-      return { type: 'mp4', src: mp4, poster: String(video.poster || '').trim() };
+      return {
+        type: 'mp4',
+        src: mp4,
+        poster: String(video.poster || '').trim(),
+        vtt: String(video.vtt || '').trim(),
+      };
     }
     const yt = extractYouTubeId(video.youtube);
     if (yt) {
@@ -51,6 +57,13 @@
     return null;
   }
 
+  function formatTime(sec) {
+    const s = Math.max(0, Math.floor(sec));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m + ':' + String(r).padStart(2, '0');
+  }
+
   function playIconSvg() {
     return (
       '<svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
@@ -59,43 +72,145 @@
     );
   }
 
-  function renderNativePlayer(wrap, source, title, isDemo) {
+  function renderNativePlayer(wrap, source, video, isDemo) {
     wrap.classList.add('video-native');
+    const vtt = source.vtt || '';
+    const trackHtml = vtt
+      ? '<track kind="subtitles" src="' +
+        vtt +
+        '" srclang="ja" label="日本語" default />'
+      : '';
+
     wrap.innerHTML =
       '<video class="guide-video" playsinline preload="metadata"' +
       (source.poster ? ' poster="' + source.poster + '"' : '') +
       '>' +
-      '<source src="' + source.src + '" type="video/mp4" />' +
+      '<source src="' +
+      source.src +
+      '" type="video/mp4" />' +
+      trackHtml +
       'お使いのブラウザは動画再生に対応していません。' +
       '</video>' +
       '<button type="button" class="video-play-overlay" aria-label="動画を再生">' +
       playIconSvg() +
       '<span class="play-label">再生</span>' +
       (isDemo ? '<span class="play-demo-badge">サンプル</span>' : '') +
+      (source.poster ? '<span class="play-poster-title">' + (video.title || '') + '</span>' : '') +
       '</button>';
 
-    const video = wrap.querySelector('video');
+    const videoEl = wrap.querySelector('video');
     const overlay = wrap.querySelector('.video-play-overlay');
+    const block = wrap.closest('[data-video]');
 
     overlay.addEventListener('click', function () {
       overlay.classList.add('is-hidden');
-      video.controls = true;
-      video.play().catch(function () {
+      videoEl.controls = true;
+      enableSubtitles(videoEl, true);
+      videoEl.play().catch(function () {
         overlay.classList.remove('is-hidden');
-        video.controls = false;
+        videoEl.controls = false;
       });
     });
 
-    video.addEventListener('ended', function () {
+    videoEl.addEventListener('ended', function () {
       overlay.classList.remove('is-hidden');
-      video.controls = false;
-      video.currentTime = 0;
+      videoEl.controls = false;
+      videoEl.currentTime = 0;
+      updateChapterActive(block, videoEl.currentTime, video.chapters);
     });
 
-    video.addEventListener('pause', function () {
-      if (video.currentTime > 0 && !video.ended && video.readyState >= 2) {
-        /* 一時停止時はオーバーレイは出さない（コントロールで再開） */
+    videoEl.addEventListener('loadedmetadata', function () {
+      const hint = block?.querySelector('[data-duration-hint]');
+      if (hint && videoEl.duration && isFinite(videoEl.duration)) {
+        hint.textContent = '（実尺 ' + formatTime(videoEl.duration) + '）';
       }
+    });
+
+    videoEl.addEventListener('timeupdate', function () {
+      updateChapterActive(block, videoEl.currentTime, video.chapters);
+    });
+
+    bindChapterList(block, videoEl, video.chapters);
+    bindCcToggle(block, videoEl);
+  }
+
+  function enableSubtitles(videoEl, on) {
+    const tracks = videoEl.textTracks;
+    if (!tracks || !tracks.length) return;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = on ? 'showing' : 'hidden';
+    }
+  }
+
+  function bindCcToggle(block, videoEl) {
+    const btn = block?.querySelector('[data-cc-toggle]');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+      const tracks = videoEl.textTracks;
+      const showing = tracks && tracks[0] && tracks[0].mode === 'showing';
+      const next = !showing;
+      enableSubtitles(videoEl, next);
+      btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+      btn.classList.toggle('is-off', !next);
+    });
+  }
+
+  function updateChapterActive(block, currentTime, chapters) {
+    if (!block || !chapters || !chapters.length) return;
+    const list = block.closest('[data-enhanced]')?.querySelector('[data-chapter-list]');
+    if (!list) return;
+
+    let activeIdx = 0;
+    chapters.forEach(function (ch, i) {
+      if (currentTime >= ch.time) activeIdx = i;
+    });
+
+    list.querySelectorAll('.chapter-item').forEach(function (item, i) {
+      item.classList.toggle('is-active', i === activeIdx);
+      item.classList.toggle('is-past', i < activeIdx);
+    });
+  }
+
+  function bindChapterList(block, videoEl, chapters) {
+    if (!chapters || !chapters.length) return;
+    const section = block?.closest('[data-enhanced]');
+    const list = section?.querySelector('[data-chapter-list]');
+    if (!list) return;
+
+    list.innerHTML = '';
+    chapters.forEach(function (ch, i) {
+      const li = document.createElement('li');
+      li.className = 'chapter-item' + (i === 0 ? ' is-active' : '');
+      li.innerHTML =
+        '<button type="button" class="chapter-btn" data-time="' +
+        ch.time +
+        '">' +
+        '<span class="chapter-time">' +
+        formatTime(ch.time) +
+        '</span>' +
+        '<span class="chapter-text">' +
+        '<strong>' +
+        ch.label +
+        '</strong>' +
+        (ch.desc ? '<span>' + ch.desc + '</span>' : '') +
+        '</span>' +
+        '</button>';
+      list.appendChild(li);
+    });
+
+    list.querySelectorAll('.chapter-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const t = parseFloat(btn.getAttribute('data-time') || '0');
+        const wrap = block.querySelector('.video-frame-wrap');
+        const overlay = wrap?.querySelector('.video-play-overlay');
+        videoEl.currentTime = t;
+        overlay?.classList.add('is-hidden');
+        videoEl.controls = true;
+        enableSubtitles(videoEl, true);
+        videoEl.play().catch(function () {});
+        wrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
     });
   }
 
@@ -139,7 +254,7 @@
     }
 
     if (source.type === 'mp4') {
-      renderNativePlayer(wrap, source, video.title, !hasOwnMp4 && !!cfg.useDemoWhenEmpty);
+      renderNativePlayer(wrap, source, video, !hasOwnMp4 && !!cfg.useDemoWhenEmpty);
       return;
     }
 
@@ -167,12 +282,40 @@
           if (video.paused) {
             wrap.querySelector('.video-play-overlay')?.classList.add('is-hidden');
             video.controls = true;
+            enableSubtitles(video, true);
             video.play().catch(function () {});
           }
           requestFs(video);
         } else {
           requestFs(iframe || wrap);
         }
+      });
+    });
+  }
+
+  function initPathTabs() {
+    document.querySelectorAll('.path-tabs').forEach(function (tablist) {
+      const tabs = tablist.querySelectorAll('.path-tab');
+      const panels = tablist.parentElement?.querySelectorAll('.path-panel');
+      if (!panels) return;
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          const target = tab.getAttribute('data-path');
+          tabs.forEach(function (t) {
+            const on = t === tab;
+            t.classList.toggle('is-active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+          });
+          panels.forEach(function (panel) {
+            const isStore = panel.id === 'path-store';
+            const isHq = panel.id === 'path-hq';
+            const show =
+              (target === 'store' && isStore) || (target === 'hq' && isHq);
+            panel.classList.toggle('is-active', show);
+            panel.hidden = !show;
+          });
+        });
       });
     });
   }
@@ -240,6 +383,11 @@
       appBtn.style.display = 'none';
     }
 
+    const registerBtn = document.getElementById('btn-register-app');
+    if (registerBtn && cfg.appUrl) {
+      registerBtn.href = cfg.appUrl;
+    }
+
     const checklistLink = document.getElementById('link-checklist');
     if (checklistLink && cfg.checklistUrl) {
       checklistLink.href = cfg.checklistUrl;
@@ -252,12 +400,12 @@
       mailChecklistLink.href = mailUrl;
       mailChecklistLink.textContent = mailUrl;
     }
-
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     initConfig();
     initVideos();
+    initPathTabs();
     initNav();
     initMobileMenu();
   });
