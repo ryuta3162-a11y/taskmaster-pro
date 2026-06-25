@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="To Do List の使い方ガイド。動画とテキストで新規投稿・リストチェックなどを解説します。" />
-  <title>To Do List 活用ガイド</title>
+  <meta name="description" content="To Do List の使い方ガイド。" />
+  <title>To Do List</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <a class="site-brand" href="#top">
+    <a class="site-brand" href="#register">
       <span class="brand-mark">TD</span>
-      <span>To Do List 活用ガイド</span>
+      <span>To Do List</span>
     </a>
     <div class="header-actions">
       <a id="btn-app" class="btn btn-primary" href="#" target="_blank" rel="noopener">アプリを開く</a>
@@ -29,40 +29,25 @@
     <aside class="sidebar" id="sidebar">
       <p class="sidebar-label">目次</p>
       <ul class="nav-list">
-        <li><a href="#register">ログイン・登録</a></li>
-        <li><a href="#checklist">リストチェック</a></li>
-        <li><a href="#request">新規投稿</a></li>
-        <li><a href="#mail-notify" class="nav-sub">通知メール</a></li>
-        <li><a href="#gmail-label" class="nav-sub">Gmailラベル</a></li>
-        <li><a href="#repost" class="nav-sub">再投稿</a></li>
-        <li><a href="#scheduled" class="nav-sub">定期配信</a></li>
-        <li><a href="#progress">チーム進捗</a></li>
-        <li><a href="#admin" class="nav-sub">進捗管理admin</a></li>
-        <li><a href="#faq">よくある質問</a></li>
+        <li><a href="#register"><span class="nav-num">1</span>ログイン・初回登録</a></li>
+        <li><a href="#checklist"><span class="nav-num">2</span>リストチェック</a></li>
+        <li><a href="#request"><span class="nav-num">3</span>新規投稿</a></li>
+        <li><a href="#mail-notify"><span class="nav-num">4</span>通知メール</a></li>
+        <li><a href="#gmail-label"><span class="nav-num">5</span>Gmailラベル</a></li>
+        <li><a href="#repost"><span class="nav-num">6</span>再投稿</a></li>
+        <li><a href="#scheduled"><span class="nav-num">7</span>定期配信</a></li>
+        <li><a href="#progress"><span class="nav-num">8</span>TFチーム進捗</a></li>
+        <li><a href="#faq"><span class="nav-num">9</span>よくある質問</a></li>
+        <li><a href="#logout"><span class="nav-num">10</span>ログアウト</a></li>
       </ul>
     </aside>
 
     <main class="main">
-      <section class="hero">
-        <span class="hero-badge" id="launch-date">2025年7月1日 より本番運用</span>
-        <h1>To Do List の使い方</h1>
-        <p class="hero-lead">
-          テキストと動画で、依頼の出し方・受け方・進捗の見方をかんたんにご案内します。
-          まずは<strong>リストチェック</strong>、依頼を出す方は<strong>新規投稿</strong>をご覧ください。
-        </p>
-        <div class="hero-cards">
-          <div class="hero-card"><strong>新規投稿</strong><span>依頼を送る</span></div>
-          <div class="hero-card"><strong>再投稿</strong><span>同内容を再送</span></div>
-          <div class="hero-card"><strong>定期配信</strong><span>毎月自動</span></div>
-          <div class="hero-card"><strong>リストチェック</strong><span>To Do を完了</span></div>
-        </div>
-      </section>
 
       <!-- 登録 -->
       <article class="section" id="register">
         <header class="section-header">
-          <h2>ログイン・初回登録</h2>
-          <p class="section-meta">動画 約2分</p>
+          <h2><span class="section-num">1.</span> ログイン・初回登録</h2>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="register">
@@ -89,8 +74,7 @@
       <!-- リストチェック -->
       <article class="section" id="checklist">
         <header class="section-header">
-          <h2>リストチェック</h2>
-          <p class="section-meta">動画 約4分 ／ 全員必須</p>
+          <h2><span class="section-num">2.</span> リストチェック</h2>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="checklist">
@@ -139,8 +123,7 @@
       <!-- 新規投稿 -->
       <article class="section" id="request">
         <header class="section-header">
-          <h2>新規投稿（To Do 申請）</h2>
-          <p class="section-meta">動画 約4分 ／ 依頼を出す方</p>
+          <h2><span class="section-num">3.</span> 新規投稿（To Do 申請）</h2>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="request">
@@ -176,8 +159,7 @@
       <!-- 通知メール -->
       <article class="section" id="mail-notify">
         <header class="section-header">
-          <h2>届く通知メールの見本</h2>
-          <p class="section-meta">配信完了後に届くメール</p>
+          <h2><span class="section-num">4.</span> 届く通知メールの見本</h2>
         </header>
         <div class="section-body">
           <p>依頼を送ると、配信先の方に次のようなメールが届きます。件名は <strong>【TODOリスト】新しいタスクが届きました</strong> です。</p>
@@ -218,8 +200,7 @@
       <!-- Gmailラベル -->
       <article class="section" id="gmail-label">
         <header class="section-header">
-          <h2>Gmail でラベルを付ける（おすすめ）</h2>
-          <p class="section-meta">件名で自動振り分け ／ 約2分</p>
+          <h2><span class="section-num">5.</span> Gmail でラベルを付ける</h2>
         </header>
         <div class="section-body">
           <p>
@@ -252,8 +233,7 @@
       <!-- 再投稿 -->
       <article class="section" id="repost">
         <header class="section-header">
-          <h2>再投稿</h2>
-          <p class="section-meta">動画 約2分 ／ 依頼を出す方</p>
+          <h2><span class="section-num">6.</span> 再投稿</h2>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="repost">
@@ -295,8 +275,7 @@
       <!-- 定期配信 -->
       <article class="section" id="scheduled">
         <header class="section-header">
-          <h2>定期配信</h2>
-          <p class="section-meta">動画 約3分 ／ 依頼を出す方</p>
+          <h2><span class="section-num">7.</span> 定期配信</h2>
         </header>
         <div class="section-body">
           <div class="video-block" data-video="scheduled">
@@ -335,85 +314,62 @@
         </div>
       </article>
 
-      <!-- 進捗 -->
+      <!-- TFチーム進捗 -->
       <article class="section" id="progress">
         <header class="section-header">
-          <h2>チーム進捗管理ダッシュボード</h2>
-          <p class="section-meta">動画 約2分 ／ チームリーダー・TF向け</p>
+          <h2><span class="section-num">8.</span> TFチーム進捗管理ダッシュボード</h2>
         </header>
         <div class="section-body">
-          <div class="video-block" data-video="progress">
-            <div class="video-toolbar">
-              <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs">全画面</button>
-            </div>
-            <div class="video-frame-wrap"></div>
-          </div>
           <p>
-            ホーム画面の下部にある <strong>〇〇チーム進捗管理ダッシュボード</strong> から、
-            そのチームの TF 依頼などの進捗を<strong>閲覧</strong>できます。
+            <strong>TFチームの依頼をまとめ、進捗状況を閲覧できるページ</strong>です。
+            ホーム画面の下にある <strong>〇〇チーム進捗管理ダッシュボード</strong> から開きます。
+            所属チームが複数ある方は、チームごとにボタンが表示されます。
           </p>
-          <table class="info-table">
-            <tr>
-              <th>できること</th>
-              <td>依頼ごとの進捗状況・期限・完了率を確認できます。</td>
-            </tr>
-            <tr>
-              <th>できないこと</th>
-              <td><strong>完了操作はできません</strong>（見るだけの画面です）。</td>
-            </tr>
-            <tr>
-              <th>複数チーム</th>
-              <td>所属チームが複数ある方は、チームごとにボタンが表示されます。</td>
-            </tr>
-          </table>
-          <div class="callout-box">
-            <p class="callout-title">管理者画面との違い</p>
-            <p>チームリーダー向けはこの<strong>進捗ダッシュボード</strong>。DX などが未完了者にメールを送るのは <a href="#admin">進捗管理admin</a> です。役割が違います。</p>
-          </div>
-        </div>
-      </article>
 
-      <!-- admin -->
-      <article class="section" id="admin">
-        <header class="section-header">
-          <h2>進捗管理admin（管理者向け）</h2>
-          <p class="section-meta">動画 約2分 ／ DX・管理者のみ</p>
-        </header>
-        <div class="section-body">
-          <div class="video-block" data-video="admin">
-            <div class="video-toolbar">
-              <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs">全画面</button>
-            </div>
-            <div class="video-frame-wrap"></div>
-          </div>
-          <p>
-            <strong>進捗管理admin</strong> は、DX チームなど<strong>管理者だけ</strong>が使う画面です。
-            ホームに表示される方のみアクセスできます（一般の方は利用しません）。
-          </p>
           <table class="info-table">
             <tr>
-              <th>社員依頼</th>
-              <td>社員向け依頼の進捗一覧。未完了の方を確認できます。</td>
+              <th>表示される依頼</th>
+              <td><strong>TFチームの依頼</strong>が対象です（新規投稿で「TFチームの依頼」として配信したものなど）。</td>
             </tr>
             <tr>
-              <th>店舗依頼</th>
-              <td>店舗向け依頼の進捗一覧。未完了の店舗を確認できます。</td>
+              <th>確認できること</th>
+              <td>依頼ごとの<strong>進捗率</strong>・<strong>期限</strong>・<strong>誰が完了したか</strong>を一覧で確認できます。</td>
             </tr>
             <tr>
-              <th>定期配信</th>
-              <td>登録されている定期配信の一覧（参照のみ）。</td>
-            </tr>
-            <tr>
-              <th>リマインド</th>
-              <td>依頼を展開し、未完了の人（または店舗）を選んで <strong>リマインドメール</strong> を送れます。</td>
+              <th>リストチェックとの違い</th>
+              <td>こちらは<strong>見るだけ</strong>の画面です。自分の To Do を完了する操作は、<a href="#checklist">リストチェック</a>で行います。</td>
             </tr>
           </table>
-          <div class="callout-box">
-            <p class="callout-title">開き方（管理者用）</p>
-            <p>管理者用 URL は利用者アプリの URL の末尾に <code>?page=admin</code> を付けたものです。ブックマークしておくと便利です。</p>
-            <a id="link-admin" class="code-chip code-chip-link" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
+
+          <p class="mock-label">画面のイメージ</p>
+          <div class="progress-mock" aria-label="TFチーム進捗管理ダッシュボードの見本">
+            <div class="progress-mock-header">
+              <span class="progress-mock-title">TFチーム進捗管理ダッシュボード</span>
+            </div>
+            <div class="progress-stats">
+              <div class="progress-stat"><span class="n">3</span><span class="l">対象</span></div>
+              <div class="progress-stat accent"><span class="n">1</span><span class="l">進行中</span></div>
+              <div class="progress-stat warn"><span class="n">0</span><span class="l">期限超過</span></div>
+              <div class="progress-stat done"><span class="n">2</span><span class="l">完了</span></div>
+            </div>
+            <div class="progress-task">
+              <div class="progress-task-top">
+                <span class="progress-tag tf">TFチーム依頼</span>
+                <span class="progress-tag status">進行中</span>
+              </div>
+              <p class="progress-task-title">【サンプル】月次レポートの確認依頼</p>
+              <p class="progress-task-meta">期限 2026-06-30 · 日下 竜太 · 4人中 2人完了（50%）</p>
+              <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:50%"></div></div>
+            </div>
+            <div class="progress-task">
+              <div class="progress-task-top">
+                <span class="progress-tag tf">TFチーム依頼</span>
+                <span class="progress-tag status done">完了</span>
+              </div>
+              <p class="progress-task-title">【サンプル】共有ドキュメントの更新</p>
+              <p class="progress-task-meta">期限 2026-06-15 · 日下 竜太 · 3人中 3人完了（100%）</p>
+              <div class="progress-bar-wrap"><div class="progress-bar-fill done" style="width:100%"></div></div>
+            </div>
           </div>
         </div>
       </article>
@@ -421,7 +377,7 @@
       <!-- FAQ -->
       <article class="section" id="faq">
         <header class="section-header">
-          <h2>よくある質問</h2>
+          <h2><span class="section-num">9.</span> よくある質問</h2>
         </header>
         <div class="section-body">
           <div class="faq-item">
@@ -442,8 +398,34 @@
           </div>
           <div class="faq-item">
             <h3>動画が再生されない</h3>
-            <p>MP4 を使う場合は <code>videos/</code> にファイルがあるか、<code>guide-config.js</code> のパスを確認してください。ブラウザはタップ後の再生に対応しています（自動再生は音ありでは制限されます）。</p>
+            <p>ブラウザで動画の再生ボタンをタップしてください。自動再生は環境によって制限されることがあります。</p>
           </div>
+        </div>
+      </article>
+
+      <!-- ログアウト -->
+      <article class="section" id="logout">
+        <header class="section-header">
+          <h2><span class="section-num">10.</span> ログアウト（登録内容の変更）</h2>
+        </header>
+        <div class="section-body">
+          <table class="info-table">
+            <tr>
+              <th>ログアウト</th>
+              <td>
+                画面<strong>右上の丸いアイコン</strong>（自分のイニシャル）をタップし、メニュー下部の
+                <strong>ログアウト</strong> を押します。確認メッセージで OK するとログイン画面に戻ります。
+              </td>
+            </tr>
+            <tr>
+              <th>登録内容の変更</th>
+              <td>
+                ログイン画面で社内メールアドレスを入力し、<strong>ログイン情報を変更</strong> を押します。
+                チーム・役職・エリア・管轄店舗などを直して保存できます（ログイン後は
+                <a href="#register">初回登録</a> の項目と同じ内容です）。
+              </td>
+            </tr>
+          </table>
         </div>
       </article>
 
@@ -451,7 +433,7 @@
   </div>
 
   <footer class="site-footer">
-    <p>To Do List 活用ガイド</p>
+    <p>To Do List</p>
   </footer>
 
   <script src="guide-config.js"></script>

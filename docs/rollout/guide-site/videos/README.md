@@ -12,8 +12,7 @@
 | `request.mp4` | 新規投稿 |
 | `repost.mp4` | 再投稿 |
 | `scheduled.mp4` | 定期配信 |
-| `progress.mp4` | チーム進捗 |
-| `admin.mp4` | 進捗管理admin |
+| `progress.mp4` | チーム進捗（付録・任意） |
 
 ## 設定
 

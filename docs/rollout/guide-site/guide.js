@@ -232,9 +232,6 @@
       if (brand) brand.textContent = cfg.siteTitle;
     }
 
-    const launch = document.getElementById('launch-date');
-    if (launch && cfg.launchDate) launch.textContent = cfg.launchDate + ' より本番運用';
-
     const appBtn = document.getElementById('btn-app');
     if (appBtn && cfg.appUrl) {
       appBtn.href = cfg.appUrl;
@@ -256,11 +253,6 @@
       mailChecklistLink.textContent = mailUrl;
     }
 
-    const adminLink = document.getElementById('link-admin');
-    if (adminLink && cfg.adminUrl) {
-      adminLink.href = cfg.adminUrl;
-      adminLink.textContent = cfg.adminUrl;
-    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

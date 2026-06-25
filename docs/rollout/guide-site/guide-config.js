@@ -12,15 +12,14 @@
  *   useDemoWhenEmpty: true にすると、mp4 未設定の章にデモ用サンプル動画を表示します。
  */
 window.GUIDE_CONFIG = {
-  siteTitle: 'To Do List 活用ガイド',
-  launchDate: '2025年7月1日',
+  siteTitle: 'To Do List',
+  launchDate: '',
 
   appUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec',
   checklistUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec?page=checklist',
-  adminUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec?page=admin',
 
   /** true = mp4 未設定の章にサンプル動画を表示（本番公開前に false 推奨） */
-  useDemoWhenEmpty: true,
+  useDemoWhenEmpty: false,
 
   /** useDemoWhenEmpty 用の短いサンプル（差し替え可） */
   demoMp4: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
@@ -45,7 +44,7 @@ window.GUIDE_CONFIG = {
     repost: {
       title: '再投稿',
       duration: '約2分',
-      mp4: '',
+      mp4: 'videos/repost.mp4',
       poster: '',
       youtube: '',
       drive: '',
@@ -53,7 +52,7 @@ window.GUIDE_CONFIG = {
     scheduled: {
       title: '定期配信',
       duration: '約3分',
-      mp4: '',
+      mp4: 'videos/scheduled.mp4',
       poster: '',
       youtube: '',
       drive: '',
@@ -67,16 +66,8 @@ window.GUIDE_CONFIG = {
       drive: '',
     },
     progress: {
-      title: 'チーム進捗管理ダッシュボード',
-      duration: '約2分',
-      mp4: '',
-      poster: '',
-      youtube: '',
-      drive: '',
-    },
-    admin: {
-      title: '進捗管理admin（管理者向け）',
-      duration: '約2分',
+      title: 'TFチーム進捗管理ダッシュボード',
+      duration: '',
       mp4: '',
       poster: '',
       youtube: '',
