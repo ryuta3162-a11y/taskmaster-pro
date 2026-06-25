@@ -131,7 +131,7 @@
     });
 
     bindChapterList(block, videoEl, video.chapters);
-    bindCcToggle(block, videoEl);
+    bindCcToggle(block, videoEl, !!vtt);
   }
 
   function enableSubtitles(videoEl, on) {
@@ -142,10 +142,13 @@
     }
   }
 
-  function bindCcToggle(block, videoEl) {
+  function bindCcToggle(block, videoEl, hasVtt) {
     const btn = block?.querySelector('[data-cc-toggle]');
     if (!btn) return;
-
+    if (!hasVtt) {
+      btn.style.display = 'none';
+      return;
+    }
     btn.addEventListener('click', function () {
       const tracks = videoEl.textTracks;
       const showing = tracks && tracks[0] && tracks[0].mode === 'showing';

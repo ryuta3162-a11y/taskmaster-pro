@@ -334,6 +334,51 @@ a:hover {
   color: var(--muted);
 }
 
+.video-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-tool:hover {
+  border-color: var(--accent-100);
+  background: var(--accent-50);
+}
+
+.btn-tool.is-off {
+  opacity: 0.55;
+}
+
+.btn-tool-icon {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.guide-video::cue {
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.45;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
 .video-frame-wrap {
   position: relative;
   width: 100%;

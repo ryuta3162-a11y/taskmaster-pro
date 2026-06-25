@@ -37,8 +37,7 @@
         <li><a href="#repost"><span class="nav-num">6</span>再投稿</a></li>
         <li><a href="#scheduled"><span class="nav-num">7</span>定期配信</a></li>
         <li><a href="#progress"><span class="nav-num">8</span>TFチーム進捗</a></li>
-        <li><a href="#faq"><span class="nav-num">9</span>よくある質問</a></li>
-        <li><a href="#logout"><span class="nav-num">10</span>ログアウト</a></li>
+        <li><a href="#logout"><span class="nav-num">9</span>ログアウト</a></li>
       </ul>
     </aside>
 
@@ -137,7 +136,13 @@
           <div class="video-block" data-video="checklist">
             <div class="video-toolbar">
               <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs">全画面</button>
+              <div class="video-toolbar-actions">
+                <button type="button" class="btn-tool btn-cc" data-cc-toggle aria-pressed="true" title="字幕の表示切替">
+                  <span class="btn-tool-icon" aria-hidden="true">CC</span>
+                  <span class="btn-tool-label">字幕</span>
+                </button>
+                <button type="button" class="btn-fs">全画面</button>
+              </div>
             </div>
             <div class="video-frame-wrap"></div>
           </div>
@@ -186,7 +191,13 @@
           <div class="video-block" data-video="request">
             <div class="video-toolbar">
               <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs">全画面</button>
+              <div class="video-toolbar-actions">
+                <button type="button" class="btn-tool btn-cc" data-cc-toggle aria-pressed="true" title="字幕の表示切替">
+                  <span class="btn-tool-icon" aria-hidden="true">CC</span>
+                  <span class="btn-tool-label">字幕</span>
+                </button>
+                <button type="button" class="btn-fs">全画面</button>
+              </div>
             </div>
             <div class="video-frame-wrap"></div>
           </div>
@@ -296,7 +307,13 @@
           <div class="video-block" data-video="repost">
             <div class="video-toolbar">
               <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs">全画面</button>
+              <div class="video-toolbar-actions">
+                <button type="button" class="btn-tool btn-cc" data-cc-toggle aria-pressed="true" title="字幕の表示切替">
+                  <span class="btn-tool-icon" aria-hidden="true">CC</span>
+                  <span class="btn-tool-label">字幕</span>
+                </button>
+                <button type="button" class="btn-fs">全画面</button>
+              </div>
             </div>
             <div class="video-frame-wrap"></div>
           </div>
@@ -338,7 +355,13 @@
           <div class="video-block" data-video="scheduled">
             <div class="video-toolbar">
               <span class="video-label">解説動画</span>
-              <button type="button" class="btn-fs">全画面</button>
+              <div class="video-toolbar-actions">
+                <button type="button" class="btn-tool btn-cc" data-cc-toggle aria-pressed="true" title="字幕の表示切替">
+                  <span class="btn-tool-icon" aria-hidden="true">CC</span>
+                  <span class="btn-tool-label">字幕</span>
+                </button>
+                <button type="button" class="btn-fs">全画面</button>
+              </div>
             </div>
             <div class="video-frame-wrap"></div>
           </div>
@@ -431,39 +454,10 @@
         </div>
       </article>
 
-      <!-- FAQ -->
-      <article class="section" id="faq">
-        <header class="section-header">
-          <h2><span class="section-num">9.</span> よくある質問</h2>
-        </header>
-        <div class="section-body">
-          <div class="faq-item">
-            <h3>Gmail で To-Do 通知だけ見たい</h3>
-            <p>件名 <strong>【TODOリスト】新しいタスクが届きました</strong> でフィルタを作り、ラベル <strong>To-Do List</strong> を付けてください。<a href="#gmail-label">設定手順はこちら</a>。</p>
-          </div>
-          <div class="faq-item">
-            <h3>テリトリー4や管轄店舗が出ない</h3>
-            <p>エリアとテリトリーを正しく選んでください。第4エリアのみテリトリー4があります。解決しない場合は一時登録後、「ログイン情報の変更」で修正できます。</p>
-          </div>
-          <div class="faq-item">
-            <h3>EAST本部所属はどう登録する？</h3>
-            <p>登録画面で「EAST本部」を選びます。エリア・店舗の選択は不要です。店舗依頼のエリア配信には含まれませんが、社員依頼・TF依頼は受け取れます。</p>
-          </div>
-          <div class="faq-item">
-            <h3>再投稿と定期配信の違いは？</h3>
-            <p>再投稿は過去の新規投稿を手動でもう一度送る機能。定期配信は毎月自動で送る設定です。一覧も別です。</p>
-          </div>
-          <div class="faq-item">
-            <h3>動画が再生されない</h3>
-            <p>ブラウザで動画の再生ボタンをタップしてください。自動再生は環境によって制限されることがあります。</p>
-          </div>
-        </div>
-      </article>
-
       <!-- ログアウト -->
       <article class="section" id="logout">
         <header class="section-header">
-          <h2><span class="section-num">10.</span> ログアウト（登録内容の変更）</h2>
+          <h2><span class="section-num">9.</span> ログアウト（登録内容の変更）</h2>
         </header>
         <div class="section-body">
           <table class="info-table">
