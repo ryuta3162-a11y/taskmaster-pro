@@ -34,12 +34,12 @@ window.GUIDE_CONFIG = {
       youtube: '',
       drive: '',
       chapters: [
-        { time: 0, label: 'ログイン', desc: '社内メールで認証' },
-        { time: 4, label: 'プロフィール', desc: '登録画面が開く' },
-        { time: 8, label: 'チーム・役職', desc: '必ず選択' },
-        { time: 12, label: 'エリア・店舗', desc: '店舗エリア所属向け' },
-        { time: 16, label: 'EAST本部', desc: '本部所属向け' },
-        { time: 22, label: '完了', desc: '保存してホームへ' },
+        { time: 0, label: 'ログイン', desc: '' },
+        { time: 4, label: 'プロフィール', desc: '' },
+        { time: 8, label: 'チーム・役職', desc: '' },
+        { time: 12, label: 'エリア・店舗', desc: '' },
+        { time: 16, label: 'EAST本部', desc: '' },
+        { time: 22, label: '完了', desc: '' },
       ],
     },
     request: {

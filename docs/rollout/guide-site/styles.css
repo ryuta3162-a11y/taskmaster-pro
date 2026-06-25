@@ -1003,7 +1003,14 @@ a:hover {
 
 .section-header--rich h2 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.125rem;
+}
+
+.register-oneline {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--text);
 }
 
 .section-meta-badges {
@@ -1283,21 +1290,14 @@ a:hover {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
   box-shadow: var(--shadow);
-}
-
-.register-paths-title {
-  margin: 0 0 0.85rem;
-  font-size: 0.95rem;
-  font-weight: 700;
 }
 
 .path-tabs {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
   flex-wrap: wrap;
 }
 
@@ -1371,7 +1371,8 @@ a:hover {
 
 .path-flow-svg {
   display: block;
-  min-width: 280px;
+  width: 100%;
+  max-width: 520px;
   height: auto;
 }
 

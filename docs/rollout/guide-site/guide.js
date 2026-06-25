@@ -383,11 +383,6 @@
       appBtn.style.display = 'none';
     }
 
-    const registerBtn = document.getElementById('btn-register-app');
-    if (registerBtn && cfg.appUrl) {
-      registerBtn.href = cfg.appUrl;
-    }
-
     const checklistLink = document.getElementById('link-checklist');
     if (checklistLink && cfg.checklistUrl) {
       checklistLink.href = cfg.checklistUrl;

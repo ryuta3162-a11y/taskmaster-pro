@@ -44,23 +44,16 @@
 
     <main class="main">
 
-      <!-- 登録（リッチ版・能力デモ） -->
+      <!-- 登録 -->
       <article class="section section--enhanced" id="register" data-enhanced="register">
         <header class="section-header section-header--rich">
-          <div class="section-header-text">
-            <p class="section-eyebrow">はじめの一歩</p>
-            <h2><span class="section-num">1.</span> ログイン・初回登録</h2>
-          </div>
+          <h2><span class="section-num">1.</span> ログイン・初回登録</h2>
           <div class="section-meta-badges">
-            <span class="meta-badge">約2分</span>
             <span class="meta-badge meta-badge--soft">字幕あり</span>
           </div>
         </header>
 
-        <div class="section-lead">
-          <p class="section-lead-text">社内メールでログインし、<strong>チーム・役職・配信先</strong>を一度だけ登録します。ここが終われば、すぐに To Do の受け取り・依頼ができます。</p>
-          <a class="btn btn-primary btn-lead" id="btn-register-app" href="#" target="_blank" rel="noopener">いま登録する</a>
-        </div>
+        <p class="register-oneline">社内メールでログインし、プロフィールを登録します。</p>
 
         <div class="register-layout">
           <div class="register-main">
@@ -79,39 +72,7 @@
                 </div>
               </div>
               <div class="video-frame-wrap"></div>
-              <p class="video-hint">章をタップすると、その場面から再生できます。音が出せない環境では字幕をご利用ください。</p>
             </div>
-
-            <ol class="register-steps" aria-label="登録の流れ">
-              <li class="register-step">
-                <span class="register-step-num">1</span>
-                <div class="register-step-body">
-                  <strong>社内メールでログイン</strong>
-                  <span>Google ワークスペースのアカウントで認証します。</span>
-                </div>
-              </li>
-              <li class="register-step">
-                <span class="register-step-num">2</span>
-                <div class="register-step-body">
-                  <strong>チーム・役職を選択</strong>
-                  <span>配信先の判定に使われます。未選択のまま進められません。</span>
-                </div>
-              </li>
-              <li class="register-step">
-                <span class="register-step-num">3</span>
-                <div class="register-step-body">
-                  <strong>所属に合わせてエリアを設定</strong>
-                  <span>店舗エリアか EAST本部かで、選ぶ項目が変わります（下のカード参照）。</span>
-                </div>
-              </li>
-              <li class="register-step">
-                <span class="register-step-num">4</span>
-                <div class="register-step-body">
-                  <strong>保存してホームへ</strong>
-                  <span>あとから「ログイン情報の変更」でいつでも直せます。</span>
-                </div>
-              </li>
-            </ol>
           </div>
 
           <aside class="register-aside" aria-label="動画の章">
@@ -121,27 +82,12 @@
         </div>
 
         <div class="register-paths">
-          <p class="register-paths-title">あなたの所属はどちらですか？</p>
-          <div class="path-tabs" role="tablist" aria-label="所属別の登録内容">
+          <div class="path-tabs" role="tablist" aria-label="所属別の流れ">
             <button type="button" class="path-tab is-active" role="tab" aria-selected="true" aria-controls="path-store" id="tab-store" data-path="store">店舗エリア所属</button>
             <button type="button" class="path-tab" role="tab" aria-selected="false" aria-controls="path-hq" id="tab-hq" data-path="hq">EAST本部所属</button>
           </div>
           <div class="path-panels">
             <div class="path-panel is-active" id="path-store" role="tabpanel" aria-labelledby="tab-store">
-              <div class="path-panel-grid">
-                <div class="path-field">
-                  <span class="path-field-label">選ぶ項目</span>
-                  <ul>
-                    <li><strong>第1〜7エリア</strong>（所属エリア）</li>
-                    <li><strong>管轄店舗</strong>（担当する店舗を複数可）</li>
-                    <li>チーム・役職（共通）</li>
-                  </ul>
-                </div>
-                <div class="path-field path-field--note">
-                  <span class="path-field-label">ポイント</span>
-                  <p>テリトリー4は<strong>第4エリアのみ</strong>にあります。エリアとテリトリーを正しく選んでください。</p>
-                </div>
-              </div>
               <div class="path-flow" aria-hidden="true">
                 <svg class="path-flow-svg" viewBox="0 0 520 72" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="4" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
@@ -162,63 +108,23 @@
               </div>
             </div>
             <div class="path-panel" id="path-hq" role="tabpanel" aria-labelledby="tab-hq" hidden>
-              <div class="path-panel-grid">
-                <div class="path-field">
-                  <span class="path-field-label">選ぶ項目</span>
-                  <ul>
-                    <li><strong>EAST本部</strong>（エリアの代わりに選択）</li>
-                    <li>チーム・役職（共通）</li>
-                  </ul>
-                </div>
-                <div class="path-field path-field--note">
-                  <span class="path-field-label">ポイント</span>
-                  <p>エリア・管轄店舗の選択は<strong>不要</strong>です。店舗依頼のエリア配信には含まれませんが、社員依頼・TF依頼は受け取れます。</p>
-                </div>
-              </div>
               <div class="path-flow" aria-hidden="true">
-                <svg class="path-flow-svg" viewBox="0 0 400 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg class="path-flow-svg" viewBox="0 0 520 72" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="4" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
                   <text x="48" y="40" text-anchor="middle" fill="#4338ca" font-size="11" font-family="sans-serif">ログイン</text>
                   <path d="M92 36h28" stroke="#a5b4fc" stroke-width="2"/>
                   <rect x="120" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
                   <text x="164" y="40" text-anchor="middle" fill="#4338ca" font-size="11" font-family="sans-serif">チーム</text>
                   <path d="M208 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="236" y="20" width="100" height="32" rx="8" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.5"/>
-                  <text x="286" y="40" text-anchor="middle" fill="#312e81" font-size="11" font-weight="bold" font-family="sans-serif">EAST本部</text>
-                  <path d="M336 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="364" y="20" width="48" height="32" rx="8" fill="#4f46e5"/>
-                  <text x="388" y="40" text-anchor="middle" fill="#fff" font-size="11" font-family="sans-serif">完了</text>
+                  <rect x="236" y="20" width="88" height="32" rx="8" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.5"/>
+                  <text x="280" y="40" text-anchor="middle" fill="#312e81" font-size="10" font-weight="bold" font-family="sans-serif">EAST本部</text>
+                  <path d="M324 36h28" stroke="#a5b4fc" stroke-width="2"/>
+                  <rect x="352" y="20" width="48" height="32" rx="8" fill="#4f46e5"/>
+                  <text x="376" y="40" text-anchor="middle" fill="#fff" font-size="11" font-family="sans-serif">完了</text>
                 </svg>
               </div>
             </div>
           </div>
-        </div>
-
-        <div class="register-extras">
-          <div class="callout-box callout-box--icon">
-            <p class="callout-title">管轄店舗について</p>
-            <p>管理したい店舗を多く選択いただいても構いません。エリア・テリトリー内で社員間で相談し、<strong>誰がどの店舗のタスク管理をするか</strong>を決めてから登録してください。</p>
-          </div>
-
-          <div class="checklist-card">
-            <p class="checklist-card-title">登録前チェックリスト</p>
-            <ul class="checklist-items">
-              <li><span class="check-box" aria-hidden="true"></span>社内メール（@okamoto-group.co.jp）でログインできる</li>
-              <li><span class="check-box" aria-hidden="true"></span>自分のチーム・役職が分かっている</li>
-              <li><span class="check-box" aria-hidden="true"></span>店舗エリアの方は、担当店舗をチーム内で相談済み</li>
-              <li><span class="check-box" aria-hidden="true"></span>EAST本部の方は、エリア選択が不要なことを確認した</li>
-            </ul>
-          </div>
-
-          <details class="register-faq">
-            <summary>登録でつまずいたとき</summary>
-            <dl>
-              <dt>テリトリー4や管轄店舗が出ない</dt>
-              <dd>エリアを正しく選んでください。第4エリアのみテリトリー4があります。解決しない場合は一度保存し、「ログイン情報の変更」から直せます。</dd>
-              <dt>登録内容をあとから変えたい</dt>
-              <dd>ログイン画面の<strong>ログイン情報の変更</strong>から、チーム・役職・エリア・店舗を更新できます。</dd>
-            </dl>
-          </details>
         </div>
       </article>
 
