@@ -1121,104 +1121,13 @@ a:hover {
   white-space: nowrap;
 }
 
-.register-layout {
-  display: grid;
-  grid-template-columns: 1fr 220px;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
 .register-main {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem;
+  margin-bottom: 1rem;
   box-shadow: var(--shadow);
-}
-
-.register-aside {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  box-shadow: var(--shadow);
-  align-self: start;
-  position: sticky;
-  top: calc(var(--nav-h) + 1rem);
-}
-
-.register-aside-label {
-  margin: 0 0 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: 0.04em;
-}
-
-.chapter-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.chapter-item {
-  margin-bottom: 0.35rem;
-}
-
-.chapter-btn {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.55rem 0.6rem;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.chapter-btn:hover {
-  background: var(--accent-50);
-}
-
-.chapter-item.is-active .chapter-btn {
-  background: var(--accent-50);
-  border-color: var(--accent-100);
-}
-
-.chapter-item.is-past .chapter-time {
-  color: var(--accent-600);
-}
-
-.chapter-time {
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  min-width: 2rem;
-  padding-top: 0.1rem;
-}
-
-.chapter-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  font-size: 0.8rem;
-  line-height: 1.35;
-  color: var(--text);
-}
-
-.chapter-text strong {
-  font-size: 0.82rem;
-}
-
-.chapter-text span {
-  color: var(--muted);
-  font-size: 0.72rem;
 }
 
 .video-block--rich {
@@ -1516,31 +1425,12 @@ a:hover {
 }
 
 @media (max-width: 900px) {
-  .register-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .register-aside {
-    position: static;
-    order: -1;
-  }
-
-  .chapter-list {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.35rem;
-  }
-
   .path-panel-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 520px) {
-  .chapter-list {
-    grid-template-columns: 1fr;
-  }
-
   .section-lead {
     flex-direction: column;
     align-items: stretch;

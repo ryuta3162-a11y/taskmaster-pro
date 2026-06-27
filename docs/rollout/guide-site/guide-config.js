@@ -33,14 +33,6 @@ window.GUIDE_CONFIG = {
       vtt: 'videos/register.vtt',
       youtube: '',
       drive: '',
-      chapters: [
-        { time: 0, label: 'ログイン', desc: '' },
-        { time: 4, label: 'プロフィール', desc: '' },
-        { time: 8, label: 'チーム・役職', desc: '' },
-        { time: 12, label: 'エリア・店舗', desc: '' },
-        { time: 16, label: 'EAST本部', desc: '' },
-        { time: 22, label: '完了', desc: '' },
-      ],
     },
     request: {
       title: '新規投稿（To Do 申請）',

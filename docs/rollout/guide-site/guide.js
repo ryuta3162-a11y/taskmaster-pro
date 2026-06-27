@@ -105,7 +105,6 @@
 
     const videoEl = wrap.querySelector('video');
     const overlay = wrap.querySelector('.video-play-overlay');
-    const block = wrap.closest('[data-video]');
     bindCustomCaptions(wrap, videoEl, vtt);
 
     overlay.addEventListener('click', function () {
@@ -121,14 +120,7 @@
       overlay.classList.remove('is-hidden');
       videoEl.controls = false;
       videoEl.currentTime = 0;
-      updateChapterActive(block, videoEl.currentTime, video.chapters);
     });
-
-    videoEl.addEventListener('timeupdate', function () {
-      updateChapterActive(block, videoEl.currentTime, video.chapters);
-    });
-
-    bindChapterList(block, videoEl, video.chapters);
   }
 
   function parseVttTime(raw) {
@@ -230,63 +222,6 @@
       updateCaption();
     });
     videoEl.addEventListener('pause', updateCaption);
-  }
-
-  function updateChapterActive(block, currentTime, chapters) {
-    if (!block || !chapters || !chapters.length) return;
-    const list = block.closest('[data-enhanced]')?.querySelector('[data-chapter-list]');
-    if (!list) return;
-
-    let activeIdx = 0;
-    chapters.forEach(function (ch, i) {
-      if (currentTime >= ch.time) activeIdx = i;
-    });
-
-    list.querySelectorAll('.chapter-item').forEach(function (item, i) {
-      item.classList.toggle('is-active', i === activeIdx);
-      item.classList.toggle('is-past', i < activeIdx);
-    });
-  }
-
-  function bindChapterList(block, videoEl, chapters) {
-    if (!chapters || !chapters.length) return;
-    const section = block?.closest('[data-enhanced]');
-    const list = section?.querySelector('[data-chapter-list]');
-    if (!list) return;
-
-    list.innerHTML = '';
-    chapters.forEach(function (ch, i) {
-      const li = document.createElement('li');
-      li.className = 'chapter-item' + (i === 0 ? ' is-active' : '');
-      li.innerHTML =
-        '<button type="button" class="chapter-btn" data-time="' +
-        ch.time +
-        '">' +
-        '<span class="chapter-time">' +
-        formatTime(ch.time) +
-        '</span>' +
-        '<span class="chapter-text">' +
-        '<strong>' +
-        ch.label +
-        '</strong>' +
-        (ch.desc ? '<span>' + ch.desc + '</span>' : '') +
-        '</span>' +
-        '</button>';
-      list.appendChild(li);
-    });
-
-    list.querySelectorAll('.chapter-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const t = parseFloat(btn.getAttribute('data-time') || '0');
-        const wrap = block.querySelector('.video-frame-wrap');
-        const overlay = wrap?.querySelector('.video-play-overlay');
-        videoEl.currentTime = t;
-        overlay?.classList.add('is-hidden');
-        videoEl.controls = true;
-        videoEl.play().catch(function () {});
-        wrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      });
-    });
   }
 
   function renderIframe(wrap, source, title) {
