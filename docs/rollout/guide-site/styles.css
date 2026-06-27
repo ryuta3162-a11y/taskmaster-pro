@@ -401,6 +401,29 @@ a:hover {
   background: #000;
 }
 
+.video-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 3.25rem;
+  z-index: 20;
+  transform: translateX(-50%);
+  max-width: 92%;
+  padding: 0.45em 0.75em;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #fff;
+  font-size: clamp(0.85rem, 2.2vw, 1.05rem);
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.video-caption.is-visible {
+  opacity: 1;
+}
+
 .guide-video {
   position: absolute;
   inset: 0;
