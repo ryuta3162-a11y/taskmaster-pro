@@ -106,13 +106,11 @@
     const videoEl = wrap.querySelector('video');
     const overlay = wrap.querySelector('.video-play-overlay');
     const block = wrap.closest('[data-video]');
-    const captions = bindCustomCaptions(wrap, videoEl, vtt);
-    wrap._captions = captions;
+    bindCustomCaptions(wrap, videoEl, vtt);
 
     overlay.addEventListener('click', function () {
       overlay.classList.add('is-hidden');
       videoEl.controls = true;
-      captions.setVisible(true);
       videoEl.play().catch(function () {
         overlay.classList.remove('is-hidden');
         videoEl.controls = false;
@@ -123,15 +121,7 @@
       overlay.classList.remove('is-hidden');
       videoEl.controls = false;
       videoEl.currentTime = 0;
-      captions.setVisible(false);
       updateChapterActive(block, videoEl.currentTime, video.chapters);
-    });
-
-    videoEl.addEventListener('loadedmetadata', function () {
-      const hint = block?.querySelector('[data-duration-hint]');
-      if (hint && videoEl.duration && isFinite(videoEl.duration)) {
-        hint.textContent = '（実尺 ' + formatTime(videoEl.duration) + '）';
-      }
     });
 
     videoEl.addEventListener('timeupdate', function () {
@@ -139,7 +129,6 @@
     });
 
     bindChapterList(block, videoEl, video.chapters);
-    bindCcToggle(block, videoEl, captions, !!vtt);
   }
 
   function parseVttTime(raw) {
@@ -161,7 +150,7 @@
         /(\d{1,2}:\d{2}:\d{2}[.,]\d{3}|\d{1,2}:\d{2}[.,]\d{3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d{3}|\d{1,2}:\d{2}[.,]\d{3})/
       );
       if (!timeLine) return;
-      const body = lines.slice(1).join(' ').trim();
+      const body = lines.slice(1).join('\n').trim().replace(/。/g, '\n').replace(/\n+/g, '\n').trim();
       if (!body) return;
       cues.push({
         start: parseVttTime(timeLine[1]),
@@ -187,8 +176,16 @@
       });
   }
 
+  function formatCaptionHtml(text) {
+    const escaped = String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return escaped.replace(/\n/g, '<br>').replace(/(<br>)+$/g, '');
+  }
+
   function bindCustomCaptions(wrap, videoEl, vttUrl) {
-    if (!vttUrl) return { setVisible: function () {}, reload: function () {} };
+    if (!vttUrl) return;
 
     const cap = document.createElement('div');
     cap.className = 'video-caption';
@@ -196,7 +193,6 @@
     wrap.appendChild(cap);
 
     let cues = [];
-    let visible = true;
 
     function reloadCues() {
       return loadVttCues(vttUrl).then(function (list) {
@@ -209,8 +205,8 @@
     reloadCues();
 
     function updateCaption() {
-      if (!visible || !cues.length || videoEl.paused) {
-        cap.textContent = '';
+      if (!cues.length || videoEl.paused) {
+        cap.innerHTML = '';
         cap.classList.remove('is-visible');
         return;
       }
@@ -219,10 +215,10 @@
         return t >= c.start && t < c.end;
       });
       if (active) {
-        cap.textContent = active.text;
+        cap.innerHTML = formatCaptionHtml(active.text);
         cap.classList.add('is-visible');
       } else {
-        cap.textContent = '';
+        cap.innerHTML = '';
         cap.classList.remove('is-visible');
       }
     }
@@ -234,34 +230,6 @@
       updateCaption();
     });
     videoEl.addEventListener('pause', updateCaption);
-
-    return {
-      setVisible: function (on) {
-        visible = on;
-        updateCaption();
-      },
-      reload: reloadCues,
-    };
-  }
-
-  function enableSubtitles() {
-    /* native track 未使用 — カスタム字幕のみ */
-  }
-
-  function bindCcToggle(block, videoEl, captions, hasVtt) {
-    const btn = block?.querySelector('[data-cc-toggle]');
-    if (!btn) return;
-    if (!hasVtt) {
-      btn.style.display = 'none';
-      return;
-    }
-    btn.addEventListener('click', function () {
-      const showing = btn.getAttribute('aria-pressed') === 'true';
-      const next = !showing;
-      captions.setVisible(next);
-      btn.setAttribute('aria-pressed', next ? 'true' : 'false');
-      btn.classList.toggle('is-off', !next);
-    });
   }
 
   function updateChapterActive(block, currentTime, chapters) {
@@ -315,7 +283,6 @@
         videoEl.currentTime = t;
         overlay?.classList.add('is-hidden');
         videoEl.controls = true;
-        wrap._captions?.setVisible(true);
         videoEl.play().catch(function () {});
         wrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
@@ -369,35 +336,9 @@
     renderIframe(wrap, source, video.title);
   }
 
-  function requestFs(el) {
-    if (!el) return;
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  }
-
   function initVideos() {
     document.querySelectorAll('[data-video]').forEach(function (el) {
       renderVideo(el, el.getAttribute('data-video'));
-    });
-
-    document.querySelectorAll('.btn-fs').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const wrap = btn.closest('.video-block')?.querySelector('.video-frame-wrap');
-        if (!wrap) return;
-        const video = wrap.querySelector('video');
-        const iframe = wrap.querySelector('iframe');
-        if (video) {
-          if (video.paused) {
-            wrap.querySelector('.video-play-overlay')?.classList.add('is-hidden');
-            video.controls = true;
-            wrap._captions?.setVisible(true);
-            video.play().catch(function () {});
-          }
-          requestFs(video);
-        } else {
-          requestFs(iframe || wrap);
-        }
-      });
     });
   }
 

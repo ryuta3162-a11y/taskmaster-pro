@@ -1222,7 +1222,11 @@ a:hover {
 }
 
 .video-block--rich {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
+}
+
+.video-block--rich .video-frame-wrap {
+  margin-bottom: 0;
 }
 
 .video-toolbar-left {
