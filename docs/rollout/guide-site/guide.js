@@ -86,11 +86,6 @@
   function renderNativePlayer(wrap, source, video, isDemo) {
     wrap.classList.add('video-native');
     const vtt = source.vtt || '';
-    const trackHtml = vtt
-      ? '<track kind="subtitles" src="' +
-        vtt +
-        '" srclang="ja" label="日本語" default />'
-      : '';
 
     wrap.innerHTML =
       '<video class="guide-video" playsinline preload="metadata"' +
@@ -99,7 +94,6 @@
       '<source src="' +
       source.src +
       '" type="video/mp4" />' +
-      trackHtml +
       'お使いのブラウザは動画再生に対応していません。' +
       '</video>' +
       '<button type="button" class="video-play-overlay" aria-label="動画を再生">' +
@@ -118,7 +112,6 @@
     overlay.addEventListener('click', function () {
       overlay.classList.add('is-hidden');
       videoEl.controls = true;
-      enableSubtitles(videoEl, true);
       captions.setVisible(true);
       videoEl.play().catch(function () {
         overlay.classList.remove('is-hidden');
@@ -130,6 +123,7 @@
       overlay.classList.remove('is-hidden');
       videoEl.controls = false;
       videoEl.currentTime = 0;
+      captions.setVisible(false);
       updateChapterActive(block, videoEl.currentTime, video.chapters);
     });
 
@@ -215,7 +209,7 @@
     reloadCues();
 
     function updateCaption() {
-      if (!visible || !cues.length) {
+      if (!visible || !cues.length || videoEl.paused) {
         cap.textContent = '';
         cap.classList.remove('is-visible');
         return;
@@ -237,7 +231,9 @@
     videoEl.addEventListener('seeked', updateCaption);
     videoEl.addEventListener('play', function () {
       if (!cues.length) reloadCues();
+      updateCaption();
     });
+    videoEl.addEventListener('pause', updateCaption);
 
     return {
       setVisible: function (on) {
@@ -248,12 +244,8 @@
     };
   }
 
-  function enableSubtitles(videoEl, on) {
-    const tracks = videoEl.textTracks;
-    if (!tracks || !tracks.length) return;
-    for (let i = 0; i < tracks.length; i++) {
-      tracks[i].mode = on ? 'showing' : 'hidden';
-    }
+  function enableSubtitles() {
+    /* native track 未使用 — カスタム字幕のみ */
   }
 
   function bindCcToggle(block, videoEl, captions, hasVtt) {
@@ -266,7 +258,6 @@
     btn.addEventListener('click', function () {
       const showing = btn.getAttribute('aria-pressed') === 'true';
       const next = !showing;
-      enableSubtitles(videoEl, next);
       captions.setVisible(next);
       btn.setAttribute('aria-pressed', next ? 'true' : 'false');
       btn.classList.toggle('is-off', !next);
@@ -324,7 +315,6 @@
         videoEl.currentTime = t;
         overlay?.classList.add('is-hidden');
         videoEl.controls = true;
-        enableSubtitles(videoEl, true);
         wrap._captions?.setVisible(true);
         videoEl.play().catch(function () {});
         wrap?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -400,7 +390,6 @@
           if (video.paused) {
             wrap.querySelector('.video-play-overlay')?.classList.add('is-hidden');
             video.controls = true;
-            enableSubtitles(video, true);
             wrap._captions?.setVisible(true);
             video.play().catch(function () {});
           }

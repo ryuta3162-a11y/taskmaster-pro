@@ -370,15 +370,6 @@ a:hover {
   letter-spacing: 0.02em;
 }
 
-.guide-video::cue {
-  background: rgba(15, 23, 42, 0.82);
-  color: #fff;
-  font-size: 1rem;
-  line-height: 1.45;
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-}
-
 .video-frame-wrap {
   position: relative;
   width: 100%;
@@ -1294,15 +1285,6 @@ a:hover {
   font-size: 0.85rem;
   font-weight: 600;
   opacity: 0.9;
-}
-
-.guide-video::cue {
-  background: rgba(15, 23, 42, 0.82);
-  color: #fff;
-  font-size: 1rem;
-  line-height: 1.45;
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
 }
 
 .register-steps {
