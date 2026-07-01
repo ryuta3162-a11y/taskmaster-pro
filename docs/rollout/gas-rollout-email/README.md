@@ -6,7 +6,8 @@
 
 | ファイル | 内容 |
 |----------|------|
-| `TodoListRolloutMail.gs` | 下書き作成スクリプト本体 |
+| `TodoListRolloutMail.gs` | 本番運用案内メール（下書き作成） |
+| `TodoListRegistrationReminderMail.gs` | 未登録者向け登録依頼メール（下書き / 送信） |
 
 ## 使い方（最短）
 
@@ -85,3 +86,33 @@ function onOpen() {
 - このスクリプトは **送信しません**。下書き作成のみです。
 - 送信前に必ず **プレビューで表示崩れ** を確認してください。
 - 一斉送信時は社内ポリシーに従い、**Bcc** 利用を推奨します。
+
+---
+
+## 未登録者向け — 登録依頼メール
+
+`TodoListRegistrationReminderMail.gs` を同じ GAS プロジェクトに追加して使います。
+
+### 手順
+
+1. `TodoListRegistrationReminderMail.gs` を貼り付け
+2. 既存の個別下書き（12件）があれば削除
+3. **`createRegistrationReminderDraft`** を実行 → Gmail 下書き **1件**
+4. 内容を確認して送信
+
+### 宛先の構成
+
+| 欄 | 内容 |
+|----|------|
+| **To** | 未登録者 12名 |
+| **CC** | メンバー 4名（笠原・後藤・初谷・渡邊） |
+
+### 関数
+
+| 関数 | 用途 |
+|------|------|
+| `createRegistrationReminderDraft` | **下書き1件**（To + CC） |
+
+### 注意
+
+- このスクリプトは **送信しません**。下書き作成のみです。
