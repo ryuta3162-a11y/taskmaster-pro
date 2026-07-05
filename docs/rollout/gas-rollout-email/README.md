@@ -7,7 +7,8 @@
 | ファイル | 内容 |
 |----------|------|
 | `TodoListRolloutMail.gs` | 本番運用案内メール（下書き作成） |
-| `TodoListRegistrationReminderMail.gs` | 未登録者向け登録依頼メール（下書き / 送信） |
+| `TodoListRegistrationReminderMail.gs` | 未登録者向け登録依頼（初回・12名用の旧リスト） |
+| `TodoListRegistrationReminder4Mail.gs` | **未登録者リマインド（残り4名）** |
 
 ## 使い方（最短）
 
@@ -89,7 +90,37 @@ function onOpen() {
 
 ---
 
-## 未登録者向け — 登録依頼メール
+## 未登録者向け — リマインド（残り4名）
+
+`TodoListRegistrationReminder4Mail.gs` を GAS に貼り付けて使います。
+
+### 対象（To）
+
+| 名前 | メール |
+|------|--------|
+| 小林千夏 | chi-kobayashi@okamoto-group.co.jp |
+| 小暮宏武 | h-kogure@okamoto-group.co.jp |
+| 安井悠太 | y-yasui@okamoto-group.co.jp |
+| 飯塚陸王 | r-iizuka@okamoto-group.co.jp |
+
+### 手順
+
+1. `TodoListRegistrationReminder4Mail.gs` を貼り付け（旧12名用と併存可）
+2. **`createRegistrationReminder4Draft`** を実行 → 下書き1件
+3. 内容を確認して送信
+
+### 宛先
+
+| 欄 | 内容 |
+|----|------|
+| **To** | 上記4名 |
+| **CC** | 笠原・後藤・初谷・渡邊 |
+
+件名: `【再送】【To Do List】ご登録のお願い（7月1日本番運用）`
+
+---
+
+## 未登録者向け — 登録依頼メール（初回・旧12名）
 
 `TodoListRegistrationReminderMail.gs` を同じ GAS プロジェクトに追加して使います。
 
