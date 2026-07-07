@@ -74,13 +74,16 @@ function normalizeBase64Payload_(b64) {
   return s;
 }
 
-/** base64 → Blob（画像・PDF ともバイナリを壊さない。失敗時は別方式を試す） */
+/** base64 → Blob（画像・PDF・ZIP ともバイナリを壊さない。失敗時は別方式を試す） */
 function base64ToBlob_(b64, mime, fileName) {
   var clean = normalizeBase64Payload_(b64);
   if (!clean) throw new Error('base64が空です');
   var mt = mime || 'application/octet-stream';
   if ((!mime || String(mime).trim() === '') && /\.pdf$/i.test(fileName)) {
     mt = 'application/pdf';
+  }
+  if ((!mime || String(mime).trim() === '') && /\.zip$/i.test(fileName)) {
+    mt = 'application/zip';
   }
   var baseName = sanitizeDriveFileName_(fileName);
   try {
@@ -126,7 +129,13 @@ function saveImagesToDrive(images, senderName) {
       var uniqueFileName = dateStr + '_' + idx + '_' + safeSender + '_' + sanitizeDriveFileName_(img.name);
       var file = folder.createFile(blob).setName(uniqueFileName);
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      var directUrl = 'https://drive.google.com/uc?export=view&id=' + file.getId();
+      var mime = String((img && img.type) || '').toLowerCase();
+      var nameLower = String((img && img.name) || '').toLowerCase();
+      var isPdf = mime === 'application/pdf' || /\.pdf$/i.test(nameLower);
+      var isZip = mime.indexOf('zip') >= 0 || /\.zip$/i.test(nameLower);
+      var exportMode = isPdf || isZip ? 'download' : 'view';
+      var kindFrag = isZip ? '#file.zip' : isPdf ? '#file.pdf' : '';
+      var directUrl = 'https://drive.google.com/uc?export=' + exportMode + '&id=' + file.getId() + kindFrag;
       urls.push(directUrl);
     } catch (e) {
       urls.push('');

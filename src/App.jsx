@@ -174,7 +174,8 @@ const Icon = ({ name }) => {
     plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
     trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
     image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-    filePdf: <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>
+    filePdf: <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>,
+    fileZip: <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v6"/><path d="M9.5 14.5 12 12l2.5 2.5"/></svg>
   };
   return icons[name] || null;
 };
@@ -537,15 +538,17 @@ const formatContent = (text) => {
   ));
 };
 
-/** 添付の合計件数（JPEG / PNG / PDF を混在しても 1 件として数える） */
+/** 添付の合計件数（JPEG / PNG / PDF / ZIP を混在しても 1 件として数える） */
 const MAX_ATTACHMENTS = 3;
 
 /**
- * PDF 1 ファイルあたりの上限（バイト）。
+ * PDF・ZIP 1 ファイルあたりの上限（バイト）。
  * 大きくするとブラウザ→GAS の転送失敗・タイムアウトのリスクは上がる（目安は 25MB 前後まで）。
  */
-const MAX_PDF_BYTES = 25 * 1024 * 1024;
+const MAX_BINARY_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const MAX_PDF_BYTES = MAX_BINARY_ATTACHMENT_BYTES;
 const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
+const ACCEPT_ZIP = '.zip,application/zip,application/x-zip-compressed';
 
 /** GAS・列「依頼単位」と一致: employee=社員 / store=店舗単位 / tf=TFチーム（個人完了） */
 const REQUEST_KIND = { employee: 'employee', store: 'store', tf: 'tf' };
@@ -755,9 +758,29 @@ function isPdfFile(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
 }
 
+function isZipFile(file) {
+  const type = String(file?.type || '').toLowerCase();
+  return (
+    type === 'application/zip' ||
+    type === 'application/x-zip-compressed' ||
+    /\.zip$/i.test(file?.name || '')
+  );
+}
+
 function isPdfAttachmentUrl(url) {
   const u = String(url || '').toLowerCase();
-  return /\.pdf(\?|#|$)/.test(u) || u.includes('export=download');
+  return /\.pdf(\?|#|$)/.test(u) || u.includes('#file.pdf');
+}
+
+function isZipAttachmentUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return /\.zip(\?|#|$)/.test(u) || u.includes('#file.zip');
+}
+
+function attachmentKindFromUrl(url) {
+  if (isPdfAttachmentUrl(url)) return 'pdf';
+  if (isZipAttachmentUrl(url)) return 'zip';
+  return 'image';
 }
 
 function extractDriveFileId_(url) {
@@ -775,13 +798,14 @@ function attachmentPreviewSrc_(url) {
 function attachmentFromStoredUrl_(url, idx) {
   const u = String(url || '').trim();
   if (!u) return null;
-  const pdf = isPdfAttachmentUrl(u);
+  const kind = attachmentKindFromUrl(u);
   return {
-    name: pdf ? `参考PDF${idx + 1}.pdf` : `参考画像${idx + 1}.jpg`,
-    type: pdf ? 'application/pdf' : 'image/jpeg',
-    preview: u,
+    name: kind === 'pdf' ? `参考PDF${idx + 1}.pdf` : kind === 'zip' ? `参考ZIP${idx + 1}.zip` : `参考画像${idx + 1}.jpg`,
+    type: kind === 'pdf' ? 'application/pdf' : kind === 'zip' ? 'application/zip' : 'image/jpeg',
+    preview: kind === 'image' ? u : null,
     reuseUrl: u,
-    isPdf: pdf,
+    isPdf: kind === 'pdf',
+    isZip: kind === 'zip',
   };
 }
 
@@ -804,7 +828,7 @@ function SavedAttachmentStrip({ urls, className = '' }) {
 
 function SavedAttachmentMini({ url, index }) {
   const [imgError, setImgError] = useState(false);
-  const pdf = isPdfAttachmentUrl(url);
+  const kind = attachmentKindFromUrl(url);
   const openUrl = url;
   const thumbSrc = attachmentPreviewSrc_(url);
 
@@ -816,10 +840,14 @@ function SavedAttachmentMini({ url, index }) {
       title="添付を開く"
       className="block w-20 h-20 rounded-lg overflow-hidden border-2 border-slate-300 bg-slate-50 hover:border-[var(--acc-400)] hover:shadow-md transition-all shrink-0"
     >
-      {pdf || imgError ? (
+      {kind !== 'image' || imgError ? (
         <span className="w-full h-full flex flex-col items-center justify-center p-1 text-center">
-          <span className="inline-flex text-rose-600 scale-90"><Icon name="filePdf" /></span>
-          <span className="text-[9px] font-bold text-slate-600 mt-1">PDF {index + 1}</span>
+          <span className={`inline-flex scale-90 ${kind === 'zip' ? 'text-sky-600' : 'text-rose-600'}`}>
+            <Icon name={kind === 'zip' ? 'fileZip' : 'filePdf'} />
+          </span>
+          <span className="text-[9px] font-bold text-slate-600 mt-1">
+            {kind === 'zip' ? 'ZIP' : 'PDF'} {index + 1}
+          </span>
         </span>
       ) : (
         <img
@@ -835,21 +863,27 @@ function SavedAttachmentMini({ url, index }) {
 
 function AttachmentThumb({ img, onRemove, removeBtnClass, sizeClass = 'w-32 h-32' }) {
   const [imgError, setImgError] = useState(false);
-  const showFileCard =
+  const isZip =
+    img.isZip ||
+    (img.type && String(img.type).toLowerCase().includes('zip')) ||
+    (img.reuseUrl && isZipAttachmentUrl(img.reuseUrl));
+  const isPdf =
     img.isPdf ||
     (img.type && String(img.type).toLowerCase() === 'application/pdf') ||
-    (img.reuseUrl && isPdfAttachmentUrl(img.reuseUrl)) ||
-    (img.reuseUrl && imgError);
+    (img.reuseUrl && isPdfAttachmentUrl(img.reuseUrl));
+  const showFileCard = isZip || isPdf || (img.reuseUrl && imgError);
 
   return (
     <div className={`relative ${sizeClass} rounded-xl overflow-hidden border-2 border-slate-300 shadow-sm bg-slate-50 flex flex-col`}>
       {showFileCard ? (
         <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center min-h-0">
-          <span className="inline-flex text-rose-600"><Icon name="filePdf" /></span>
-          <span className="text-[10px] font-bold text-slate-600 truncate w-full mt-1 leading-tight" title={img.name}>
-            {img.name || 'PDF'}
+          <span className={`inline-flex ${isZip ? 'text-sky-600' : 'text-rose-600'}`}>
+            <Icon name={isZip ? 'fileZip' : 'filePdf'} />
           </span>
-          <span className="text-[9px] font-semibold text-slate-400 mt-0.5">PDF</span>
+          <span className="text-[10px] font-bold text-slate-600 truncate w-full mt-1 leading-tight" title={img.name}>
+            {img.name || (isZip ? 'ZIP' : 'PDF')}
+          </span>
+          <span className="text-[9px] font-semibold text-slate-400 mt-0.5">{isZip ? 'ZIP' : 'PDF'}</span>
         </div>
       ) : (
         <img
@@ -862,6 +896,89 @@ function AttachmentThumb({ img, onRemove, removeBtnClass, sizeClass = 'w-32 h-32
       <button type="button" onClick={onRemove} className={removeBtnClass}>
         <Icon name="x" />
       </button>
+    </div>
+  );
+}
+
+function AttachmentUploadPanel({
+  images,
+  formType,
+  onImageChange,
+  onZipChange,
+  onRemove,
+  thumbSizeClass = 'w-32 h-32',
+  removeBtnClass = 'absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-300 p-2 rounded-full hover:scale-110 transition-transform z-20',
+  imageAreaClass = 'p-8',
+  imagePromptClass = 'text-base font-black',
+}) {
+  const slotsLeft = MAX_ATTACHMENTS - images.length;
+
+  return (
+    <div className={appSection}>
+      <label className={appLabel}>
+        4. 参考画像・PDF・ZIP (任意 / 合計{MAX_ATTACHMENTS}つまで)
+      </label>
+      <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+        画像が4枚以上ある場合はZIPにまとめて添付できます（例: 画像2枚＋ZIP1個）。合計{MAX_ATTACHMENTS}ファイルまでです。
+      </p>
+      {slotsLeft > 0 && (
+        <>
+          <div className={`bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl ${imageAreaClass} text-center hover:bg-slate-100 transition-colors relative cursor-pointer group`}>
+            <input
+              type="file"
+              multiple
+              accept={ACCEPT_IMAGES_AND_PDF}
+              onChange={(e) => onImageChange(e, formType)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            />
+            <div className={`flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform ${imagePromptClass === 'text-sm font-bold' ? 'gap-3 text-slate-700' : ''}`}>
+              <div className={`${imagePromptClass === 'text-sm font-bold' ? 'w-14 h-14' : 'w-16 h-16'} bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm`}>
+                <Icon name="image" />
+              </div>
+              <span className={imagePromptClass}>
+                タップして画像またはPDFを選択
+                {imagePromptClass !== 'text-sm font-bold' && (
+                  <>
+                    <br />
+                    <span className="text-xs text-gray-500">（自動でDriveに保存されます）</span>
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 bg-sky-50 border-2 border-dashed border-sky-200 rounded-xl p-4 text-center hover:bg-sky-100/80 transition-colors relative cursor-pointer group">
+            <input
+              type="file"
+              accept={ACCEPT_ZIP}
+              onChange={(e) => onZipChange(e, formType)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            />
+            <div className="flex flex-col items-center gap-2 text-sky-900 group-hover:scale-105 transition-transform">
+              <span className="inline-flex text-sky-600">
+                <Icon name="fileZip" />
+              </span>
+              <span className="text-sm font-bold">ZIPを追加</span>
+              <span className="text-[11px] text-sky-700/80">複数画像を1つのZIPにまとめて添付（1ZIP＝1枠）</span>
+            </div>
+          </div>
+        </>
+      )}
+      {images.length > 0 && (
+        <div className={`flex flex-wrap gap-4 ${slotsLeft > 0 ? 'mt-6' : ''} ${thumbSizeClass === 'w-28 h-28' ? 'gap-3 mt-4' : ''}`}>
+          {images.map((img, i) => (
+            <AttachmentThumb
+              key={i}
+              img={img}
+              sizeClass={thumbSizeClass}
+              onRemove={() => onRemove(i, formType)}
+              removeBtnClass={removeBtnClass}
+            />
+          ))}
+        </div>
+      )}
+      {slotsLeft > 0 && slotsLeft < MAX_ATTACHMENTS && (
+        <p className="text-[11px] text-slate-500 mt-3">残り {slotsLeft} 枠</p>
+      )}
     </div>
   );
 }
@@ -1643,9 +1760,14 @@ export default function App() {
     files.forEach((file) => {
       if (!file) return;
 
+      if (isZipFile(file)) {
+        alert('ZIPファイルは下の「ZIPを追加」から添付してください。');
+        return;
+      }
+
       if (isPdfFile(file)) {
-        if (file.size > MAX_PDF_BYTES) {
-          alert(`PDFは${MAX_PDF_BYTES / (1024 * 1024)}MB以下にしてください: ${file.name}`);
+        if (file.size > MAX_BINARY_ATTACHMENT_BYTES) {
+          alert(`PDFは${MAX_BINARY_ATTACHMENT_BYTES / (1024 * 1024)}MB以下にしてください: ${file.name}`);
           return;
         }
         const reader = new FileReader();
@@ -1694,6 +1816,46 @@ export default function App() {
         };
         el.onerror = () => alert(`画像として読み込めませんでした: ${file.name}`);
         el.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleZipChange = (e, formType) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+
+    const append = (item) => {
+      if (formType === 'request') {
+        setRequestImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
+      } else {
+        setScheduleImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
+      }
+    };
+
+    files.forEach((file) => {
+      if (!file) return;
+      if (!isZipFile(file)) {
+        alert('ZIPファイルを選択してください。');
+        return;
+      }
+      if (file.size > MAX_BINARY_ATTACHMENT_BYTES) {
+        alert(`ZIPは${MAX_BINARY_ATTACHMENT_BYTES / (1024 * 1024)}MB以下にしてください: ${file.name}`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl !== 'string') return;
+        const base64 = dataUrl.split(',')[1];
+        if (!base64) return;
+        append({
+          name: file.name,
+          type: 'application/zip',
+          base64,
+          preview: null,
+          isZip: true,
+        });
       };
       reader.readAsDataURL(file);
     });
@@ -2998,30 +3160,13 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className={appSection}>
-                          <label className={appLabel}>4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
-                          {requestImages.length < MAX_ATTACHMENTS && (
-                            <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
-                              <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'request')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                              <div className="flex flex-col items-center gap-4 text-black group-hover:scale-110 transition-transform">
-                                <div className="w-16 h-16 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
-                                <span className="text-base font-black">タップして画像またはPDFを選択<br/><span className="text-xs text-gray-500">（自動でDriveに保存されます）</span></span>
-                              </div>
-                            </div>
-                          )}
-                          {requestImages.length > 0 && (
-                            <div className="flex flex-wrap gap-4 mt-6">
-                              {requestImages.map((img, i) => (
-                                <AttachmentThumb
-                                  key={i}
-                                  img={img}
-                                  onRemove={() => removeImage(i, 'request')}
-                                  removeBtnClass="absolute top-2 right-2 bg-rose-500 text-white border-2 border-slate-300 p-2 rounded-full hover:scale-110 transition-transform z-20"
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <AttachmentUploadPanel
+                          images={requestImages}
+                          formType="request"
+                          onImageChange={handleImageChange}
+                          onZipChange={handleZipChange}
+                          onRemove={removeImage}
+                        />
                       </div>
 
                       {/* 右列：配信先 (5〜6) */}
@@ -3192,31 +3337,17 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className={appSection}>
-                          <label className={appLabel}>4. 参考画像・PDF (任意 / JPEG・PNG・PDF {MAX_ATTACHMENTS}つまで対応)</label>
-                          {scheduleImages.length < MAX_ATTACHMENTS && (
-                            <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-100 transition-colors relative cursor-pointer group">
-                              <input type="file" multiple accept={ACCEPT_IMAGES_AND_PDF} onChange={(e) => handleImageChange(e, 'schedule')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                              <div className="flex flex-col items-center gap-3 text-slate-700 group-hover:scale-105 transition-transform">
-                                <div className="w-14 h-14 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center shadow-sm"><Icon name="image" /></div>
-                                <span className="text-sm font-bold">タップして画像またはPDFを選択</span>
-                              </div>
-                            </div>
-                          )}
-                          {scheduleImages.length > 0 && (
-                            <div className="flex flex-wrap gap-3 mt-4">
-                              {scheduleImages.map((img, i) => (
-                                <AttachmentThumb
-                                  key={i}
-                                  img={img}
-                                  sizeClass="w-28 h-28"
-                                  onRemove={() => removeImage(i, 'schedule')}
-                                  removeBtnClass="absolute top-1 right-1 bg-rose-500 text-white border-2 border-slate-300 p-1.5 rounded-full hover:scale-110 transition-transform z-20"
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <AttachmentUploadPanel
+                          images={scheduleImages}
+                          formType="schedule"
+                          onImageChange={handleImageChange}
+                          onZipChange={handleZipChange}
+                          onRemove={removeImage}
+                          thumbSizeClass="w-28 h-28"
+                          removeBtnClass="absolute top-1 right-1 bg-rose-500 text-white border-2 border-slate-300 p-1.5 rounded-full hover:scale-110 transition-transform z-20"
+                          imageAreaClass="p-6"
+                          imagePromptClass="text-sm font-bold"
+                        />
                       </div>
 
                       {/* 右列：5〜6 */}
@@ -3566,11 +3697,17 @@ export default function App() {
                                     <Icon name="link" /> リンクを開く
                                   </a>
                                 ))}
-                                {task.images && task.images.map((imgUrl, i) => imgUrl && typeof imgUrl === 'string' && imgUrl.trim() !== '' && (
-                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className={`${appLinkBtn} bg-amber-50 hover:bg-amber-100 border-amber-200/60`}>
-                                    <Icon name="image" /> 添付を開く
-                                  </a>
-                                ))}
+                                {task.images && task.images.map((imgUrl, i) => {
+                                  if (!imgUrl || typeof imgUrl !== 'string' || !imgUrl.trim()) return null;
+                                  const kind = attachmentKindFromUrl(imgUrl);
+                                  const attachLabel = kind === 'zip' ? 'ZIPを開く' : kind === 'pdf' ? 'PDFを開く' : '添付を開く';
+                                  const attachIcon = kind === 'zip' ? 'fileZip' : kind === 'pdf' ? 'filePdf' : 'image';
+                                  return (
+                                    <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className={`${appLinkBtn} bg-amber-50 hover:bg-amber-100 border-amber-200/60`}>
+                                      <Icon name={attachIcon} /> {attachLabel}
+                                    </a>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
