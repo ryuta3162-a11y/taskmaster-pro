@@ -8,8 +8,9 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#overview">本文へ移動</a>
   <header class="site-header">
-    <a class="site-brand" href="#register">
+    <a class="site-brand" href="#overview">
       <span class="brand-mark">TD</span>
       <span>To Do List</span>
     </a>
@@ -29,6 +30,7 @@
     <aside class="sidebar" id="sidebar">
       <p class="sidebar-label">目次</p>
       <ul class="nav-list">
+        <li><a href="#overview"><span class="nav-num">0</span>はじめに</a></li>
         <li><a href="#register"><span class="nav-num">1</span>ログイン・初回登録</a></li>
         <li><a href="#checklist"><span class="nav-num">2</span>リストチェック</a></li>
         <li><a href="#request"><span class="nav-num">3</span>新規投稿</a></li>
@@ -42,6 +44,86 @@
     </aside>
 
     <main class="main">
+      <section class="guide-hero guide-hero--simple" id="overview" aria-label="ガイド入口">
+        <div class="guide-hero-main">
+          <div class="hero-action-grid">
+            <a class="top-action top-action--primary" href="#checklist">
+              <span>01</span>
+              <strong>受け取ったTo Do</strong>
+            </a>
+            <a class="top-action" href="#request">
+              <span>02</span>
+              <strong>新規投稿</strong>
+            </a>
+            <a class="top-action" href="#scheduled">
+              <span>03</span>
+              <strong>定期配信</strong>
+            </a>
+            <a class="top-action" href="#progress">
+              <span>04</span>
+              <strong>進捗確認</strong>
+            </a>
+          </div>
+        </div>
+        <aside class="hero-progress-card" aria-label="学習進捗">
+          <p class="progress-label">視聴状況</p>
+          <div class="progress-ring" id="learning-progress-ring" aria-hidden="true">
+            <span id="learning-progress-count">0/5</span>
+          </div>
+          <p id="learning-progress-text">未視聴があります。</p>
+        </aside>
+      </section>
+
+      <section class="rule-strip rule-strip--compact" aria-label="利用前の重要ルール">
+        <div class="rule-item rule-item--strong">
+          <span class="rule-tag">必須</span>
+          <strong>店舗共用メールでは登録しません</strong>
+        </div>
+        <div class="rule-item">
+          <span class="rule-tag">店舗依頼</span>
+          <strong>店舗宛てではなく、管轄社員へ届きます</strong>
+        </div>
+        <div class="rule-item">
+          <span class="rule-tag">通知</span>
+          <strong>メールとリストチェックをセットで使います</strong>
+        </div>
+      </section>
+
+      <section class="curriculum" aria-label="動画カリキュラム">
+        <div class="curriculum-header">
+          <div>
+            <p class="section-eyebrow">Video Guide</p>
+            <h2>動画を選ぶ</h2>
+          </div>
+        </div>
+        <div class="curriculum-grid">
+          <a class="lesson-card" href="#register" data-lesson-card="register">
+            <span class="lesson-status">未視聴</span>
+            <strong>ログイン・初回登録</strong>
+            <span>約2分 / 個人メールで登録</span>
+          </a>
+          <a class="lesson-card lesson-card--primary" href="#checklist" data-lesson-card="checklist">
+            <span class="lesson-status">未視聴</span>
+            <strong>リストチェック</strong>
+            <span>約4分 / 全員が最初に見る章</span>
+          </a>
+          <a class="lesson-card" href="#request" data-lesson-card="request">
+            <span class="lesson-status">未視聴</span>
+            <strong>新規投稿</strong>
+            <span>約4分 / 依頼を出す人向け</span>
+          </a>
+          <a class="lesson-card" href="#repost" data-lesson-card="repost">
+            <span class="lesson-status">未視聴</span>
+            <strong>再投稿</strong>
+            <span>約2分 / 過去依頼を再利用</span>
+          </a>
+          <a class="lesson-card" href="#scheduled" data-lesson-card="scheduled">
+            <span class="lesson-status">未視聴</span>
+            <strong>定期配信</strong>
+            <span>約3分 / 毎月の依頼を自動化</span>
+          </a>
+        </div>
+      </section>
 
       <!-- 登録 -->
       <article class="section section--enhanced" id="register">
@@ -49,7 +131,12 @@
           <h2><span class="section-num">1.</span> ログイン・初回登録</h2>
         </header>
 
-        <p class="register-oneline">社内メールでログインし、プロフィールを登録します。</p>
+        <p class="register-oneline">社員個人の社内メールでログインし、プロフィールを登録します。</p>
+
+        <div class="identity-rule">
+          <strong>店舗メールアドレスでは登録しないでください。</strong>
+          <span>店舗共用メールは複数人が見る可能性があります。完了者やリマインド対象を正しく管理するため、社員個人に発行されているメールアドレスを使います。</span>
+        </div>
 
         <div class="register-main">
           <div class="video-block video-block--rich" data-video="register">
@@ -171,6 +258,10 @@
             <tr>
               <th>TFチームの依頼</th>
               <td><strong>所属チーム別</strong>に配信できます。社員への依頼と同じタスク配信形式のため、<strong>各チームで1名が完了しても、チーム全体の完了にはなりません</strong>（該当チームのメンバーそれぞれが完了が必要です）。</td>
+            </tr>
+            <tr>
+              <th>添付ファイル</th>
+              <td>画像・PDF・ZIP を添付できます。画像が多い場合は ZIP にまとめると、配信先が資料を確認しやすくなります。</td>
             </tr>
           </table>
           <p>
