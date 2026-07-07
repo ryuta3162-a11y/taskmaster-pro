@@ -39,6 +39,7 @@
         <li><a href="#scheduled"><span class="nav-num">7</span>定期配信</a></li>
         <li><a href="#progress"><span class="nav-num">8</span>TFチーム進捗</a></li>
         <li><a href="#logout"><span class="nav-num">9</span>ログアウト</a></li>
+        <li><a href="#quiz"><span class="nav-num">10</span>理解度チェック</a></li>
       </ul>
     </aside>
 
@@ -438,6 +439,81 @@
               </td>
             </tr>
           </table>
+        </div>
+      </article>
+
+      <!-- 理解度チェック -->
+      <article class="section" id="quiz">
+        <header class="section-header">
+          <h2><span class="section-num">10.</span> 理解度チェック</h2>
+        </header>
+        <div class="section-body">
+          <div class="quiz" data-quiz>
+            <div class="quiz-head">
+              <p>最後に、依頼の出し方と基本ルールを確認します。</p>
+              <strong class="quiz-score" data-quiz-result>0 / 6</strong>
+            </div>
+
+            <section class="quiz-item">
+              <h3>月初作業の店舗別数値入力を依頼する場合</h3>
+              <div class="quiz-options">
+                <button type="button" data-correct="true">店舗への依頼</button>
+                <button type="button">社員への依頼</button>
+                <button type="button">TFチームの依頼</button>
+              </div>
+              <p class="quiz-feedback" aria-live="polite"></p>
+            </section>
+
+            <section class="quiz-item">
+              <h3>パーソナルトレーニング売上の金額を、担当者ごとに入力してもらう場合</h3>
+              <div class="quiz-options">
+                <button type="button">店舗への依頼</button>
+                <button type="button" data-correct="true">社員への依頼</button>
+                <button type="button">TFチームの依頼</button>
+              </div>
+              <p class="quiz-feedback" aria-live="polite"></p>
+            </section>
+
+            <section class="quiz-item">
+              <h3>PTチームだけにGoogleフォームの回答を依頼する場合</h3>
+              <div class="quiz-options">
+                <button type="button">店舗への依頼</button>
+                <button type="button">社員への依頼</button>
+                <button type="button" data-correct="true">TFチームの依頼</button>
+              </div>
+              <p class="quiz-feedback" aria-live="polite"></p>
+            </section>
+
+            <section class="quiz-item">
+              <h3>初回登録で使うメールアドレス</h3>
+              <div class="quiz-options">
+                <button type="button">店舗共用メール</button>
+                <button type="button" data-correct="true">社員個人の社内メール</button>
+                <button type="button">どちらでもよい</button>
+              </div>
+              <p class="quiz-feedback" aria-live="polite"></p>
+            </section>
+
+            <section class="quiz-item">
+              <h3>画像やPDFが多い資料を添付する場合</h3>
+              <div class="quiz-options">
+                <button type="button">資料を分けて何度も投稿する</button>
+                <button type="button" data-correct="true">ZIPにまとめて添付する</button>
+                <button type="button">添付せず本文だけで送る</button>
+              </div>
+              <p class="quiz-feedback" aria-live="polite"></p>
+            </section>
+
+            <section class="quiz-item">
+              <h3>毎月同じ依頼を自動で送りたい場合</h3>
+              <div class="quiz-options">
+                <button type="button">再投稿</button>
+                <button type="button" data-correct="true">定期配信</button>
+                <button type="button">ログアウト</button>
+              </div>
+              <p class="quiz-feedback" aria-live="polite"></p>
+            </section>
+          </div>
         </div>
       </article>
 

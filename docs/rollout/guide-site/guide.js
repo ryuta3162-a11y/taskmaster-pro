@@ -527,10 +527,58 @@
     }
   }
 
+  function initQuiz() {
+    const quiz = document.querySelector('[data-quiz]');
+    if (!quiz) return;
+
+    const items = Array.from(quiz.querySelectorAll('.quiz-item'));
+    const result = quiz.querySelector('[data-quiz-result]');
+
+    function updateScore() {
+      const correct = items.filter(function (item) {
+        return item.dataset.correct === 'true';
+      }).length;
+      if (result) {
+        result.textContent = correct + ' / ' + items.length;
+        result.classList.toggle('is-complete', correct === items.length);
+      }
+    }
+
+    items.forEach(function (item) {
+      const buttons = Array.from(item.querySelectorAll('.quiz-options button'));
+      const feedback = item.querySelector('.quiz-feedback');
+      const answer = buttons.find(function (button) {
+        return button.dataset.correct === 'true';
+      });
+
+      buttons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          const ok = button.dataset.correct === 'true';
+          buttons.forEach(function (b) {
+            b.classList.remove('is-selected', 'is-correct', 'is-wrong');
+          });
+          button.classList.add('is-selected', ok ? 'is-correct' : 'is-wrong');
+          if (!ok && answer) answer.classList.add('is-correct');
+          item.dataset.correct = ok ? 'true' : 'false';
+          if (feedback) {
+            feedback.textContent = ok
+              ? '正解です。'
+              : '正解は「' + (answer?.textContent || '') + '」です。';
+            feedback.classList.toggle('is-ok', ok);
+          }
+          updateScore();
+        });
+      });
+    });
+
+    updateScore();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initConfig();
     initVideos();
     initPathTabs();
+    initQuiz();
     initNav();
     initMobileMenu();
   });
