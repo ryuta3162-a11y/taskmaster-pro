@@ -1,150 +1,9 @@
 /**
  * 動画プレーヤー（MP4 自前ホスト / YouTube / Drive）
- * 拡張章: 字幕（VTT）・章ジャンプ・所属タブ
+ * 拡張章: 字幕（VTT）・所属タブ
  */
 (function () {
   const cfg = window.GUIDE_CONFIG || {};
-  const LESSON_KEYS = ['register', 'checklist', 'request', 'repost', 'scheduled'];
-  const PROGRESS_STORAGE_KEY = 'todo-list-guide-progress-v2';
-  const SPEECH_ON_LABEL = '音声ガイド ON';
-  const SPEECH_STOP_LABEL = '音声ガイド停止';
-  let activeSpeechButton = null;
-  const GUIDE_NOTES = {
-    register: [
-      '店舗共用メールではなく、社員個人に発行されたメールアドレスでログインします。',
-      '名前・役職・チームを登録します。店舗エリア所属の方はエリアと管轄店舗も選びます。',
-      'EAST本部所属の方は、本部所属として登録すれば店舗選択は不要です。',
-    ],
-    checklist: [
-      '依頼を受け取ったら、まずリストチェックを開いて未実施タブを確認します。',
-      '店舗依頼は店舗ごとに完了します。担当店舗が複数ある場合は店舗名で絞り込めます。',
-      '誤って完了した場合は、実施済みタブから取り消せます。',
-    ],
-    request: [
-      '社員依頼、店舗依頼、TFチーム依頼の3種類から選びます。',
-      '配信先は役職・店舗・チームで絞り込み、対象外にしたい人は個別に外せます。',
-      '画像・PDF・ZIPを添付できます。画像が多い場合はZIPにまとめると見やすくなります。',
-    ],
-    repost: [
-      '再投稿は、過去に新規投稿で送った依頼を再利用する機能です。',
-      '内容・URL・添付・配信先は引き継がれますが、期限は毎回選び直します。',
-      '毎月自動で送りたい依頼は、再投稿ではなく定期配信を使います。',
-    ],
-    scheduled: [
-      '定期配信は、毎月決まった日に同じTo Doを自動で送る設定です。',
-      '配信時刻は午前10時固定です。期限は月末または指定日から選べます。',
-      '今月分を作成しない場合は、登録時のオプションを使います。',
-    ],
-  };
-
-  function readProgress() {
-    try {
-      return JSON.parse(localStorage.getItem(PROGRESS_STORAGE_KEY) || '{}') || {};
-    } catch (e) {
-      return {};
-    }
-  }
-
-  function writeProgress(progress) {
-    try {
-      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
-    } catch (e) {
-      /* ignore */
-    }
-  }
-
-  function setLessonComplete(key, done) {
-    if (!LESSON_KEYS.includes(key)) return;
-    const progress = readProgress();
-    progress[key] = !!done;
-    writeProgress(progress);
-    updateLearningProgress();
-    updateVideoCompletionState(key);
-  }
-
-  function isLessonComplete(key) {
-    return !!readProgress()[key];
-  }
-
-  function updateLearningProgress() {
-    const progress = readProgress();
-    const doneCount = LESSON_KEYS.filter(function (key) {
-      return progress[key];
-    }).length;
-    const total = LESSON_KEYS.length;
-    const pct = total ? Math.round((doneCount / total) * 100) : 0;
-
-    const countEl = document.getElementById('learning-progress-count');
-    const textEl = document.getElementById('learning-progress-text');
-    const ring = document.getElementById('learning-progress-ring');
-    if (countEl) countEl.textContent = doneCount + '/' + total;
-    if (ring) ring.style.setProperty('--learning-progress', pct + '%');
-    if (textEl) {
-      textEl.textContent =
-        doneCount === total
-          ? '基本動画はすべて確認済みです。必要に応じて復習してください。'
-          : 'あと ' + (total - doneCount) + ' 本で基本操作をひと通り確認できます。';
-    }
-
-    document.querySelectorAll('[data-lesson-card]').forEach(function (card) {
-      const key = card.getAttribute('data-lesson-card');
-      const done = !!progress[key];
-      card.classList.toggle('is-complete', done);
-      const status = card.querySelector('.lesson-status');
-      if (status) status.textContent = done ? '視聴済み' : '未視聴';
-    });
-  }
-
-  function updateVideoCompletionState(key) {
-    document.querySelectorAll('[data-video="' + key + '"]').forEach(function (container) {
-      const done = isLessonComplete(key);
-      container.classList.toggle('is-complete', done);
-      const btn = container.querySelector('[data-complete-button]');
-      if (btn) {
-        btn.classList.toggle('is-complete', done);
-        btn.textContent = done ? '視聴済みにしました' : '視聴済みにする';
-        btn.setAttribute('aria-pressed', done ? 'true' : 'false');
-      }
-    });
-  }
-
-  function stopSpeech() {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    document.querySelectorAll('.speech-button.is-speaking').forEach(function (btn) {
-      btn.classList.remove('is-speaking');
-      btn.textContent = SPEECH_ON_LABEL;
-    });
-    activeSpeechButton = null;
-  }
-
-  function speakGuideText(text, button, options) {
-    const force = !!(options && options.force);
-    if (!('speechSynthesis' in window)) {
-      if (!force) alert('このブラウザでは読み上げ機能を利用できません。');
-      return;
-    }
-    if (button && button.classList.contains('is-speaking') && !force) {
-      stopSpeech();
-      return;
-    }
-    stopSpeech();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ja-JP';
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    utterance.onend = function () {
-      if (activeSpeechButton === button) stopSpeech();
-    };
-    utterance.onerror = stopSpeech;
-    if (button) {
-      activeSpeechButton = button;
-      button.classList.add('is-speaking');
-      button.textContent = SPEECH_STOP_LABEL;
-    }
-    window.speechSynthesis.speak(utterance);
-  }
 
   function extractYouTubeId(input) {
     if (!input) return '';
@@ -209,13 +68,6 @@
     return null;
   }
 
-  function formatTime(sec) {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return m + ':' + String(r).padStart(2, '0');
-  }
-
   function playIconSvg() {
     return (
       '<svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
@@ -264,16 +116,10 @@
       videoEl.volume = 1;
     });
 
-    videoEl.addEventListener('pause', function () {
-      stopSpeech();
-    });
-
     videoEl.addEventListener('ended', function () {
-      stopSpeech();
       overlay.classList.remove('is-hidden');
       videoEl.controls = false;
       videoEl.currentTime = 0;
-      setLessonComplete(videoKey, true);
     });
   }
 
@@ -339,20 +185,10 @@
     wrap.appendChild(cap);
 
     let cues = [];
-    let lastSpokenCueStart = null;
-
-    function speakCue(active) {
-      if (!active || active.start === lastSpokenCueStart) return;
-      lastSpokenCueStart = active.start;
-      const container = wrap.closest('.video-block');
-      const button = container ? container.querySelector('.speech-button') : null;
-      speakGuideText(active.text, button, { force: true });
-    }
 
     function reloadCues() {
       return loadVttCues(vttUrl).then(function (list) {
         cues = list;
-        renderLearningPanel(wrap.closest('.video-block'), cues, videoEl, videoKey);
         updateCaption();
         return list;
       });
@@ -373,22 +209,17 @@
       if (active) {
         cap.innerHTML = formatCaptionHtml(active.text);
         cap.classList.add('is-visible');
-        updateActiveChapter(wrap.closest('.video-block'), active.start);
-        speakCue(active);
       } else {
         cap.innerHTML = '';
         cap.classList.remove('is-visible');
-        updateActiveChapter(wrap.closest('.video-block'), null);
       }
     }
 
     videoEl.addEventListener('timeupdate', updateCaption);
     videoEl.addEventListener('seeked', function () {
-      lastSpokenCueStart = null;
       updateCaption();
     });
     videoEl.addEventListener('play', function () {
-      lastSpokenCueStart = null;
       if (!cues.length) {
         reloadCues().then(updateCaption);
       } else {
@@ -397,7 +228,6 @@
     });
     videoEl.addEventListener('pause', function () {
       updateCaption();
-      lastSpokenCueStart = null;
     });
   }
 
@@ -426,100 +256,16 @@
     if (container.querySelector('.video-toolbar')) return;
     const toolbar = document.createElement('div');
     toolbar.className = 'video-toolbar';
-    const notes = GUIDE_NOTES[videoKey] || [];
     toolbar.innerHTML =
       '<div class="video-toolbar-left">' +
       '<span class="video-label">' +
       (video.title || '解説動画') +
       '</span>' +
       (video.duration ? '<span class="video-duration-hint">' + video.duration + '</span>' : '') +
-      '</div>' +
-      '<div class="video-toolbar-actions">' +
-      '<button type="button" class="btn-tool speech-button">' +
-      SPEECH_ON_LABEL +
-      '</button>' +
-      '<button type="button" class="btn-tool" data-complete-button aria-pressed="false">視聴済みにする</button>' +
       '</div>';
 
     const wrap = container.querySelector('.video-frame-wrap');
     if (wrap) container.insertBefore(toolbar, wrap);
-
-    const completeBtn = toolbar.querySelector('[data-complete-button]');
-    completeBtn?.addEventListener('click', function () {
-      setLessonComplete(videoKey, !isLessonComplete(videoKey));
-    });
-
-    const speechBtn = toolbar.querySelector('.speech-button');
-    speechBtn?.addEventListener('click', function () {
-      const text = [video.title || '', notes.join('。')].filter(Boolean).join('。');
-      speakGuideText(text, speechBtn);
-    });
-
-    updateVideoCompletionState(videoKey);
-  }
-
-  function renderLearningPanel(container, cues, videoEl, videoKey) {
-    if (!container || !cues.length) return;
-    let panel = container.querySelector('.video-learning-panel');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.className = 'video-learning-panel';
-      container.appendChild(panel);
-    }
-
-    const notes = GUIDE_NOTES[videoKey] || [];
-    panel.innerHTML =
-      '<div class="chapter-list">' +
-      '<div class="chapter-list-header"><strong>字幕チャプター</strong><span>クリックで移動</span></div>' +
-      '<div class="chapter-items"></div>' +
-      '</div>' +
-      '<div class="video-notes">' +
-      '<div class="video-notes-header"><strong>この章の要点</strong><span>運用ルール</span></div>' +
-      '<div class="video-notes-body">' +
-      notes.map(function (note) {
-        return '<div class="note-row">' + escapeHtml(note) + '</div>';
-      }).join('') +
-      '</div>' +
-      '</div>';
-
-    const chapterItems = panel.querySelector('.chapter-items');
-    cues.forEach(function (cue) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'chapter-button';
-      button.dataset.start = String(cue.start);
-      button.innerHTML =
-        '<span class="chapter-time">' +
-        formatTime(cue.start) +
-        '</span><span class="chapter-text">' +
-        escapeHtml(cue.text).replace(/\n/g, '<br>') +
-        '</span>';
-      button.addEventListener('click', function () {
-        const overlay = container.querySelector('.video-play-overlay');
-        if (overlay) overlay.classList.add('is-hidden');
-        videoEl.controls = true;
-        videoEl.currentTime = cue.start + 0.01;
-        videoEl.play().catch(function () {
-          /* playback may require direct user gesture on some browsers */
-        });
-      });
-      chapterItems.appendChild(button);
-    });
-  }
-
-  function updateActiveChapter(container, start) {
-    if (!container) return;
-    container.querySelectorAll('.chapter-button').forEach(function (btn) {
-      btn.classList.toggle('is-active', start !== null && Number(btn.dataset.start) === start);
-    });
-  }
-
-  function escapeHtml(raw) {
-    return String(raw)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
   }
 
   function renderVideo(container, videoKey) {
@@ -547,7 +293,6 @@
     }
 
     renderIframe(wrap, source, video.title);
-    renderLearningPanel(container, [], null, videoKey);
   }
 
   function initVideos() {
@@ -662,7 +407,6 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     initConfig();
-    updateLearningProgress();
     initVideos();
     initPathTabs();
     initNav();
