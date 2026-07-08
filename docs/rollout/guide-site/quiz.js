@@ -79,15 +79,40 @@
     el.classList.toggle('is-error', status === 'error');
   }
 
-  function callQuizEndpoint(params) {
-    return new Promise(function (resolve, reject) {
-      if (!endpoint) {
-        reject(new Error('集計URLが未設定です。'));
-        return;
+  function buildEndpointUrl(params, callbackName) {
+    const query = new URLSearchParams();
+    Object.keys(params).forEach(function (key) {
+      if (params[key] !== undefined && params[key] !== null) {
+        query.set(key, String(params[key]));
       }
+    });
+    if (callbackName) {
+      query.set('callback', callbackName);
+    }
+    query.set('source', 'todo-list-guide');
+    return endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + query.toString();
+  }
 
+  function callQuizEndpointWithJson(params) {
+    if (!window.fetch) {
+      return Promise.reject(new Error('fetch unavailable'));
+    }
+
+    return fetch(buildEndpointUrl(params), {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      return response.json();
+    });
+  }
+
+  function callQuizEndpointWithJsonp(params) {
+    return new Promise(function (resolve, reject) {
       const callbackName = '__todoQuiz_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-      const query = new URLSearchParams();
       const script = document.createElement('script');
       let timer = null;
 
@@ -102,16 +127,8 @@
         resolve(response || {});
       };
 
-      Object.keys(params).forEach(function (key) {
-        if (params[key] !== undefined && params[key] !== null) {
-          query.set(key, String(params[key]));
-        }
-      });
-      query.set('callback', callbackName);
-      query.set('source', 'todo-list-guide');
-
       script.async = true;
-      script.src = endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + query.toString();
+      script.src = buildEndpointUrl(params, callbackName);
       script.onerror = function () {
         cleanup();
         reject(new Error('送信できませんでした。'));
@@ -122,6 +139,16 @@
       }, 30000);
 
       document.head.appendChild(script);
+    });
+  }
+
+  function callQuizEndpoint(params) {
+    if (!endpoint) {
+      return Promise.reject(new Error('集計URLが未設定です。'));
+    }
+
+    return callQuizEndpointWithJson(params).catch(function () {
+      return callQuizEndpointWithJsonp(params);
     });
   }
 

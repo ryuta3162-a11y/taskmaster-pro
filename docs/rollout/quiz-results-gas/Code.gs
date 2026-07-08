@@ -261,7 +261,7 @@ function createQuizOutput_(payload, callback) {
   if (callback && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)) {
     return ContentService
       .createTextOutput(callback + '(' + json + ');')
-      .setMimeType(ContentService.MimeType.TEXT);
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
 
   return ContentService
