@@ -533,14 +533,19 @@
 
     const items = Array.from(quiz.querySelectorAll('.quiz-item'));
     const result = quiz.querySelector('[data-quiz-result]');
+    const complete = quiz.querySelector('[data-quiz-complete]');
 
     function updateScore() {
       const correct = items.filter(function (item) {
         return item.dataset.correct === 'true';
       }).length;
+      const passed = correct === items.length;
       if (result) {
         result.textContent = correct + ' / ' + items.length;
-        result.classList.toggle('is-complete', correct === items.length);
+        result.classList.toggle('is-complete', passed);
+      }
+      if (complete) {
+        complete.hidden = !passed;
       }
     }
 

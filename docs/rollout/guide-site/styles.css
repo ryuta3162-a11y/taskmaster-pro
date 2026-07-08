@@ -1573,6 +1573,32 @@ svg {
   color: var(--green-600);
 }
 
+.quiz-complete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  background: var(--green-50);
+  color: #166534;
+}
+
+.quiz-complete[hidden] {
+  display: none;
+}
+
+.quiz-complete strong {
+  font-size: 1rem;
+}
+
+.quiz-complete span {
+  color: #166534;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .path-panel-grid {
     grid-template-columns: 1fr;
