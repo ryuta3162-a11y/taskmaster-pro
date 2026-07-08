@@ -17,6 +17,7 @@ window.GUIDE_CONFIG = {
 
   appUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec',
   checklistUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec?page=checklist',
+  quizResultEndpoint: '',
 
   /** true = mp4 未設定の章にサンプル動画を表示（本番公開前に false 推奨） */
   useDemoWhenEmpty: false,

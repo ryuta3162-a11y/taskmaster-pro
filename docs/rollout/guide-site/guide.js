@@ -527,6 +527,50 @@
     }
   }
 
+  function submitQuizResult(endpoint, payload) {
+    return new Promise(function (resolve, reject) {
+      const callbackName = '__todoQuizResult_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      const params = new URLSearchParams();
+      const script = document.createElement('script');
+      let timer = null;
+
+      function cleanup() {
+        if (timer) window.clearTimeout(timer);
+        delete window[callbackName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[callbackName] = function (response) {
+        cleanup();
+        resolve(response || {});
+      };
+
+      params.set('callback', callbackName);
+      params.set('source', 'todo-list-guide');
+      params.set('email', payload.email);
+      params.set('answers', JSON.stringify(payload.answers));
+      params.set('details', JSON.stringify(payload.details));
+      params.set('score', String(payload.score));
+      params.set('total', String(payload.total));
+      params.set('passed', payload.passed ? 'true' : 'false');
+      params.set('submittedAt', new Date().toISOString());
+
+      script.async = true;
+      script.src = endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+      script.onerror = function () {
+        cleanup();
+        reject(new Error('送信できませんでした。'));
+      };
+
+      timer = window.setTimeout(function () {
+        cleanup();
+        reject(new Error('送信がタイムアウトしました。'));
+      }, 15000);
+
+      document.head.appendChild(script);
+    });
+  }
+
   function initQuiz() {
     const quiz = document.querySelector('[data-quiz]');
     if (!quiz) return;
@@ -534,19 +578,80 @@
     const items = Array.from(quiz.querySelectorAll('.quiz-item'));
     const result = quiz.querySelector('[data-quiz-result]');
     const complete = quiz.querySelector('[data-quiz-complete]');
+    const submitForm = quiz.querySelector('[data-quiz-submit]');
+    const emailInput = quiz.querySelector('[data-quiz-email]');
+    const submitButton = quiz.querySelector('[data-quiz-submit-button]');
+    const submitMessage = quiz.querySelector('[data-quiz-submit-message]');
+    const endpoint = (cfg.quizResultEndpoint || '').trim();
+    let submitted = false;
+
+    function getState() {
+      const details = items.map(function (item, index) {
+        const selected = item.querySelector('.quiz-options button.is-selected');
+        return {
+          questionId: item.dataset.questionId || 'q' + (index + 1),
+          answerId: selected?.dataset.answerId || '',
+          correct: item.dataset.correct === 'true',
+        };
+      });
+      const answered = details.filter(function (answer) {
+        return answer.answerId;
+      }).length;
+      const correct = details.filter(function (answer) {
+        return answer.correct;
+      }).length;
+      const passed = answered === items.length && correct === items.length;
+      return {
+        answered: answered,
+        correct: correct,
+        details: details,
+        passed: passed,
+        total: items.length,
+      };
+    }
+
+    function setSubmitMessage(text, status) {
+      if (!submitMessage) return;
+      submitMessage.textContent = text;
+      submitMessage.classList.toggle('is-ok', status === 'ok');
+      submitMessage.classList.toggle('is-error', status === 'error');
+    }
+
+    function updateSubmitState(state) {
+      if (!submitButton || !submitForm) return;
+      const ready = state.answered === state.total;
+
+      if (!endpoint) {
+        submitButton.disabled = true;
+        setSubmitMessage('現在、結果送信は準備中です。', 'error');
+        return;
+      }
+
+      if (submitted) {
+        submitButton.disabled = true;
+        submitButton.textContent = '送信済み';
+        setSubmitMessage('回答結果を記録しました。', 'ok');
+        return;
+      }
+
+      submitButton.textContent = '結果を送信';
+      submitButton.disabled = !ready;
+      setSubmitMessage(
+        ready ? '回答結果を送信できます。' : '6問すべて回答すると送信できます。',
+        ready ? 'ok' : ''
+      );
+    }
 
     function updateScore() {
-      const correct = items.filter(function (item) {
-        return item.dataset.correct === 'true';
-      }).length;
-      const passed = correct === items.length;
+      const state = getState();
       if (result) {
-        result.textContent = correct + ' / ' + items.length;
-        result.classList.toggle('is-complete', passed);
+        result.textContent = state.correct + ' / ' + state.total;
+        result.classList.toggle('is-complete', state.passed);
       }
       if (complete) {
-        complete.hidden = !passed;
+        complete.hidden = !state.passed;
       }
+      updateSubmitState(state);
     }
 
     items.forEach(function (item) {
@@ -564,7 +669,9 @@
           });
           button.classList.add('is-selected', ok ? 'is-correct' : 'is-wrong');
           if (!ok && answer) answer.classList.add('is-correct');
+          item.dataset.answered = 'true';
           item.dataset.correct = ok ? 'true' : 'false';
+          submitted = false;
           if (feedback) {
             feedback.textContent = ok
               ? '正解です。'
@@ -575,6 +682,70 @@
         });
       });
     });
+
+    if (emailInput) {
+      emailInput.addEventListener('input', function () {
+        submitted = false;
+        updateScore();
+      });
+    }
+
+    if (submitForm) {
+      submitForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const state = getState();
+        const email = (emailInput?.value || '').trim();
+
+        if (!endpoint) {
+          setSubmitMessage('現在、結果送信は準備中です。', 'error');
+          return;
+        }
+
+        if (state.answered !== state.total) {
+          setSubmitMessage('6問すべて回答してください。', 'error');
+          return;
+        }
+
+        if (!email || (emailInput && !emailInput.checkValidity())) {
+          setSubmitMessage('メールアドレスを確認してください。', 'error');
+          if (emailInput) emailInput.focus();
+          return;
+        }
+
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = '送信中';
+        }
+        setSubmitMessage('送信しています。', '');
+
+        submitQuizResult(endpoint, {
+          email: email,
+          answers: state.details.map(function (answer) {
+            return answer.correct;
+          }),
+          details: state.details,
+          score: state.correct,
+          total: state.total,
+          passed: state.passed,
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error(response.message || '記録できませんでした。');
+            }
+            submitted = true;
+            setSubmitMessage(response.message || '回答結果を記録しました。', 'ok');
+            updateSubmitState(state);
+          })
+          .catch(function (error) {
+            submitted = false;
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = '結果を送信';
+            }
+            setSubmitMessage(error.message || '送信できませんでした。', 'error');
+          });
+      });
+    }
 
     updateScore();
   }
