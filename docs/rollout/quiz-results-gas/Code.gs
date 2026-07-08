@@ -7,7 +7,7 @@ var QUIZ_RESULT_CONFIG = {
     { target: 'employee', method: 'new' },
     { target: 'team', method: 'new' },
     { target: 'store', method: 'repost' },
-    { target: 'team', method: 'scheduled' },
+    { target: 'store', method: 'scheduled' },
     { target: 'employee', method: 'new' },
   ],
   headers: [

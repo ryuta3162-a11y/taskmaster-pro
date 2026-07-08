@@ -1,6 +1,7 @@
 (function () {
   const cfg = window.GUIDE_CONFIG || {};
   const endpoint = String(cfg.quizResultEndpoint || '').trim();
+  const STORAGE_KEY = 'todoGuideQuizEmail';
 
   const TARGET_CHOICES = [
     { id: 'store', label: '店舗への依頼' },
@@ -17,27 +18,27 @@
   const QUESTIONS = [
     {
       id: 'q1',
-      text: '月初に、各店舗へ前月のオプション売上・入会数・体験数を毎月入力してもらいたい。',
+      text: '毎月の月初に、各店舗へ前月のオプション売上・入会数・体験数を指定のスプレッドシートへ入力してもらいたい。',
     },
     {
       id: 'q2',
-      text: 'パーソナルトレーニング売上の金額を、担当トレーナー本人ごとに今回だけ入力してもらいたい。',
+      text: 'パーソナルトレーニング売上の実績数値を、担当トレーナー本人に今月分だけ入力してもらいたい。',
     },
     {
       id: 'q3',
-      text: '全店舗ではなく、PTチームのメンバーへ添付したGoogleフォームの回答を今週中に1回だけ依頼したい。',
+      text: '全店舗ではなく、PTチームのメンバーのみへGoogleフォームの回答を依頼したい。',
     },
     {
       id: 'q4',
-      text: '先月、各店舗へ送った棚卸入力依頼を探して、締切日だけ変えてもう一度送りたい。',
+      text: '先月、各店舗へ依頼したPOP掲示の内容を差し替えて、もう一度送りたい。',
     },
     {
       id: 'q5',
-      text: '毎週月曜に、CSタスクフォースへ同じチェック項目の報告を自動で送るようにしたい。',
+      text: '全店で行っているイベントの契約件数を、毎週月曜日に指定のスプレッドシートへ入力してもらいたい。',
     },
     {
       id: 'q6',
-      text: 'ZIPにまとめた研修資料を、対象社員だけに確認してもらう。定例ではなく今回だけの依頼です。',
+      text: 'ZIPにまとめた研修資料や画像を確認し、提出物を出してもらうため、該当社員のみへ今回だけ依頼したい。',
     },
   ];
 
@@ -121,6 +122,11 @@
 
   function callQuizEndpoint(params) {
     if (!endpoint) return Promise.reject(new Error('集計URLが未設定です。'));
+    if (endpoint.indexOf('script.google.com/') >= 0) {
+      return callQuizEndpointWithJsonp(params).catch(function () {
+        return callQuizEndpointWithJson(params);
+      });
+    }
     return callQuizEndpointWithJson(params).catch(function () {
       return callQuizEndpointWithJsonp(params);
     });
@@ -264,10 +270,16 @@
   function initAuth() {
     const form = document.querySelector('[data-test-auth-form]');
     const emailInput = document.querySelector('[data-test-email]');
-    const button = document.querySelector('[data-test-auth-button]');
     const message = document.querySelector('[data-test-auth-message]');
 
     if (!form || !emailInput) return;
+
+    try {
+      const savedEmail = window.localStorage.getItem(STORAGE_KEY);
+      if (savedEmail && !emailInput.value) emailInput.value = savedEmail;
+    } catch (err) {
+      // Local storage is only a convenience for faster repeat access.
+    }
 
     form.addEventListener('submit', function (event) {
       event.preventDefault();
@@ -280,29 +292,13 @@
       }
 
       state.email = email;
-      if (button) {
-        button.disabled = true;
-        button.textContent = '確認中';
+      try {
+        window.localStorage.setItem(STORAGE_KEY, email);
+      } catch (err) {
+        // The quiz can still proceed without remembering the email.
       }
-      setMessage(message, '確認しています。', '');
-
-      callQuizEndpoint({ action: 'verify', email: email })
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error(response.message || 'メールアドレスを確認できませんでした。');
-          }
-          setMessage(message, '確認できました。', 'ok');
-          showQuiz(response);
-        })
-        .catch(function (error) {
-          setMessage(message, error.message || 'メールアドレスを確認できませんでした。', 'error');
-        })
-        .finally(function () {
-          if (button) {
-            button.disabled = false;
-            button.textContent = '開始';
-          }
-        });
+      setMessage(message, '開始します。', 'ok');
+      showQuiz({ ok: true });
     });
   }
 
