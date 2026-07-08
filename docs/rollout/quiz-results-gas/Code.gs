@@ -2,7 +2,14 @@ var QUIZ_RESULT_CONFIG = {
   spreadsheetId: '1NvJrgfanwN8XMu9YQh5tFbrqDHxU7fuJYJteLzfKqbI',
   sheetName: 'テスト',
   questionCount: 6,
-  correctAnswers: ['store', 'employee', 'team', 'personal-mail', 'repost', 'scheduled'],
+  correctAnswers: [
+    { target: 'store', method: 'scheduled' },
+    { target: 'employee', method: 'new' },
+    { target: 'team', method: 'new' },
+    { target: 'store', method: 'repost' },
+    { target: 'team', method: 'scheduled' },
+    { target: 'employee', method: 'new' },
+  ],
   headers: [
     '名前',
     'メールアドレス',
@@ -152,7 +159,7 @@ function parseSelectedAnswers_(params, count) {
       var details = JSON.parse(params.details);
       if (Array.isArray(details)) {
         answers = details.map(function (item) {
-          return item && item.answerId;
+          return normalizeSelectedAnswer_(item);
         });
       }
     } catch (err) {
@@ -165,7 +172,7 @@ function parseSelectedAnswers_(params, count) {
       var parsed = JSON.parse(params.answers);
       if (Array.isArray(parsed)) {
         answers = parsed.map(function (item) {
-          return item && typeof item === 'object' ? item.answerId : item;
+          return normalizeSelectedAnswer_(item);
         });
       }
     } catch (err2) {
@@ -175,7 +182,12 @@ function parseSelectedAnswers_(params, count) {
 
   if (!answers.length) {
     for (var i = 1; i <= count; i += 1) {
-      answers.push(params['q' + i]);
+      answers.push(
+        normalizeSelectedAnswer_({
+          target: params['q' + i + 'Target'],
+          method: params['q' + i + 'Method'],
+        })
+      );
     }
   }
 
@@ -184,6 +196,19 @@ function parseSelectedAnswers_(params, count) {
   }
 
   return answers;
+}
+
+function normalizeSelectedAnswer_(item) {
+  if (item && typeof item === 'object') {
+    return {
+      target: String(item.target || '').trim(),
+      method: String(item.method || '').trim(),
+    };
+  }
+  return {
+    target: '',
+    method: String(item || '').trim(),
+  };
 }
 
 function scoreQuizAnswers_(answers) {
@@ -202,10 +227,10 @@ function scoreQuizAnswers_(answers) {
 }
 
 function isQuizAnswerCorrect_(answer, index) {
-  if (answer === true || answer === 'true' || answer === '1' || answer === 1 || answer === '○') {
-    return true;
-  }
-  return String(answer || '') === QUIZ_RESULT_CONFIG.correctAnswers[index];
+  var correct = QUIZ_RESULT_CONFIG.correctAnswers[index] || {};
+  return answer &&
+    String(answer.target || '') === String(correct.target || '') &&
+    String(answer.method || '') === String(correct.method || '');
 }
 
 function findQuizRowByEmail_(sheet, email) {

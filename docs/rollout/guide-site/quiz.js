@@ -1,60 +1,43 @@
 (function () {
   const cfg = window.GUIDE_CONFIG || {};
   const endpoint = String(cfg.quizResultEndpoint || '').trim();
+
+  const TARGET_CHOICES = [
+    { id: 'store', label: '店舗への依頼' },
+    { id: 'employee', label: '社員への依頼' },
+    { id: 'team', label: 'タスクフォースへの依頼' },
+  ];
+
+  const METHOD_CHOICES = [
+    { id: 'new', label: '新規投稿' },
+    { id: 'repost', label: '再投稿' },
+    { id: 'scheduled', label: '定期配信' },
+  ];
+
   const QUESTIONS = [
     {
       id: 'q1',
-      text: '月初作業の店舗別数値入力を依頼する場合',
-      choices: [
-        { id: 'store', label: '店舗への依頼' },
-        { id: 'employee', label: '社員への依頼' },
-        { id: 'team', label: 'TFチームの依頼' },
-      ],
+      text: '月初に、各店舗へ前月のオプション売上・入会数・体験数を毎月入力してもらいたい。',
     },
     {
       id: 'q2',
-      text: 'パーソナルトレーニング売上の金額を、担当者ごとに入力してもらう場合',
-      choices: [
-        { id: 'store', label: '店舗への依頼' },
-        { id: 'employee', label: '社員への依頼' },
-        { id: 'team', label: 'TFチームの依頼' },
-      ],
+      text: 'パーソナルトレーニング売上の金額を、担当トレーナー本人ごとに今回だけ入力してもらいたい。',
     },
     {
       id: 'q3',
-      text: 'PTチームだけにGoogleフォームの回答を依頼する場合',
-      choices: [
-        { id: 'store', label: '店舗への依頼' },
-        { id: 'employee', label: '社員への依頼' },
-        { id: 'team', label: 'TFチームの依頼' },
-      ],
+      text: '全店舗ではなく、PTチームのメンバーへ添付したGoogleフォームの回答を今週中に1回だけ依頼したい。',
     },
     {
       id: 'q4',
-      text: '初回登録で使うメールアドレス',
-      choices: [
-        { id: 'store-mail', label: '店舗共用メール' },
-        { id: 'personal-mail', label: '社員個人の社内メール' },
-        { id: 'either', label: 'どちらでもよい' },
-      ],
+      text: '先月、各店舗へ送った棚卸入力依頼を探して、締切日だけ変えてもう一度送りたい。',
     },
     {
       id: 'q5',
-      text: '過去と似た依頼を少し変更して、もう一度送りたい場合',
-      choices: [
-        { id: 'new', label: '新規投稿' },
-        { id: 'repost', label: '再投稿' },
-        { id: 'scheduled', label: '定期配信' },
-      ],
+      text: '毎週月曜に、CSタスクフォースへ同じチェック項目の報告を自動で送るようにしたい。',
     },
     {
       id: 'q6',
-      text: '毎月同じ依頼を自動で送りたい場合',
-      choices: [
-        { id: 'repost', label: '再投稿' },
-        { id: 'scheduled', label: '定期配信' },
-        { id: 'logout', label: 'ログアウト' },
-      ],
+      text: 'ZIPにまとめた研修資料を、対象社員だけに確認してもらう。定例ではなく今回だけの依頼です。',
     },
   ];
 
@@ -86,26 +69,20 @@
         query.set(key, String(params[key]));
       }
     });
-    if (callbackName) {
-      query.set('callback', callbackName);
-    }
+    if (callbackName) query.set('callback', callbackName);
     query.set('source', 'todo-list-guide');
     return endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + query.toString();
   }
 
   function callQuizEndpointWithJson(params) {
-    if (!window.fetch) {
-      return Promise.reject(new Error('fetch unavailable'));
-    }
+    if (!window.fetch) return Promise.reject(new Error('fetch unavailable'));
 
     return fetch(buildEndpointUrl(params), {
       method: 'GET',
       cache: 'no-store',
       redirect: 'follow',
     }).then(function (response) {
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
+      if (!response.ok) throw new Error('HTTP ' + response.status);
       return response.json();
     });
   }
@@ -143,29 +120,41 @@
   }
 
   function callQuizEndpoint(params) {
-    if (!endpoint) {
-      return Promise.reject(new Error('集計URLが未設定です。'));
-    }
-
+    if (!endpoint) return Promise.reject(new Error('集計URLが未設定です。'));
     return callQuizEndpointWithJson(params).catch(function () {
       return callQuizEndpointWithJsonp(params);
     });
   }
 
+  function renderChoiceGroup(question, kind, label, choices) {
+    const buttons = choices.map(function (choice) {
+      return (
+        '<button type="button" class="test-choice" data-question-id="' +
+        question.id +
+        '" data-choice-kind="' +
+        kind +
+        '" data-answer-id="' +
+        choice.id +
+        '">' +
+        escapeHtml(choice.label) +
+        '</button>'
+      );
+    }).join('');
+
+    return (
+      '<div class="test-choice-group">' +
+      '<p>' +
+      escapeHtml(label) +
+      '</p>' +
+      '<div class="test-choice-grid">' +
+      buttons +
+      '</div>' +
+      '</div>'
+    );
+  }
+
   function renderQuestions(container) {
     container.innerHTML = QUESTIONS.map(function (question, index) {
-      const choices = question.choices.map(function (choice) {
-        return (
-          '<button type="button" class="test-choice" data-question-id="' +
-          question.id +
-          '" data-answer-id="' +
-          choice.id +
-          '">' +
-          escapeHtml(choice.label) +
-          '</button>'
-        );
-      }).join('');
-
       return (
         '<section class="test-question">' +
         '<h3><span>' +
@@ -173,18 +162,21 @@
         '</span>' +
         escapeHtml(question.text) +
         '</h3>' +
-        '<div class="test-choice-grid">' +
-        choices +
+        '<div class="test-choice-pair">' +
+        renderChoiceGroup(question, 'target', '誰に送るか', TARGET_CHOICES) +
+        renderChoiceGroup(question, 'method', 'どう送るか', METHOD_CHOICES) +
         '</div>' +
         '</section>'
       );
     }).join('');
   }
 
+  function isQuestionAnswered(question) {
+    return !!(state.answers[question.id]?.target && state.answers[question.id]?.method);
+  }
+
   function getAnsweredCount() {
-    return QUESTIONS.filter(function (question) {
-      return !!state.answers[question.id];
-    }).length;
+    return QUESTIONS.filter(isQuestionAnswered).length;
   }
 
   function updateProgress() {
@@ -197,7 +189,7 @@
     if (submit) submit.disabled = answered !== QUESTIONS.length;
     setMessage(
       message,
-      answered === QUESTIONS.length ? '送信できます。' : 'すべて回答すると送信できます。',
+      answered === QUESTIONS.length ? '送信できます。' : '各問題で「誰に送るか」「どう送るか」を選ぶと送信できます。',
       answered === QUESTIONS.length ? 'ok' : ''
     );
   }
@@ -208,10 +200,19 @@
       if (!button) return;
 
       const questionId = button.dataset.questionId;
+      const kind = button.dataset.choiceKind;
       const answerId = button.dataset.answerId;
-      state.answers[questionId] = answerId;
 
-      container.querySelectorAll('.test-choice[data-question-id="' + questionId + '"]').forEach(function (choice) {
+      if (!state.answers[questionId]) state.answers[questionId] = {};
+      state.answers[questionId][kind] = answerId;
+
+      container.querySelectorAll(
+        '.test-choice[data-question-id="' +
+          questionId +
+          '"][data-choice-kind="' +
+          kind +
+          '"]'
+      ).forEach(function (choice) {
         choice.classList.toggle('is-selected', choice === button);
       });
       updateProgress();
@@ -227,9 +228,7 @@
     state.name = response.name || '';
     if (authPanel) authPanel.hidden = true;
     if (quizPanel) quizPanel.hidden = false;
-    if (user) {
-      user.textContent = state.name ? state.name + ' さん' : state.email;
-    }
+    if (user) user.textContent = state.name ? state.name + ' さん' : state.email;
     if (questions && !questions.dataset.rendered) {
       renderQuestions(questions);
       bindChoices(questions);
@@ -316,16 +315,16 @@
 
     form.addEventListener('submit', function (event) {
       event.preventDefault();
-      const answered = getAnsweredCount();
-      if (answered !== QUESTIONS.length) {
-        setMessage(message, 'すべて回答してください。', 'error');
+      if (getAnsweredCount() !== QUESTIONS.length) {
+        setMessage(message, '各問題で「誰に送るか」と「どう送るか」を選んでください。', 'error');
         return;
       }
 
       const details = QUESTIONS.map(function (question) {
         return {
           questionId: question.id,
-          answerId: state.answers[question.id],
+          target: state.answers[question.id].target,
+          method: state.answers[question.id].method,
         };
       });
 
@@ -338,16 +337,12 @@
       callQuizEndpoint({
         action: 'submit',
         email: state.email,
-        answers: JSON.stringify(details.map(function (answer) {
-          return answer.answerId;
-        })),
+        answers: JSON.stringify(details),
         details: JSON.stringify(details),
         submittedAt: new Date().toISOString(),
       })
         .then(function (response) {
-          if (!response.ok) {
-            throw new Error(response.message || '記録できませんでした。');
-          }
+          if (!response.ok) throw new Error(response.message || '記録できませんでした。');
           showResult(response);
         })
         .catch(function (error) {

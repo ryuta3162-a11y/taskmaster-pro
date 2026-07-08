@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="To Do List 理解度チェック。" />
-  <title>理解度チェック | To Do List</title>
+  <meta name="description" content="To Do List 運用判断テスト。" />
+  <title>運用判断テスト | To Do List</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="test-page">
@@ -22,7 +22,7 @@
     <section class="test-shell">
       <header class="test-header">
         <p class="section-num">理解度チェック</p>
-        <h1>基本操作テスト</h1>
+        <h1>運用判断テスト</h1>
       </header>
 
       <section class="test-panel" data-test-auth>
@@ -40,7 +40,7 @@
       <section class="test-panel test-panel--quiz" data-test-quiz hidden>
         <div class="test-quiz-head">
           <div>
-            <h2>6問に回答してください</h2>
+            <h2>誰に送るか、どう送るかを選んでください</h2>
             <p data-test-user></p>
           </div>
           <strong data-test-progress>0 / 6</strong>
@@ -50,7 +50,7 @@
           <div data-test-questions></div>
           <div class="test-actions">
             <button type="submit" data-test-submit disabled>結果を送信</button>
-            <p class="test-message" data-test-submit-message aria-live="polite">すべて回答すると送信できます。</p>
+            <p class="test-message" data-test-submit-message aria-live="polite">各問題で「誰に送るか」「どう送るか」を選ぶと送信できます。</p>
           </div>
         </form>
       </section>
