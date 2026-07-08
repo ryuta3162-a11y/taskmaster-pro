@@ -667,16 +667,13 @@
           buttons.forEach(function (b) {
             b.classList.remove('is-selected', 'is-correct', 'is-wrong');
           });
-          button.classList.add('is-selected', ok ? 'is-correct' : 'is-wrong');
-          if (!ok && answer) answer.classList.add('is-correct');
+          button.classList.add('is-selected');
           item.dataset.answered = 'true';
           item.dataset.correct = ok ? 'true' : 'false';
           submitted = false;
           if (feedback) {
-            feedback.textContent = ok
-              ? '正解です。'
-              : '正解は「' + (answer?.textContent || '') + '」です。';
-            feedback.classList.toggle('is-ok', ok);
+            feedback.textContent = '選択しました。';
+            feedback.classList.remove('is-ok');
           }
           updateScore();
         });

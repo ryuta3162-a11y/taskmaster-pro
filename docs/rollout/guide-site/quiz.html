@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="To Do List 理解度チェック。" />
+  <title>理解度チェック | To Do List</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="test-page">
+  <header class="site-header">
+    <a class="site-brand" href="index.html#register">
+      <span class="brand-mark">TD</span>
+      <span>To Do List</span>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-secondary" href="index.html#quiz">ガイドへ戻る</a>
+    </div>
+  </header>
+
+  <main class="test-main">
+    <section class="test-shell">
+      <header class="test-header">
+        <p class="section-num">理解度チェック</p>
+        <h1>基本操作テスト</h1>
+      </header>
+
+      <section class="test-panel" data-test-auth>
+        <h2>メールアドレス確認</h2>
+        <form class="test-auth-form" data-test-auth-form novalidate>
+          <label for="test-email">メールアドレス</label>
+          <div class="test-auth-row">
+            <input id="test-email" type="email" autocomplete="email" placeholder="name@okamoto-group.co.jp" data-test-email required>
+            <button type="submit" data-test-auth-button>開始</button>
+          </div>
+          <p class="test-message" data-test-auth-message aria-live="polite">登録済みメールアドレスを入力してください。</p>
+        </form>
+      </section>
+
+      <section class="test-panel test-panel--quiz" data-test-quiz hidden>
+        <div class="test-quiz-head">
+          <div>
+            <h2>6問に回答してください</h2>
+            <p data-test-user></p>
+          </div>
+          <strong data-test-progress>0 / 6</strong>
+        </div>
+
+        <form class="test-questions" data-test-form novalidate>
+          <div data-test-questions></div>
+          <div class="test-actions">
+            <button type="submit" data-test-submit disabled>結果を送信</button>
+            <p class="test-message" data-test-submit-message aria-live="polite">すべて回答すると送信できます。</p>
+          </div>
+        </form>
+      </section>
+
+      <section class="test-result" data-test-result hidden aria-live="polite"></section>
+    </section>
+  </main>
+
+  <script src="guide-config.js"></script>
+  <script src="quiz.js"></script>
+</body>
+</html>

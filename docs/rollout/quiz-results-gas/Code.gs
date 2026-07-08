@@ -2,6 +2,7 @@ var QUIZ_RESULT_CONFIG = {
   spreadsheetId: '1NvJrgfanwN8XMu9YQh5tFbrqDHxU7fuJYJteLzfKqbI',
   sheetName: 'テスト',
   questionCount: 6,
+  correctAnswers: ['store', 'employee', 'team', 'personal-mail', 'repost', 'scheduled'],
   headers: [
     '名前',
     'メールアドレス',
@@ -26,23 +27,48 @@ function doPost(e) {
 function handleQuizResultRequest_(e) {
   var params = getQuizParams_(e);
   var callback = String(params.callback || '');
+  var action = String(params.action || 'submit').toLowerCase();
 
   try {
-    if (params.action === 'ping') {
+    if (action === 'ping') {
       return createQuizOutput_({ ok: true, message: 'ready' }, callback);
     }
-
-    var result = saveQuizResult_(params);
-    return createQuizOutput_(result, callback);
+    if (action === 'verify') {
+      return createQuizOutput_(verifyQuizEmail_(params), callback);
+    }
+    return createQuizOutput_(saveQuizResult_(params), callback);
   } catch (err) {
     return createQuizOutput_(
       {
         ok: false,
-        message: err && err.message ? err.message : '記録できませんでした。',
+        message: err && err.message ? err.message : '処理できませんでした。',
       },
       callback
     );
   }
+}
+
+function verifyQuizEmail_(params) {
+  var email = normalizeQuizEmail_(params.email);
+  if (!email) {
+    throw new Error('メールアドレスを入力してください。');
+  }
+
+  var sheet = getQuizSheet_();
+  ensureQuizHeaders_(sheet);
+  var rowInfo = findQuizRowByEmail_(sheet, email);
+  if (!rowInfo.row) {
+    return {
+      ok: false,
+      message: 'このメールアドレスは集計表に登録されていません。',
+    };
+  }
+
+  return {
+    ok: true,
+    name: rowInfo.name,
+    message: '確認できました。',
+  };
 }
 
 function saveQuizResult_(params) {
@@ -51,24 +77,14 @@ function saveQuizResult_(params) {
     throw new Error('メールアドレスを入力してください。');
   }
 
-  var answers = parseQuizAnswers_(params, QUIZ_RESULT_CONFIG.questionCount);
-  var passed = answers.every(function (answer) {
-    return answer === true;
-  });
-  var marks = answers.map(function (answer) {
-    return answer ? '○' : '×';
-  });
+  var selectedAnswers = parseSelectedAnswers_(params, QUIZ_RESULT_CONFIG.questionCount);
+  var scored = scoreQuizAnswers_(selectedAnswers);
 
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
 
   try {
-    var ss = SpreadsheetApp.openById(QUIZ_RESULT_CONFIG.spreadsheetId);
-    var sheet = ss.getSheetByName(QUIZ_RESULT_CONFIG.sheetName);
-    if (!sheet) {
-      throw new Error('シート「' + QUIZ_RESULT_CONFIG.sheetName + '」が見つかりません。');
-    }
-
+    var sheet = getQuizSheet_();
     ensureQuizHeaders_(sheet);
     var rowInfo = findQuizRowByEmail_(sheet, email);
     if (!rowInfo.row) {
@@ -77,13 +93,15 @@ function saveQuizResult_(params) {
 
     sheet
       .getRange(rowInfo.row, 3, 1, QUIZ_RESULT_CONFIG.questionCount + 1)
-      .setValues([marks.concat([passed ? '合格' : '不合格'])]);
+      .setValues([scored.marks.concat([scored.passed ? '合格' : '不合格'])]);
 
     return {
       ok: true,
       name: rowInfo.name,
-      passed: passed,
-      message: passed
+      score: scored.score,
+      total: QUIZ_RESULT_CONFIG.questionCount,
+      passed: scored.passed,
+      message: scored.passed
         ? '合格として記録しました。'
         : '結果を記録しました。不合格です。もう一度確認してください。',
     };
@@ -106,23 +124,51 @@ function getQuizParams_(e) {
         params[key] = body[key];
       });
     } catch (err) {
-      // Form or JSONP requests do not need JSON body parsing.
+      // Form, query, and JSONP requests do not need JSON body parsing.
     }
   }
 
   return params;
 }
 
-function parseQuizAnswers_(params, count) {
+function getQuizSheet_() {
+  var ss = SpreadsheetApp.openById(QUIZ_RESULT_CONFIG.spreadsheetId);
+  var sheet = ss.getSheetByName(QUIZ_RESULT_CONFIG.sheetName);
+  if (!sheet) {
+    var sheets = ss.getSheets();
+    sheet = sheets && sheets.length ? sheets[0] : null;
+  }
+  if (!sheet) {
+    throw new Error('集計シートが見つかりません。');
+  }
+  return sheet;
+}
+
+function parseSelectedAnswers_(params, count) {
   var answers = [];
 
-  if (params.answers) {
+  if (params.details) {
+    try {
+      var details = JSON.parse(params.details);
+      if (Array.isArray(details)) {
+        answers = details.map(function (item) {
+          return item && item.answerId;
+        });
+      }
+    } catch (err) {
+      throw new Error('回答データを読み取れませんでした。');
+    }
+  }
+
+  if (!answers.length && params.answers) {
     try {
       var parsed = JSON.parse(params.answers);
       if (Array.isArray(parsed)) {
-        answers = parsed;
+        answers = parsed.map(function (item) {
+          return item && typeof item === 'object' ? item.answerId : item;
+        });
       }
-    } catch (err) {
+    } catch (err2) {
       throw new Error('回答データを読み取れませんでした。');
     }
   }
@@ -137,9 +183,29 @@ function parseQuizAnswers_(params, count) {
     throw new Error(count + '問すべて回答してください。');
   }
 
-  return answers.map(function (answer) {
-    return answer === true || answer === 'true' || answer === '1' || answer === 1 || answer === '○';
+  return answers;
+}
+
+function scoreQuizAnswers_(answers) {
+  var score = 0;
+  var marks = answers.map(function (answer, index) {
+    var ok = isQuizAnswerCorrect_(answer, index);
+    if (ok) score += 1;
+    return ok ? '○' : '×';
   });
+
+  return {
+    marks: marks,
+    passed: score === QUIZ_RESULT_CONFIG.questionCount,
+    score: score,
+  };
+}
+
+function isQuizAnswerCorrect_(answer, index) {
+  if (answer === true || answer === 'true' || answer === '1' || answer === 1 || answer === '○') {
+    return true;
+  }
+  return String(answer || '') === QUIZ_RESULT_CONFIG.correctAnswers[index];
 }
 
 function findQuizRowByEmail_(sheet, email) {
@@ -180,7 +246,14 @@ function ensureQuizHeaders_(sheet) {
 }
 
 function normalizeQuizEmail_(value) {
-  return String(value || '').trim().toLowerCase();
+  var text = String(value || '');
+  if (text.normalize) {
+    text = text.normalize('NFKC');
+  }
+  return text
+    .replace(/[\s\u00A0\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .toLowerCase();
 }
 
 function createQuizOutput_(payload, callback) {
@@ -188,7 +261,7 @@ function createQuizOutput_(payload, callback) {
   if (callback && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)) {
     return ContentService
       .createTextOutput(callback + '(' + json + ');')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      .setMimeType(ContentService.MimeType.TEXT);
   }
 
   return ContentService
