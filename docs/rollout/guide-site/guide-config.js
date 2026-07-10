@@ -25,6 +25,15 @@ window.GUIDE_CONFIG = {
   demoMp4: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
 
   videos: {
+    overview: {
+      title: 'はじめに（全体の流れ）',
+      duration: '約1分',
+      mp4: 'videos/overview.mp4',
+      poster: 'images/checklist-poster.png',
+      vtt: 'videos/overview.vtt',
+      youtube: '',
+      drive: '',
+    },
     register: {
       title: 'ログイン・初回登録',
       duration: '約2分',
@@ -72,9 +81,10 @@ window.GUIDE_CONFIG = {
     },
     progress: {
       title: 'TFチーム進捗管理ダッシュボード',
-      duration: '',
-      mp4: '',
-      poster: '',
+      duration: '約2分',
+      mp4: 'videos/progress.mp4',
+      poster: 'images/checklist-poster.png',
+      vtt: 'videos/progress.vtt',
       youtube: '',
       drive: '',
     },

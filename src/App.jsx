@@ -2541,13 +2541,8 @@ export default function App() {
           <div className="bg-white rounded-[2.5rem] border-2 border-slate-300 p-8 md:p-12 max-w-xl w-full relative z-10 shadow-xl animate-fade-in overflow-hidden">
             {confirmModal.step === 'confirm' && (
               <div className="text-center">
-                <div className="w-24 h-24 bg-rose-50 border-2 border-slate-300 text-rose-500 rounded-full mx-auto flex items-center justify-center mb-8 shadow-sm"><Icon name="alertTriangle" /></div>
-                <h3 className="text-3xl font-black text-black mb-2 tracking-tighter">タスクを完了しますか？</h3>
-                <p className="text-lg font-bold text-gray-600 mb-8">内容を確認して、よろしければ実行してください。</p>
-                <div className="bg-gray-50 p-6 rounded-2xl mb-8 text-center border-2 border-slate-300 shadow-sm">
-                  <p className="text-sm font-black text-[var(--acc-600)] uppercase tracking-widest mb-3 border-b-2 border-slate-300 pb-3">対象タスク</p>
-                  <p className="text-xl font-bold text-black leading-relaxed">{formatContent(confirmModal.task.content)}</p>
-                </div>
+                <div className="w-16 h-16 bg-rose-50 border-2 border-slate-300 text-rose-500 rounded-full mx-auto flex items-center justify-center mb-6 shadow-sm"><Icon name="alertTriangle" /></div>
+                <h3 className="text-2xl font-black text-black mb-8 tracking-tighter">完了しますか？</h3>
                 <div className="flex gap-4">
                   <button onClick={() => setConfirmModal({ isOpen: false, task: null, step: 'confirm' })} className={brutalBtnSecondary + " flex-1"}>キャンセル</button>
                   <button onClick={executeCompleteTask} className={brutalBtnPrimary + " flex-[2]"}>完了する</button>

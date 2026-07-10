@@ -953,12 +953,32 @@ function deleteScheduledTask(id) {
 // 5. タスク配信と通知処理
 // ==============================================================
 
-/** デプロイした Web アプリの URL（実行中のスクリプトに紐づく。Workspace では /a/macros/ドメイン/s/... の形式になる） */
+/**
+ * 本番 Web アプリ URL（メール・リマインド用の既定値）。
+ * トリガー実行時の ScriptApp.getService().getUrl() は別デプロイIDを返すことがあり、
+ * 「ファイルを開くことができません」になるため、本番URLを優先する。
+ * 上書き: スクリプトプロパティ TASK_WEB_APP_URL
+ */
+var DEFAULT_TASK_WEB_APP_URL_ =
+  'https://script.google.com/a/macros/okamoto-group.co.jp/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec';
+
+/** デプロイした Web アプリの URL */
 function getTaskWebAppUrl_() {
-  return ScriptApp.getService().getUrl();
+  var fromProp = PropertiesService.getScriptProperties().getProperty('TASK_WEB_APP_URL');
+  if (fromProp && String(fromProp).trim()) {
+    return String(fromProp).trim().replace(/\/$/, '');
+  }
+  if (DEFAULT_TASK_WEB_APP_URL_) {
+    return String(DEFAULT_TASK_WEB_APP_URL_).replace(/\/$/, '');
+  }
+  try {
+    return ScriptApp.getService().getUrl() || '';
+  } catch (e) {
+    return '';
+  }
 }
 
-/** メール・Chat 用：デプロイ URL（Workspace では /a/macros/ドメイン/s/... が返る）に tab=checklist を付与 */
+/** メール・Chat 用：本番 URL に tab=checklist を付与 */
 function getTaskEmailLink_() {
   var u = getTaskWebAppUrl_();
   if (!u) return u;
@@ -1232,6 +1252,426 @@ function processScheduledTasksBatch() {
         } catch (e) {}
       });
       sendChatNotification(taskData, appUrl, true);
+    }
+  });
+}
+
+// ==============================================================
+// 6b. 期限リマインド自動送信（2日前・前日・当日 8:00 / 未実施者のみ）
+// 完了レポートは日下のみ（DEADLINE_REMINDER_REPORT_EMAIL 未設定時は下記既定）。
+// ADMIN_DASHBOARD_EMAILS には送らない。
+// 初回: setupDeadlineReminderTrigger() を GAS エディタで1回実行してトリガー登録。
+// ==============================================================
+
+var DEADLINE_REMINDER_LOG_SHEET_NAME_ = 'リマインド送信履歴';
+
+/** 完了レポートの既定宛先（あなたのみ） */
+var DEFAULT_DEADLINE_REMINDER_REPORT_EMAIL_ = 'r-kusaka@okamoto-group.co.jp';
+
+function calcDaysUntilDeadline_(deadlineVal, today) {
+  if (!deadlineVal) return null;
+  var d = new Date(deadlineVal);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  var t = new Date(today.getTime());
+  t.setHours(0, 0, 0, 0);
+  return Math.ceil((d.getTime() - t.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getDeadlineReminderType_(daysRemaining) {
+  if (daysRemaining === 2) return '2d';
+  if (daysRemaining === 1) return '1d';
+  if (daysRemaining === 0) return '0d';
+  return null;
+}
+
+function getDeadlineReminderTypeLabel_(reminderType) {
+  if (reminderType === '2d') return '2日前';
+  if (reminderType === '1d') return '前日';
+  if (reminderType === '0d') return '当日';
+  return reminderType || '';
+}
+
+function buildAutomatedDeadlineReminderLead_(reminderType) {
+  if (reminderType === '2d') {
+    return '期限まであと2日のTo-Do が未完了です。ご確認・ご対応をお願いいたします。';
+  }
+  if (reminderType === '1d') {
+    return '明日が期限のTo-Do が未完了です。ご確認・ご対応をお願いいたします。';
+  }
+  return '本日が期限のTo-Do が未完了です。ご確認・ご対応をお願いいたします。';
+}
+
+function buildAutomatedDeadlineReminderBodies_(recipientName, reminderType, taskItem, checklistUrl, storeNames) {
+  var lead = buildAutomatedDeadlineReminderLead_(reminderType);
+  var preview = String(taskItem.contentPreview || '').replace(/\n/g, ' ');
+  var kindLabel = String(taskItem.requestKindLabel || '');
+  var deadline = String(taskItem.deadline || '—');
+  var sender = String(taskItem.sender || '—');
+  var stores = storeNames || [];
+
+  var lines = [];
+  lines.push('お元気様です。');
+  lines.push(lead);
+  if (checklistUrl) {
+    lines.push('▼ リストチェック');
+    lines.push(String(checklistUrl));
+  }
+  lines.push('▼ 対象の依頼');
+  lines.push('[' + kindLabel + '] ' + preview);
+  lines.push('期限: ' + deadline + ' / 依頼者: ' + sender);
+  if (stores.length) {
+    lines.push('未実施の店舗（' + stores.length + '）:');
+    stores.forEach(function (s, i) {
+      lines.push('  ' + (i + 1) + '. ' + s);
+    });
+  }
+
+  var introHtml =
+    'お元気様です。<br>' +
+    escapeHtmlEmail_(lead);
+  if (checklistUrl) {
+    introHtml +=
+      '<br><br><span style="font-size:12px;font-weight:700;color:#6366f1;">▼ リストチェック</span><br>' +
+      '<a href="' +
+      escapeHtmlEmail_(checklistUrl) +
+      '" style="color:#6366f1;font-weight:600;word-break:break-all;">' +
+      escapeHtmlEmail_(checklistUrl) +
+      '</a>';
+  }
+  introHtml +=
+    '<br><br><span style="font-size:12px;font-weight:700;color:#6366f1;">▼ 対象の依頼</span>';
+
+  var listHtml = '';
+  if (stores.length) {
+    listHtml = '<ul style="margin:8px 0 0;padding-left:20px;">';
+    stores.forEach(function (s) {
+      listHtml +=
+        '<li style="margin:4px 0;font-size:14px;font-weight:600;color:#0f172a;">' + escapeHtmlEmail_(s) + '</li>';
+    });
+    listHtml += '</ul>';
+  }
+
+  var html = buildTodoEmailShellHtml_({
+    greeting: '',
+    intro: introHtml,
+    taskItem: {
+      requestKindLabel: kindLabel,
+      contentPreview: preview,
+      contentFull: '[' + kindLabel + '] ' + String(taskItem.contentFull || preview),
+      deadline: deadline,
+      sender: sender,
+      overdue: !!taskItem.overdue
+    },
+    listTitle: stores.length ? '未実施の店舗（' + stores.length + '）' : '',
+    listHtml: listHtml
+  });
+
+  return { plain: lines.join('\n'), html: html };
+}
+
+function buildAutomatedDeadlineReminderSubject_(reminderType) {
+  if (reminderType === '2d') return '【To-Do List】期限まであと2日です';
+  if (reminderType === '1d') return '【To-Do List】明日が期限です';
+  return '【To-Do List】本日が期限です';
+}
+
+function getDeadlineReminderReportEmails_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('DEADLINE_REMINDER_REPORT_EMAIL');
+  if (raw && String(raw).trim()) {
+    return String(raw)
+      .split(/[,，]/)
+      .map(function (e) {
+        return String(e).trim();
+      })
+      .filter(Boolean);
+  }
+  // ADMIN_DASHBOARD_EMAILS には送らない（DXメンバー全員に届いてしまうため）
+  if (DEFAULT_DEADLINE_REMINDER_REPORT_EMAIL_) {
+    return [DEFAULT_DEADLINE_REMINDER_REPORT_EMAIL_];
+  }
+  try {
+    return [SpreadsheetApp.getActiveSpreadsheet().getOwner().getEmail()];
+  } catch (err) {
+    return [];
+  }
+}
+
+function getDeadlineReminderLogSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  if (sheet) return sheet;
+  sheet = ss.insertSheet(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  sheet.appendRow(['taskId', 'recipientEmail', 'reminderType', 'sentAt']);
+  sheet.setFrozenRows(1);
+  return sheet;
+}
+
+function hasDeadlineReminderBeenSent_(taskId, recipientEmail, reminderType) {
+  var sheet = getDeadlineReminderLogSheet_();
+  var normEmail = normalizeTaskEmail(recipientEmail);
+  if (!normEmail) return false;
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (
+      String(values[i][0] || '').trim() === String(taskId) &&
+      normalizeTaskEmail(values[i][1]) === normEmail &&
+      String(values[i][2] || '').trim() === String(reminderType)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function logDeadlineReminderSend_(taskId, recipientEmail, reminderType) {
+  var sheet = getDeadlineReminderLogSheet_();
+  sheet.appendRow([
+    String(taskId),
+    String(recipientEmail).trim(),
+    String(reminderType),
+    new Date()
+  ]);
+}
+
+function collectIncompleteReminderTargets_(recipients, mode) {
+  var emailsToSend = [];
+  var emailMap = {};
+  if (mode === 'store') {
+    recipients.forEach(function (r) {
+      if (r.done) return;
+      var sn = String(r.storeName || r.label || r.key || '').trim();
+      if (!sn) return;
+      (r.assignees || []).forEach(function (a) {
+        var em = normalizeTaskEmail(a.email);
+        if (!em) return;
+        if (!emailMap[em]) {
+          emailMap[em] = {
+            email: String(a.email).trim(),
+            name: a.name || a.email,
+            stores: []
+          };
+        }
+        if (emailMap[em].stores.indexOf(sn) < 0) {
+          emailMap[em].stores.push(sn);
+        }
+      });
+    });
+    Object.keys(emailMap).forEach(function (em) {
+      emailsToSend.push(emailMap[em]);
+    });
+  } else {
+    var seen = {};
+    recipients.forEach(function (r) {
+      if (r.done) return;
+      var em = normalizeTaskEmail(r.email);
+      if (!em || seen[em]) return;
+      seen[em] = true;
+      emailsToSend.push({ email: String(r.email).trim(), name: r.name || r.email });
+    });
+  }
+  return emailsToSend;
+}
+
+function sendAutomatedDeadlineReminderToTarget_(
+  target,
+  mode,
+  taskItem,
+  reminderType,
+  checklistUrl,
+  fromLabel
+) {
+  var subject = buildAutomatedDeadlineReminderSubject_(reminderType);
+  var storeList = mode === 'store' && target.stores ? target.stores : [];
+  var bodies = buildAutomatedDeadlineReminderBodies_(
+    target.name,
+    reminderType,
+    taskItem,
+    checklistUrl,
+    storeList
+  );
+  var plain = bodies.plain;
+  var html = bodies.html;
+  // 返信先は付けない（From は実行アカウント＝日下のまま）
+  sendBrandedEmail_(target.email, subject, plain, html, {
+    name: fromLabel
+  });
+}
+
+function sendDeadlineReminderReportEmail_(report) {
+  var recipients = getDeadlineReminderReportEmails_();
+  if (!recipients.length) return;
+
+  var runAtStr = Utilities.formatDate(report.runAt || new Date(), 'JST', 'yyyy/MM/dd HH:mm:ss');
+  var lines = [];
+  lines.push('期限リマインドの自動送信バッチが完了しました。');
+  lines.push('');
+  lines.push('実行日時: ' + runAtStr);
+  lines.push('送信成功: ' + (report.sentCount || 0) + ' 件');
+  if (report.skippedAlreadySent) lines.push('送信済みスキップ: ' + report.skippedAlreadySent + ' 件');
+  if (report.errors && report.errors.length) {
+    lines.push('送信失敗: ' + report.errors.length + ' 件');
+  }
+  lines.push('');
+
+  if (report.tasksInWindow > 0) {
+    lines.push('対象タスク（2日前・前日・当日）: ' + report.tasksInWindow + ' 件');
+    if (report.taskSummaries && report.taskSummaries.length) {
+      report.taskSummaries.forEach(function (t) {
+        lines.push(
+          '  - [' +
+            getDeadlineReminderTypeLabel_(t.reminderType) +
+            '] ' +
+            t.taskId +
+            ' / ' +
+            t.requestKindLabel +
+            ' / 期限 ' +
+            (t.deadline || '—')
+        );
+      });
+    }
+    lines.push('');
+  } else {
+    lines.push('本日の期限リマインド対象タスクはありませんでした。');
+    lines.push('');
+  }
+
+  if (report.sentEmails && report.sentEmails.length) {
+    lines.push('送信先メールアドレス（' + report.sentEmails.length + '）:');
+    report.sentEmails.forEach(function (em) {
+      lines.push(em);
+    });
+    lines.push('');
+  }
+
+  if (report.errors && report.errors.length) {
+    lines.push('エラー詳細:');
+    report.errors.forEach(function (err) {
+      lines.push(err);
+    });
+  }
+
+  var plain = lines.join('\n');
+  var subject = 'リマインドメール送信完了のお知らせ';
+  recipients.forEach(function (to) {
+    try {
+      sendBrandedEmail_(to, subject, plain, null, { name: 'To-Do List（自動リマインド）' });
+    } catch (mailErr) {
+      Logger.log('完了レポート送信失敗: ' + to + ' / ' + mailErr);
+    }
+  });
+}
+
+/**
+ * 毎朝8時に実行。期限2日前・前日・当日のみ、未実施者へ最大3回（超過後は送らない）。
+ */
+function processDeadlineRemindersBatch() {
+  var report = {
+    runAt: new Date(),
+    sentCount: 0,
+    skippedAlreadySent: 0,
+    tasksInWindow: 0,
+    taskSummaries: [],
+    sentEmails: [],
+    errors: []
+  };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('申請データ');
+  if (!sheet) {
+    report.errors.push('申請データシートがありません');
+    sendDeadlineReminderReportEmail_(report);
+    return;
+  }
+
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    sendDeadlineReminderReportEmail_(report);
+    return;
+  }
+  values.shift();
+
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var allStores = getStoreData();
+  var areasList = getAreasListFromStores_(allStores);
+  var employees = getEmployees();
+  var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
+  var fromLabel = 'To-Do List（自動リマインド）';
+
+  values.forEach(function (row) {
+    var taskId = String(row[0] || '').trim();
+    if (!taskId) return;
+
+    var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+    if (progress.complete) return;
+
+    var daysRemaining = calcDaysUntilDeadline_(row[3], today);
+    if (daysRemaining === null) return;
+    var reminderType = getDeadlineReminderType_(daysRemaining);
+    if (!reminderType) return;
+
+    report.tasksInWindow++;
+    var requestKind = getRequestKindFromRow_(row);
+    var mode = requestKind === 'store' ? 'store' : 'employee';
+    var recipients = buildAdminTaskRecipients_(row, requestKind, employees, allStores, areasList);
+    var emailsToSend = collectIncompleteReminderTargets_(recipients, mode);
+    if (!emailsToSend.length) return;
+
+    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
+    report.taskSummaries.push({
+      taskId: taskId,
+      reminderType: reminderType,
+      requestKindLabel: getRequestKindLabel_(requestKind),
+      deadline: taskItem.deadline || ''
+    });
+
+    emailsToSend.forEach(function (target) {
+      var em = String(target.email || '').trim();
+      if (!em) return;
+      if (hasDeadlineReminderBeenSent_(taskId, em, reminderType)) {
+        report.skippedAlreadySent++;
+        return;
+      }
+      try {
+        sendAutomatedDeadlineReminderToTarget_(
+          target,
+          mode,
+          taskItem,
+          reminderType,
+          checklistUrl,
+          fromLabel
+        );
+        logDeadlineReminderSend_(taskId, em, reminderType);
+        report.sentCount++;
+        report.sentEmails.push(em);
+      } catch (mailErr) {
+        report.errors.push(taskId + ' / ' + em + ': ' + String(mailErr));
+      }
+    });
+  });
+
+  if (report.sentCount > 0 || report.errors.length > 0 || report.tasksInWindow > 0) {
+    sendDeadlineReminderReportEmail_(report);
+  }
+}
+
+/** GAS エディタで1回実行して、毎日8:00（JST）の時間主導トリガーを登録 */
+function setupDeadlineReminderTrigger() {
+  removeDeadlineReminderTriggers_();
+  ScriptApp.newTrigger('processDeadlineRemindersBatch')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .inTimezone('Asia/Tokyo')
+    .create();
+  return '期限リマインドトリガーを登録しました（毎日 8:00 JST）。';
+}
+
+function removeDeadlineReminderTriggers_() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'processDeadlineRemindersBatch') {
+      ScriptApp.deleteTrigger(trigger);
     }
   });
 }
