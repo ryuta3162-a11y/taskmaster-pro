@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#register">本文へ移動</a>
   <header class="site-header">
     <a class="site-brand" href="#overview">
       <span class="brand-mark">TD</span>
@@ -39,35 +40,23 @@
         <li><a href="#scheduled"><span class="nav-num">7</span>定期配信</a></li>
         <li><a href="#progress"><span class="nav-num">8</span>TFチーム進捗</a></li>
         <li><a href="#logout"><span class="nav-num">9</span>ログアウト</a></li>
+        <li><a href="#quiz"><span class="nav-num">10</span>理解度チェック</a></li>
       </ul>
     </aside>
 
     <main class="main">
-
-      <!-- はじめに -->
-      <article class="section section--enhanced" id="overview">
-        <header class="section-header section-header--rich">
-          <h2><span class="section-num">はじめに</span> 全体の流れ</h2>
-        </header>
-        <p class="register-oneline">まずこの動画で、To Do List の全体像を把握してください（約1分）。</p>
-        <div class="register-main">
-          <div class="video-block video-block--rich" data-video="overview">
-            <div class="video-frame-wrap"></div>
-          </div>
-        </div>
-        <div class="callout-box">
-          <p class="callout-title">役割別のおすすめ</p>
-          <p><strong>依頼を受ける方</strong> → リストチェックの動画へ。<strong>依頼を出す方</strong> → 新規投稿の動画へ。<strong>進捗を見る方</strong> → TFチーム進捗の動画へ。</p>
-        </div>
-      </article>
-
       <!-- 登録 -->
       <article class="section section--enhanced" id="register">
         <header class="section-header section-header--rich">
           <h2><span class="section-num">1.</span> ログイン・初回登録</h2>
         </header>
 
-        <p class="register-oneline">社内メールでログインし、プロフィールを登録します。</p>
+        <p class="register-oneline">社員個人の社内メールでログインし、プロフィールを登録します。</p>
+
+        <div class="identity-rule">
+          <strong>店舗メールアドレスでは登録しないでください。</strong>
+          <span>店舗共用メールは複数人が見る可能性があります。完了者やリマインド対象を正しく管理するため、社員個人に発行されているメールアドレスを使います。</span>
+        </div>
 
         <div class="register-main">
           <div class="video-block video-block--rich" data-video="register">
@@ -189,6 +178,10 @@
             <tr>
               <th>TFチームの依頼</th>
               <td><strong>所属チーム別</strong>に配信できます。社員への依頼と同じタスク配信形式のため、<strong>各チームで1名が完了しても、チーム全体の完了にはなりません</strong>（該当チームのメンバーそれぞれが完了が必要です）。</td>
+            </tr>
+            <tr>
+              <th>添付ファイル</th>
+              <td>画像・PDF・ZIP を添付できます。画像が多い場合は ZIP にまとめると、配信先が資料を確認しやすくなります。</td>
             </tr>
           </table>
           <p>
@@ -435,6 +428,19 @@
               </td>
             </tr>
           </table>
+        </div>
+      </article>
+
+      <!-- 理解度チェック -->
+      <article class="section" id="quiz">
+        <header class="section-header">
+          <h2><span class="section-num">10.</span> 理解度チェック</h2>
+        </header>
+        <div class="section-body">
+          <div class="quiz-entry">
+            <p>依頼内容を読んで、誰に送るか、どう送るかを確認するテストです。</p>
+            <a class="btn btn-primary" href="quiz.html">理解度チェックを開始</a>
+          </div>
         </div>
       </article>
 

@@ -1,6 +1,6 @@
 /**
  * 動画プレーヤー（MP4 自前ホスト / YouTube / Drive）
- * 拡張章: 字幕（VTT）・章ジャンプ・所属タブ
+ * 拡張章: 字幕（VTT）・音声ガイド・所属タブ
  */
 (function () {
   const cfg = window.GUIDE_CONFIG || {};
@@ -68,13 +68,6 @@
     return null;
   }
 
-  function formatTime(sec) {
-    const s = Math.max(0, Math.floor(sec));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return m + ':' + String(r).padStart(2, '0');
-  }
-
   function playIconSvg() {
     return (
       '<svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
@@ -83,7 +76,7 @@
     );
   }
 
-  function renderNativePlayer(wrap, source, video, isDemo) {
+  function renderNativePlayer(wrap, source, video, isDemo, videoKey) {
     wrap.classList.add('video-native');
     const vtt = source.vtt || '';
 
@@ -105,15 +98,27 @@
 
     const videoEl = wrap.querySelector('video');
     const overlay = wrap.querySelector('.video-play-overlay');
-    bindCustomCaptions(wrap, videoEl, vtt);
+    bindCustomCaptions(wrap, videoEl, vtt, videoKey);
 
     overlay.addEventListener('click', function () {
       overlay.classList.add('is-hidden');
       videoEl.controls = true;
-      videoEl.play().catch(function () {
+      videoEl.muted = false;
+      videoEl.volume = 1;
+      videoEl.play().catch(function (err) {
+        const message = String(err?.message || '');
+        const interrupted = err?.name === 'AbortError' || /interrupted/i.test(message);
+        if (videoEl.dataset.narrationMode === 'cue-audio' && interrupted) return;
         overlay.classList.remove('is-hidden');
         videoEl.controls = false;
       });
+    });
+
+    videoEl.addEventListener('play', function () {
+      videoEl.volume = 1;
+      if (videoEl.dataset.narrationMode !== 'cue-audio') {
+        videoEl.muted = false;
+      }
     });
 
     videoEl.addEventListener('ended', function () {
@@ -176,8 +181,20 @@
     return escaped.replace(/\n/g, '<br>').replace(/(<br>)+$/g, '');
   }
 
-  function bindCustomCaptions(wrap, videoEl, vttUrl) {
+  function padCueNumber(index) {
+    return String(index + 1).padStart(3, '0');
+  }
+
+  function buildNarrationUrl(videoKey, index) {
+    const key = String(videoKey || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!key) return '';
+    return resolveAssetUrl('audio/' + key + '/' + padCueNumber(index) + '.wav');
+  }
+
+  function bindCustomCaptions(wrap, videoEl, vttUrl, videoKey) {
     if (!vttUrl) return;
+
+    videoEl.dataset.narrationMode = 'cue-audio';
 
     const cap = document.createElement('div');
     cap.className = 'video-caption';
@@ -185,10 +202,28 @@
     wrap.appendChild(cap);
 
     let cues = [];
+    let currentCueId = '';
+    let spokenCueId = '';
+    let isNarrating = false;
+    let narrationAvailable = true;
+    const audioEl = document.createElement('audio');
+
+    audioEl.className = 'guide-narration-audio';
+    audioEl.preload = 'auto';
+    audioEl.volume = 1;
+    wrap.appendChild(audioEl);
 
     function reloadCues() {
       return loadVttCues(vttUrl).then(function (list) {
-        cues = list;
+        cues = list.map(function (cue, index) {
+          return Object.assign({}, cue, {
+            cueId: videoKey + '-' + index + '-' + cue.start,
+            narrationSrc: buildNarrationUrl(videoKey, index),
+          });
+        });
+        if (cues[0]?.narrationSrc) {
+          audioEl.src = cues[0].narrationSrc;
+        }
         updateCaption();
         return list;
       });
@@ -196,32 +231,126 @@
 
     reloadCues();
 
-    function updateCaption() {
-      if (!cues.length || videoEl.paused) {
+    function showCaption(cue) {
+      if (!cue) {
         cap.innerHTML = '';
         cap.classList.remove('is-visible');
+        currentCueId = '';
         return;
       }
+      if (currentCueId !== cue.cueId) {
+        cap.innerHTML = formatCaptionHtml(cue.text);
+        currentCueId = cue.cueId;
+      }
+      cap.classList.add('is-visible');
+    }
+
+    function getActiveCue() {
       const t = videoEl.currentTime;
-      const active = cues.find(function (c) {
+      return cues.find(function (c) {
         return t >= c.start && t < c.end;
       });
+    }
+
+    function stopNarration() {
+      audioEl.pause();
+      audioEl.removeAttribute('src');
+      audioEl.load();
+      isNarrating = false;
+    }
+
+    function finishNarration(shouldResume) {
+      isNarrating = false;
+      if (shouldResume && !videoEl.ended) {
+        videoEl.play().catch(function () {});
+      }
+    }
+
+    function fallbackToNativeAudio() {
+      narrationAvailable = false;
+      videoEl.dataset.narrationMode = 'native-audio';
+      videoEl.muted = false;
+      videoEl.volume = 1;
+    }
+
+    function playCueNarration(cue, forceResume) {
+      if (!cue || !cue.narrationSrc || !narrationAvailable) return;
+      if (isNarrating || spokenCueId === cue.cueId) return;
+
+      const shouldResume = !!forceResume || (!videoEl.paused && !videoEl.ended);
+      spokenCueId = cue.cueId;
+      isNarrating = true;
+      showCaption(cue);
+      videoEl.volume = 1;
+
+      function pauseForNarration() {
+        if (!isNarrating || !narrationAvailable) return;
+        videoEl.muted = true;
+        if (!videoEl.paused) videoEl.pause();
+      }
+
+      audioEl.onended = function () {
+        finishNarration(shouldResume);
+      };
+      audioEl.onerror = function () {
+        fallbackToNativeAudio();
+        finishNarration(shouldResume);
+      };
+      audioEl.onplaying = pauseForNarration;
+      audioEl.src = cue.narrationSrc;
+      audioEl.currentTime = 0;
+      audioEl.play().then(pauseForNarration).catch(function (err) {
+        console.warn('[guide] Narration audio failed:', cue.narrationSrc, err);
+        fallbackToNativeAudio();
+        finishNarration(shouldResume);
+      });
+      window.setTimeout(function () {
+        if (isNarrating && audioEl.paused && audioEl.currentTime === 0) {
+          fallbackToNativeAudio();
+          finishNarration(shouldResume);
+        }
+      }, 1800);
+    }
+
+    function updateCaption() {
+      if (!cues.length) {
+        showCaption(null);
+        return;
+      }
+
+      const active = getActiveCue();
       if (active) {
-        cap.innerHTML = formatCaptionHtml(active.text);
-        cap.classList.add('is-visible');
+        showCaption(active);
+        if (!videoEl.paused && !videoEl.ended) {
+          playCueNarration(active);
+        }
       } else {
-        cap.innerHTML = '';
-        cap.classList.remove('is-visible');
+        showCaption(null);
       }
     }
 
     videoEl.addEventListener('timeupdate', updateCaption);
-    videoEl.addEventListener('seeked', updateCaption);
-    videoEl.addEventListener('play', function () {
-      if (!cues.length) reloadCues();
+    videoEl.addEventListener('seeked', function () {
+      stopNarration();
+      spokenCueId = '';
       updateCaption();
     });
-    videoEl.addEventListener('pause', updateCaption);
+    videoEl.addEventListener('play', function () {
+      if (!cues.length) {
+        reloadCues().then(updateCaption);
+      } else {
+        updateCaption();
+      }
+    });
+    videoEl.addEventListener('pause', function () {
+      updateCaption();
+    });
+    videoEl.addEventListener('ended', function () {
+      stopNarration();
+      showCaption(null);
+      spokenCueId = '';
+      if (narrationAvailable) videoEl.muted = true;
+    });
   }
 
   function renderIframe(wrap, source, title) {
@@ -245,6 +374,22 @@
       '</div>';
   }
 
+  function ensureVideoChrome(container, videoKey, video) {
+    if (container.querySelector('.video-toolbar')) return;
+    const toolbar = document.createElement('div');
+    toolbar.className = 'video-toolbar';
+    toolbar.innerHTML =
+      '<div class="video-toolbar-left">' +
+      '<span class="video-label">' +
+      (video.title || '解説動画') +
+      '</span>' +
+      (video.duration ? '<span class="video-duration-hint">' + video.duration + '</span>' : '') +
+      '</div>';
+
+    const wrap = container.querySelector('.video-frame-wrap');
+    if (wrap) container.insertBefore(toolbar, wrap);
+  }
+
   function renderVideo(container, videoKey) {
     const video = (cfg.videos || {})[videoKey];
     if (!video) return;
@@ -252,6 +397,7 @@
     const wrap = container.querySelector('.video-frame-wrap');
     if (!wrap) return;
 
+    ensureVideoChrome(container, videoKey, video);
     wrap.innerHTML = '';
     wrap.dataset.videoKey = videoKey;
 
@@ -264,7 +410,7 @@
     }
 
     if (source.type === 'mp4') {
-      renderNativePlayer(wrap, source, video, !hasOwnMp4 && !!cfg.useDemoWhenEmpty);
+      renderNativePlayer(wrap, source, video, !hasOwnMp4 && !!cfg.useDemoWhenEmpty, videoKey);
       return;
     }
 
@@ -381,10 +527,231 @@
     }
   }
 
+  function submitQuizResult(endpoint, payload) {
+    return new Promise(function (resolve, reject) {
+      const callbackName = '__todoQuizResult_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      const params = new URLSearchParams();
+      const script = document.createElement('script');
+      let timer = null;
+
+      function cleanup() {
+        if (timer) window.clearTimeout(timer);
+        delete window[callbackName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      window[callbackName] = function (response) {
+        cleanup();
+        resolve(response || {});
+      };
+
+      params.set('callback', callbackName);
+      params.set('source', 'todo-list-guide');
+      params.set('email', payload.email);
+      params.set('answers', JSON.stringify(payload.answers));
+      params.set('details', JSON.stringify(payload.details));
+      params.set('score', String(payload.score));
+      params.set('total', String(payload.total));
+      params.set('passed', payload.passed ? 'true' : 'false');
+      params.set('submittedAt', new Date().toISOString());
+
+      script.async = true;
+      script.src = endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+      script.onerror = function () {
+        cleanup();
+        reject(new Error('送信できませんでした。'));
+      };
+
+      timer = window.setTimeout(function () {
+        cleanup();
+        reject(new Error('送信がタイムアウトしました。'));
+      }, 15000);
+
+      document.head.appendChild(script);
+    });
+  }
+
+  function initQuiz() {
+    const quiz = document.querySelector('[data-quiz]');
+    if (!quiz) return;
+
+    const items = Array.from(quiz.querySelectorAll('.quiz-item'));
+    const result = quiz.querySelector('[data-quiz-result]');
+    const complete = quiz.querySelector('[data-quiz-complete]');
+    const submitForm = quiz.querySelector('[data-quiz-submit]');
+    const emailInput = quiz.querySelector('[data-quiz-email]');
+    const submitButton = quiz.querySelector('[data-quiz-submit-button]');
+    const submitMessage = quiz.querySelector('[data-quiz-submit-message]');
+    const endpoint = (cfg.quizResultEndpoint || '').trim();
+    let submitted = false;
+
+    function getState() {
+      const details = items.map(function (item, index) {
+        const selected = item.querySelector('.quiz-options button.is-selected');
+        return {
+          questionId: item.dataset.questionId || 'q' + (index + 1),
+          answerId: selected?.dataset.answerId || '',
+          correct: item.dataset.correct === 'true',
+        };
+      });
+      const answered = details.filter(function (answer) {
+        return answer.answerId;
+      }).length;
+      const correct = details.filter(function (answer) {
+        return answer.correct;
+      }).length;
+      const passed = answered === items.length && correct === items.length;
+      return {
+        answered: answered,
+        correct: correct,
+        details: details,
+        passed: passed,
+        total: items.length,
+      };
+    }
+
+    function setSubmitMessage(text, status) {
+      if (!submitMessage) return;
+      submitMessage.textContent = text;
+      submitMessage.classList.toggle('is-ok', status === 'ok');
+      submitMessage.classList.toggle('is-error', status === 'error');
+    }
+
+    function updateSubmitState(state) {
+      if (!submitButton || !submitForm) return;
+      const ready = state.answered === state.total;
+
+      if (!endpoint) {
+        submitButton.disabled = true;
+        setSubmitMessage('現在、結果送信は準備中です。', 'error');
+        return;
+      }
+
+      if (submitted) {
+        submitButton.disabled = true;
+        submitButton.textContent = '送信済み';
+        setSubmitMessage('回答結果を記録しました。', 'ok');
+        return;
+      }
+
+      submitButton.textContent = '結果を送信';
+      submitButton.disabled = !ready;
+      setSubmitMessage(
+        ready ? '回答結果を送信できます。' : '6問すべて回答すると送信できます。',
+        ready ? 'ok' : ''
+      );
+    }
+
+    function updateScore() {
+      const state = getState();
+      if (result) {
+        result.textContent = state.correct + ' / ' + state.total;
+        result.classList.toggle('is-complete', state.passed);
+      }
+      if (complete) {
+        complete.hidden = !state.passed;
+      }
+      updateSubmitState(state);
+    }
+
+    items.forEach(function (item) {
+      const buttons = Array.from(item.querySelectorAll('.quiz-options button'));
+      const feedback = item.querySelector('.quiz-feedback');
+      const answer = buttons.find(function (button) {
+        return button.dataset.correct === 'true';
+      });
+
+      buttons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          const ok = button.dataset.correct === 'true';
+          buttons.forEach(function (b) {
+            b.classList.remove('is-selected', 'is-correct', 'is-wrong');
+          });
+          button.classList.add('is-selected');
+          item.dataset.answered = 'true';
+          item.dataset.correct = ok ? 'true' : 'false';
+          submitted = false;
+          if (feedback) {
+            feedback.textContent = '選択しました。';
+            feedback.classList.remove('is-ok');
+          }
+          updateScore();
+        });
+      });
+    });
+
+    if (emailInput) {
+      emailInput.addEventListener('input', function () {
+        submitted = false;
+        updateScore();
+      });
+    }
+
+    if (submitForm) {
+      submitForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const state = getState();
+        const email = (emailInput?.value || '').trim();
+
+        if (!endpoint) {
+          setSubmitMessage('現在、結果送信は準備中です。', 'error');
+          return;
+        }
+
+        if (state.answered !== state.total) {
+          setSubmitMessage('6問すべて回答してください。', 'error');
+          return;
+        }
+
+        if (!email || (emailInput && !emailInput.checkValidity())) {
+          setSubmitMessage('メールアドレスを確認してください。', 'error');
+          if (emailInput) emailInput.focus();
+          return;
+        }
+
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = '送信中';
+        }
+        setSubmitMessage('送信しています。', '');
+
+        submitQuizResult(endpoint, {
+          email: email,
+          answers: state.details.map(function (answer) {
+            return answer.correct;
+          }),
+          details: state.details,
+          score: state.correct,
+          total: state.total,
+          passed: state.passed,
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error(response.message || '記録できませんでした。');
+            }
+            submitted = true;
+            setSubmitMessage(response.message || '回答結果を記録しました。', 'ok');
+            updateSubmitState(state);
+          })
+          .catch(function (error) {
+            submitted = false;
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.textContent = '結果を送信';
+            }
+            setSubmitMessage(error.message || '送信できませんでした。', 'error');
+          });
+      });
+    }
+
+    updateScore();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initConfig();
     initVideos();
     initPathTabs();
+    initQuiz();
     initNav();
     initMobileMenu();
   });
