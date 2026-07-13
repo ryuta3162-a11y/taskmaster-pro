@@ -108,9 +108,10 @@ function saveQuizResult_(params) {
       score: scored.score,
       total: QUIZ_RESULT_CONFIG.questionCount,
       passed: scored.passed,
+      marks: scored.marks,
       message: scored.passed
         ? '合格として記録しました。'
-        : '結果を記録しました。不合格です。もう一度確認してください。',
+        : '結果を記録しました。×の問題を見直して、もう一度回答してください。',
     };
   } finally {
     lock.releaseLock();

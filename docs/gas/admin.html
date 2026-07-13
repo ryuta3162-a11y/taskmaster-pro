@@ -412,6 +412,46 @@
       font-size: .7rem; color: #475569; line-height: 1.5;
     }
     .send-note strong { color: var(--acc-700); }
+
+    /* 展開時：依頼詳細（リストチェックに近い表示） */
+    .recipients-section-label {
+      font-size: var(--tm-badge); font-weight: 800; letter-spacing: .08em;
+      text-transform: uppercase; color: #64748b; margin: .25rem 0 .65rem;
+    }
+    /* トップカード直下の添付バナー（常時表示） */
+    .task-attach-row {
+      display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start;
+      margin: -.15rem 0 0; padding: .65rem 1.25rem .85rem 5.25rem;
+    }
+    @media (max-width: 640px) { .task-attach-row { padding-left: 1.25rem; } }
+    .attach-link {
+      display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+      min-height: 2.5rem; padding: .45rem .95rem; border-radius: .75rem;
+      font-size: var(--tm-meta); font-weight: 700; text-decoration: none;
+      border: 1px solid rgba(0,0,0,.06); box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      transition: background .15s, border-color .15s;
+    }
+    .attach-link-url {
+      background: color-mix(in oklch, var(--acc-50) 70%, white);
+      color: var(--acc-700); border-color: color-mix(in oklch, var(--acc-200) 60%, transparent);
+    }
+    .attach-link-url:hover { background: var(--acc-100); }
+    .attach-link-file {
+      background: #fffbeb; color: #92400e; border-color: #fde68a;
+    }
+    .attach-link-file:hover { background: #fef3c7; }
+    .attach-thumb {
+      display: flex; flex-direction: column; align-items: center; gap: .35rem;
+      width: 5.5rem; padding: .35rem; border-radius: .75rem;
+      border: 1px solid #e2e8f0; background: #fff; text-decoration: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .attach-thumb img {
+      width: 100%; height: 4rem; object-fit: cover; border-radius: .5rem; background: #f1f5f9;
+    }
+    .attach-thumb span {
+      font-size: .625rem; font-weight: 700; color: #64748b; text-align: center; line-height: 1.2;
+    }
   </style>
 </head>
 <body>
@@ -525,6 +565,7 @@
       var openTaskId = null;
       var selected = {};
       var introOverrides = {};
+      var pendingAutoOpen = true;
 
       function viewerNameLabel() {
         if (lastData && lastData.viewerName && lastData.viewerName.trim()) return lastData.viewerName.trim();
@@ -554,6 +595,57 @@
       function esc(s) {
         if (s == null) return '';
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function attachmentKindFromUrl(url) {
+        var u = String(url || '').toLowerCase();
+        if (u.indexOf('.pdf') >= 0) return 'pdf';
+        if (u.indexOf('.zip') >= 0) return 'zip';
+        return 'image';
+      }
+
+      function extractDriveFileId(url) {
+        var m = String(url || '').match(/[?&]id=([^&]+)/);
+        return m ? m[1] : '';
+      }
+
+      function attachmentPreviewSrc(url) {
+        var id = extractDriveFileId(url);
+        if (id && attachmentKindFromUrl(url) === 'image') {
+          return 'https://drive.google.com/thumbnail?id=' + id + '&sz=w400';
+        }
+        return url;
+      }
+
+      function ensureDefaultOpenTask() {
+        if (mode === 'scheduled' || !pendingAutoOpen) return;
+        pendingAutoOpen = false;
+        var list = filterTasks(getTasksForMode());
+        openTaskId = list.length ? list[0].id : null;
+      }
+
+      function renderAttachBanner(task) {
+        var urls = task.urls || [];
+        var images = task.images || [];
+        if (!urls.length && !images.length) return '';
+        var h = '<div class="task-attach-row">';
+        urls.forEach(function (u, i) {
+          var label = urls.length > 1 ? 'リンク' + (i + 1) + 'を開く' : 'リンクを開く';
+          h += '<a class="attach-link attach-link-url" data-attach="1" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">🔗 ' + esc(label) + '</a>';
+        });
+        images.forEach(function (u, i) {
+          var kind = attachmentKindFromUrl(u);
+          var label = kind === 'zip' ? 'ZIPを開く' : kind === 'pdf' ? 'PDFを開く' : '画像を開く';
+          if (kind === 'image') {
+            h += '<a class="attach-thumb" data-attach="1" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">';
+            h += '<img src="' + esc(attachmentPreviewSrc(u)) + '" alt="添付' + (i + 1) + '" loading="lazy" />';
+            h += '<span>' + esc(label) + '</span></a>';
+          } else {
+            h += '<a class="attach-link attach-link-file" data-attach="1" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">📎 ' + esc(label) + '</a>';
+          }
+        });
+        h += '</div>';
+        return h;
       }
 
       function accountInitial(email) {
@@ -637,6 +729,7 @@
         bar.querySelectorAll('.chip').forEach(function (el) {
           el.addEventListener('click', function () {
             filter = el.getAttribute('data-f') || 'all';
+            pendingAutoOpen = true;
             renderAll();
           });
         });
@@ -644,6 +737,7 @@
 
       function renderRecipients(task) {
         var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
+        h += '<p class="recipients-section-label">未実施者・リマインド</p>';
         var recipients = task.recipients || [];
 
         var introText = getIntroForTask(task.id);
@@ -719,6 +813,7 @@
           h += '</div>';
           h += CHEV;
           h += '</button>';
+          h += renderAttachBanner(t);
           h += '<div class="task-expand-wrap' + (isOpen ? ' open' : '') + '">' + (isOpen ? renderRecipients(t) : '') + '</div>';
           h += '</div>';
         });
@@ -751,6 +846,10 @@
             openTaskId = openTaskId === id ? null : id;
             renderRoot();
           });
+        });
+
+        document.querySelectorAll('.task-attach-row a').forEach(function (a) {
+          a.addEventListener('click', function (e) { e.stopPropagation(); });
         });
 
         document.querySelectorAll('input[data-sk]').forEach(function (cb) {
@@ -882,6 +981,7 @@
         renderModeBadges();
         renderStats();
         renderFilters();
+        ensureDefaultOpenTask();
         renderRoot();
       }
 
@@ -900,6 +1000,7 @@
           return;
         }
         lastData = data;
+        pendingAutoOpen = true;
         var email = data.viewerEmail || '';
         document.getElementById('metaLine').textContent =
           '最終更新: ' + (data.generatedAt ? new Date(data.generatedAt).toLocaleString('ja-JP') : '—');
@@ -934,7 +1035,7 @@
       document.querySelectorAll('.mode-nav-tile[data-mode]').forEach(function (tab) {
         tab.addEventListener('click', function () {
           mode = tab.getAttribute('data-mode') || 'employee';
-          openTaskId = null;
+          pendingAutoOpen = true;
           filter = 'all';
           renderAll();
         });

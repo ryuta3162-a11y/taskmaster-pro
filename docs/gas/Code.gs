@@ -1992,6 +1992,12 @@ function buildAdminTaskSummaryFromRow_(row, allStores, areasList, today) {
     sender: String(row[4] || ''),
     contentPreview: preview,
     contentFull: content,
+    urls: [String(row[6] || ''), String(row[7] || ''), String(row[8] || '')].filter(function (u) {
+      return String(u || '').trim();
+    }),
+    images: [String(row[9] || ''), String(row[10] || ''), String(row[11] || '')].filter(function (u) {
+      return String(u || '').trim();
+    }),
     deadline: deadlineStr,
     targetTags: String(row[12] || ''),
     progressLabel: progress.label,

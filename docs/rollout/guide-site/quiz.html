@@ -39,17 +39,27 @@
       <section class="test-panel test-panel--quiz" data-test-quiz hidden>
         <div class="test-quiz-head">
           <div>
-            <h2>誰に送るか、どう送るかを選んでください</h2>
+            <h2>各問題で①②を選んでください</h2>
             <p data-test-user></p>
           </div>
           <strong data-test-progress>0 / 6</strong>
         </div>
 
-        <form class="test-questions" data-test-form novalidate>
+        <section class="test-intro" data-test-intro>
+          <p>全<strong>6問</strong>です。各問題ごとに、次の<strong>2つ</strong>を選びます。</p>
+          <ul class="test-intro-list">
+            <li><strong>① 依頼の種類</strong> … 店舗 / 社員 / TFチーム</li>
+            <li><strong>② 配信方法</strong> … 新規投稿 / 再投稿 / 定期配信</li>
+          </ul>
+          <p class="test-intro-note">どちらか1つだけ選んでも不合格になります。アプリの画面と同じ用語です。</p>
+          <button type="button" class="test-intro-start" data-test-start>テストを始める</button>
+        </section>
+
+        <form class="test-questions" data-test-form data-test-quiz-body hidden novalidate>
           <div data-test-questions></div>
           <div class="test-actions">
             <button type="submit" data-test-submit disabled>結果を送信</button>
-            <p class="test-message" data-test-submit-message aria-live="polite">各問題で「誰に送るか」「どう送るか」を選ぶと送信できます。</p>
+            <p class="test-message" data-test-submit-message aria-live="polite">各問題で①依頼の種類と②配信方法の両方を選ぶと送信できます。</p>
           </div>
         </form>
       </section>
