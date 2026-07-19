@@ -218,22 +218,65 @@ function getStoreData() {
   } catch (e) { return []; }
 }
 
+function buildEmployeeSheetRow_(empData) {
+  let row = [
+    empData.name,
+    empData.email,
+    empData.team,
+    'なし',
+    empData.area,
+    empData.territory,
+    empData.role
+  ];
+  var stores = (empData.stores || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
+  if (stores.length > EMPLOYEE_STORE_COL_MAX) {
+    return { error: '管轄店舗は最大' + EMPLOYEE_STORE_COL_MAX + '件まで登録できます。' };
+  }
+  if (stores.length > 0) row = row.concat(stores);
+  return { row: row };
+}
+
 function registerEmployee(empData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('従業員データ') || ss.insertSheet('従業員データ');
-    // ★役職(role)を挿入する
-    let row = [
-      empData.name, empData.email, empData.team, 'なし', empData.area, empData.territory, empData.role
-    ];
-    var stores = (empData.stores || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
-    if (stores.length > EMPLOYEE_STORE_COL_MAX) {
-      return { status: 'error', message: '管轄店舗は最大' + EMPLOYEE_STORE_COL_MAX + '件まで登録できます。' };
-    }
-    if (stores.length > 0) row = row.concat(stores);
-    sheet.appendRow(row);
+    var built = buildEmployeeSheetRow_(empData);
+    if (built.error) return { status: 'error', message: built.error };
+    sheet.appendRow(built.row);
     return { status: 'success' };
   } catch(e) { return { status: 'error', message: e.toString() }; }
+}
+
+/** 登録済みメールのプロフィール（チーム・エリア・管轄店舗・役職など）を更新 */
+function updateEmployee(empData) {
+  try {
+    var emailNorm = normalizeTaskEmail(empData.email);
+    if (!emailNorm) return { status: 'error', message: 'メールアドレスが無効です' };
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('従業員データ');
+    if (!sheet) return { status: 'error', message: '従業員データがありません' };
+    var built = buildEmployeeSheetRow_(empData);
+    if (built.error) return { status: 'error', message: built.error };
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (normalizeTaskEmail(values[i][1]) !== emailNorm) continue;
+      var rowNum = i + 1;
+      var oldRow = values[i];
+      var oldStoreCols = 0;
+      for (var c = 7; c < oldRow.length; c++) {
+        if (String(oldRow[c] || '').trim()) oldStoreCols++;
+      }
+      sheet.getRange(rowNum, 1, 1, built.row.length).setValues([built.row]);
+      var newStoreCols = Math.max(0, built.row.length - 7);
+      if (oldStoreCols > newStoreCols) {
+        sheet.getRange(rowNum, 8 + newStoreCols, 1, oldStoreCols - newStoreCols).clearContent();
+      }
+      return { status: 'success' };
+    }
+    return { status: 'error', message: '登録情報が見つかりません' };
+  } catch (e) {
+    return { status: 'error', message: e.toString() };
+  }
 }
 
 // ==============================================================
@@ -320,10 +363,26 @@ function parseCompletionPayload_(str) {
   return { people: [], stores: {} };
 }
 
-function getRequestKindFromRow_(row) {
-  var k = String(row[15] || '').trim().toLowerCase();
-  if (k === 'store') return 'store';
+/** 依頼単位列: employee | store | tf（tf は社員依頼と同様に個人完了） */
+function normalizeRequestKind_(k) {
+  var s = String(k || '').trim().toLowerCase();
+  if (s === 'store') return 'store';
+  if (s === 'tf') return 'tf';
   return 'employee';
+}
+
+function getRequestKindFromRow_(row) {
+  return normalizeRequestKind_(row[15]);
+}
+
+function getRequestKindLabel_(kind) {
+  if (kind === 'store') return '店舗依頼';
+  if (kind === 'tf') return 'TFチーム依頼';
+  return '社員依頼';
+}
+
+function isPersonRequestKind_(kind) {
+  return kind === 'employee' || kind === 'tf';
 }
 
 function serializeEmployeeCompletion_(peopleArr) {
@@ -362,8 +421,14 @@ function getTasksForUser(userEmail) {
     const myStores = myEmp && myEmp.stores ? myEmp.stores : [];
 
     const tasks = [];
+    const userEmailRaw = String(userEmail || '').trim().toLowerCase();
     values.forEach(function (row) {
       const targetsStr = String(row[13] || '');
+      if (!targetsStr) return;
+      const targetsQuick = targetsStr.toLowerCase();
+      if (targetsQuick.indexOf(userNorm) < 0 && (!userEmailRaw || targetsQuick.indexOf(userEmailRaw) < 0)) {
+        return;
+      }
       const targetList = parseTargetEmails(targetsStr);
       var isTarget = targetList.indexOf(userNorm) >= 0;
       if (!isTarget && targetsStr) {
@@ -438,6 +503,16 @@ function getTasksForUser(userEmail) {
   } catch (e) {
     return [];
   }
+}
+
+/** 初回表示用：リスト・再投稿・定期を1回の呼び出しで取得（往復を減らす） */
+function getAppDataForUser(userEmail, senderName) {
+  var name = String(senderName || '').trim();
+  return {
+    tasks: getTasksForUser(userEmail),
+    sentTasks: getSentTasks(name),
+    scheduledTasks: getScheduledTasks(name)
+  };
 }
 
 /**
@@ -684,7 +759,7 @@ function getSentTasks(userName) {
       targetTags: String(row[12] || ""),
       /** 配信先メール（再投稿で役職・店舗を正確に復元するため） */
       targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
-      requestKind: String(row[15] || '').toLowerCase() === 'store' ? 'store' : 'employee'
+      requestKind: normalizeRequestKind_(row[15])
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }
@@ -731,7 +806,7 @@ function registerScheduledTask(taskData) {
       sheet.appendRow(['ID', '作成日', '作成者', 'サイクル', '期限設定', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '配信先タグ', '配信先アドレス', '依頼単位']);
     }
     const newId = 's_' + new Date().getTime();
-    var reqKind = taskData.requestKind === 'store' ? 'store' : 'employee';
+    var reqKind = normalizeRequestKind_(taskData.requestKind);
 
     const row = [
       newId, new Date(), taskData.sender, taskData.cycle, taskData.deadlineOffset,
@@ -811,7 +886,7 @@ function getScheduledTasks(userName) {
       images: [String(row[9]||""), String(row[10]||""), String(row[11]||"")].filter(Boolean),
       targetTags: String(row[12]),
       targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
-      requestKind: String(row[14] || '').toLowerCase() === 'store' ? 'store' : 'employee'
+      requestKind: normalizeRequestKind_(row[14])
     })).filter(t => t.sender === userName).reverse();
   } catch(e) { return []; }
 }
@@ -838,7 +913,7 @@ function updateScheduledTask(id, taskData) {
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][0]) === id) {
         const rowNum = i + 1;
-        var rk = taskData.requestKind === 'store' ? 'store' : 'employee';
+        var rk = normalizeRequestKind_(taskData.requestKind);
         sheet.getRange(rowNum, 4, rowNum, 15).setValues([[
           taskData.cycle,
           taskData.deadlineOffset,
@@ -878,12 +953,32 @@ function deleteScheduledTask(id) {
 // 5. タスク配信と通知処理
 // ==============================================================
 
-/** デプロイした Web アプリの URL（実行中のスクリプトに紐づく。Workspace では /a/macros/ドメイン/s/... の形式になる） */
+/**
+ * 本番 Web アプリ URL（メール・リマインド用の既定値）。
+ * トリガー実行時の ScriptApp.getService().getUrl() は別デプロイIDを返すことがあり、
+ * 「ファイルを開くことができません」になるため、本番URLを優先する。
+ * 上書き: スクリプトプロパティ TASK_WEB_APP_URL
+ */
+var DEFAULT_TASK_WEB_APP_URL_ =
+  'https://script.google.com/a/macros/okamoto-group.co.jp/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec';
+
+/** デプロイした Web アプリの URL */
 function getTaskWebAppUrl_() {
-  return ScriptApp.getService().getUrl();
+  var fromProp = PropertiesService.getScriptProperties().getProperty('TASK_WEB_APP_URL');
+  if (fromProp && String(fromProp).trim()) {
+    return String(fromProp).trim().replace(/\/$/, '');
+  }
+  if (DEFAULT_TASK_WEB_APP_URL_) {
+    return String(DEFAULT_TASK_WEB_APP_URL_).replace(/\/$/, '');
+  }
+  try {
+    return ScriptApp.getService().getUrl() || '';
+  } catch (e) {
+    return '';
+  }
 }
 
-/** メール・Chat 用：デプロイ URL（Workspace では /a/macros/ドメイン/s/... が返る）に tab=checklist を付与 */
+/** メール・Chat 用：本番 URL に tab=checklist を付与 */
 function getTaskEmailLink_() {
   var u = getTaskWebAppUrl_();
   if (!u) return u;
@@ -919,6 +1014,7 @@ function escapeHtmlEmail_(s) {
     .replace(/"/g, '&quot;');
 }
 
+/** 改行（\r, \n, \r\n すべて）を <br> に置換した HTML を返す */
 function escapeHtmlEmailMultiline_(s) {
   return escapeHtmlEmail_(s).replace(/\r\n|\r|\n/g, '<br>');
 }
@@ -1038,7 +1134,7 @@ function createNewTask(taskData) {
     sheet.appendRow(['ID', '日時', 'タスク種別', '期限', '申請者', '依頼内容', 'リンク1', 'リンク2', 'リンク3', '画像1', '画像2', '画像3', '対象エリア', 'ターゲット一覧', '完了データ', '依頼単位']);
   }
 
-  var reqKind = taskData.requestKind === 'store' ? 'store' : 'employee';
+  var reqKind = normalizeRequestKind_(taskData.requestKind);
   var initialO = reqKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
 
   const newId = 't_' + new Date().getTime();
@@ -1119,7 +1215,7 @@ function processScheduledTasksBatch() {
       const i1 = String(row[9]); const i2 = String(row[10]); const i3 = String(row[11]);
       const targetTags = String(row[12]);
       const targets = String(row[13]).split(',');
-      var requestKind = String(row[14] || 'employee').toLowerCase() === 'store' ? 'store' : 'employee';
+      var requestKind = normalizeRequestKind_(row[14]);
       var initialO = requestKind === 'store' ? '{"v":2,"mode":"store","stores":{}}' : '[]';
 
       const reqSheet = ss.getSheetByName('申請データ') || ss.insertSheet('申請データ');
@@ -1156,6 +1252,426 @@ function processScheduledTasksBatch() {
         } catch (e) {}
       });
       sendChatNotification(taskData, appUrl, true);
+    }
+  });
+}
+
+// ==============================================================
+// 6b. 期限リマインド自動送信（2日前・前日・当日 8:00 / 未実施者のみ）
+// 完了レポートは日下のみ（DEADLINE_REMINDER_REPORT_EMAIL 未設定時は下記既定）。
+// ADMIN_DASHBOARD_EMAILS には送らない。
+// 初回: setupDeadlineReminderTrigger() を GAS エディタで1回実行してトリガー登録。
+// ==============================================================
+
+var DEADLINE_REMINDER_LOG_SHEET_NAME_ = 'リマインド送信履歴';
+
+/** 完了レポートの既定宛先（あなたのみ） */
+var DEFAULT_DEADLINE_REMINDER_REPORT_EMAIL_ = 'r-kusaka@okamoto-group.co.jp';
+
+function calcDaysUntilDeadline_(deadlineVal, today) {
+  if (!deadlineVal) return null;
+  var d = new Date(deadlineVal);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  var t = new Date(today.getTime());
+  t.setHours(0, 0, 0, 0);
+  return Math.ceil((d.getTime() - t.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getDeadlineReminderType_(daysRemaining) {
+  if (daysRemaining === 2) return '2d';
+  if (daysRemaining === 1) return '1d';
+  if (daysRemaining === 0) return '0d';
+  return null;
+}
+
+function getDeadlineReminderTypeLabel_(reminderType) {
+  if (reminderType === '2d') return '2日前';
+  if (reminderType === '1d') return '前日';
+  if (reminderType === '0d') return '当日';
+  return reminderType || '';
+}
+
+function buildAutomatedDeadlineReminderLead_(reminderType) {
+  if (reminderType === '2d') {
+    return '期限まであと2日のTo-Do が未完了です。ご確認・ご対応をお願いいたします。';
+  }
+  if (reminderType === '1d') {
+    return '明日が期限のTo-Do が未完了です。ご確認・ご対応をお願いいたします。';
+  }
+  return '本日が期限のTo-Do が未完了です。ご確認・ご対応をお願いいたします。';
+}
+
+function buildAutomatedDeadlineReminderBodies_(recipientName, reminderType, taskItem, checklistUrl, storeNames) {
+  var lead = buildAutomatedDeadlineReminderLead_(reminderType);
+  var preview = String(taskItem.contentPreview || '').replace(/\n/g, ' ');
+  var kindLabel = String(taskItem.requestKindLabel || '');
+  var deadline = String(taskItem.deadline || '—');
+  var sender = String(taskItem.sender || '—');
+  var stores = storeNames || [];
+
+  var lines = [];
+  lines.push('お元気様です。');
+  lines.push(lead);
+  if (checklistUrl) {
+    lines.push('▼ リストチェック');
+    lines.push(String(checklistUrl));
+  }
+  lines.push('▼ 対象の依頼');
+  lines.push('[' + kindLabel + '] ' + preview);
+  lines.push('期限: ' + deadline + ' / 依頼者: ' + sender);
+  if (stores.length) {
+    lines.push('未実施の店舗（' + stores.length + '）:');
+    stores.forEach(function (s, i) {
+      lines.push('  ' + (i + 1) + '. ' + s);
+    });
+  }
+
+  var introHtml =
+    'お元気様です。<br>' +
+    escapeHtmlEmail_(lead);
+  if (checklistUrl) {
+    introHtml +=
+      '<br><br><span style="font-size:12px;font-weight:700;color:#6366f1;">▼ リストチェック</span><br>' +
+      '<a href="' +
+      escapeHtmlEmail_(checklistUrl) +
+      '" style="color:#6366f1;font-weight:600;word-break:break-all;">' +
+      escapeHtmlEmail_(checklistUrl) +
+      '</a>';
+  }
+  introHtml +=
+    '<br><br><span style="font-size:12px;font-weight:700;color:#6366f1;">▼ 対象の依頼</span>';
+
+  var listHtml = '';
+  if (stores.length) {
+    listHtml = '<ul style="margin:8px 0 0;padding-left:20px;">';
+    stores.forEach(function (s) {
+      listHtml +=
+        '<li style="margin:4px 0;font-size:14px;font-weight:600;color:#0f172a;">' + escapeHtmlEmail_(s) + '</li>';
+    });
+    listHtml += '</ul>';
+  }
+
+  var html = buildTodoEmailShellHtml_({
+    greeting: '',
+    intro: introHtml,
+    taskItem: {
+      requestKindLabel: kindLabel,
+      contentPreview: preview,
+      contentFull: '[' + kindLabel + '] ' + String(taskItem.contentFull || preview),
+      deadline: deadline,
+      sender: sender,
+      overdue: !!taskItem.overdue
+    },
+    listTitle: stores.length ? '未実施の店舗（' + stores.length + '）' : '',
+    listHtml: listHtml
+  });
+
+  return { plain: lines.join('\n'), html: html };
+}
+
+function buildAutomatedDeadlineReminderSubject_(reminderType) {
+  if (reminderType === '2d') return '【To-Do List】期限まであと2日です';
+  if (reminderType === '1d') return '【To-Do List】明日が期限です';
+  return '【To-Do List】本日が期限です';
+}
+
+function getDeadlineReminderReportEmails_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('DEADLINE_REMINDER_REPORT_EMAIL');
+  if (raw && String(raw).trim()) {
+    return String(raw)
+      .split(/[,，]/)
+      .map(function (e) {
+        return String(e).trim();
+      })
+      .filter(Boolean);
+  }
+  // ADMIN_DASHBOARD_EMAILS には送らない（DXメンバー全員に届いてしまうため）
+  if (DEFAULT_DEADLINE_REMINDER_REPORT_EMAIL_) {
+    return [DEFAULT_DEADLINE_REMINDER_REPORT_EMAIL_];
+  }
+  try {
+    return [SpreadsheetApp.getActiveSpreadsheet().getOwner().getEmail()];
+  } catch (err) {
+    return [];
+  }
+}
+
+function getDeadlineReminderLogSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  if (sheet) return sheet;
+  sheet = ss.insertSheet(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  sheet.appendRow(['taskId', 'recipientEmail', 'reminderType', 'sentAt']);
+  sheet.setFrozenRows(1);
+  return sheet;
+}
+
+function hasDeadlineReminderBeenSent_(taskId, recipientEmail, reminderType) {
+  var sheet = getDeadlineReminderLogSheet_();
+  var normEmail = normalizeTaskEmail(recipientEmail);
+  if (!normEmail) return false;
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (
+      String(values[i][0] || '').trim() === String(taskId) &&
+      normalizeTaskEmail(values[i][1]) === normEmail &&
+      String(values[i][2] || '').trim() === String(reminderType)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function logDeadlineReminderSend_(taskId, recipientEmail, reminderType) {
+  var sheet = getDeadlineReminderLogSheet_();
+  sheet.appendRow([
+    String(taskId),
+    String(recipientEmail).trim(),
+    String(reminderType),
+    new Date()
+  ]);
+}
+
+function collectIncompleteReminderTargets_(recipients, mode) {
+  var emailsToSend = [];
+  var emailMap = {};
+  if (mode === 'store') {
+    recipients.forEach(function (r) {
+      if (r.done) return;
+      var sn = String(r.storeName || r.label || r.key || '').trim();
+      if (!sn) return;
+      (r.assignees || []).forEach(function (a) {
+        var em = normalizeTaskEmail(a.email);
+        if (!em) return;
+        if (!emailMap[em]) {
+          emailMap[em] = {
+            email: String(a.email).trim(),
+            name: a.name || a.email,
+            stores: []
+          };
+        }
+        if (emailMap[em].stores.indexOf(sn) < 0) {
+          emailMap[em].stores.push(sn);
+        }
+      });
+    });
+    Object.keys(emailMap).forEach(function (em) {
+      emailsToSend.push(emailMap[em]);
+    });
+  } else {
+    var seen = {};
+    recipients.forEach(function (r) {
+      if (r.done) return;
+      var em = normalizeTaskEmail(r.email);
+      if (!em || seen[em]) return;
+      seen[em] = true;
+      emailsToSend.push({ email: String(r.email).trim(), name: r.name || r.email });
+    });
+  }
+  return emailsToSend;
+}
+
+function sendAutomatedDeadlineReminderToTarget_(
+  target,
+  mode,
+  taskItem,
+  reminderType,
+  checklistUrl,
+  fromLabel
+) {
+  var subject = buildAutomatedDeadlineReminderSubject_(reminderType);
+  var storeList = mode === 'store' && target.stores ? target.stores : [];
+  var bodies = buildAutomatedDeadlineReminderBodies_(
+    target.name,
+    reminderType,
+    taskItem,
+    checklistUrl,
+    storeList
+  );
+  var plain = bodies.plain;
+  var html = bodies.html;
+  // 返信先は付けない（From は実行アカウント＝日下のまま）
+  sendBrandedEmail_(target.email, subject, plain, html, {
+    name: fromLabel
+  });
+}
+
+function sendDeadlineReminderReportEmail_(report) {
+  var recipients = getDeadlineReminderReportEmails_();
+  if (!recipients.length) return;
+
+  var runAtStr = Utilities.formatDate(report.runAt || new Date(), 'JST', 'yyyy/MM/dd HH:mm:ss');
+  var lines = [];
+  lines.push('期限リマインドの自動送信バッチが完了しました。');
+  lines.push('');
+  lines.push('実行日時: ' + runAtStr);
+  lines.push('送信成功: ' + (report.sentCount || 0) + ' 件');
+  if (report.skippedAlreadySent) lines.push('送信済みスキップ: ' + report.skippedAlreadySent + ' 件');
+  if (report.errors && report.errors.length) {
+    lines.push('送信失敗: ' + report.errors.length + ' 件');
+  }
+  lines.push('');
+
+  if (report.tasksInWindow > 0) {
+    lines.push('対象タスク（2日前・前日・当日）: ' + report.tasksInWindow + ' 件');
+    if (report.taskSummaries && report.taskSummaries.length) {
+      report.taskSummaries.forEach(function (t) {
+        lines.push(
+          '  - [' +
+            getDeadlineReminderTypeLabel_(t.reminderType) +
+            '] ' +
+            t.taskId +
+            ' / ' +
+            t.requestKindLabel +
+            ' / 期限 ' +
+            (t.deadline || '—')
+        );
+      });
+    }
+    lines.push('');
+  } else {
+    lines.push('本日の期限リマインド対象タスクはありませんでした。');
+    lines.push('');
+  }
+
+  if (report.sentEmails && report.sentEmails.length) {
+    lines.push('送信先メールアドレス（' + report.sentEmails.length + '）:');
+    report.sentEmails.forEach(function (em) {
+      lines.push(em);
+    });
+    lines.push('');
+  }
+
+  if (report.errors && report.errors.length) {
+    lines.push('エラー詳細:');
+    report.errors.forEach(function (err) {
+      lines.push(err);
+    });
+  }
+
+  var plain = lines.join('\n');
+  var subject = 'リマインドメール送信完了のお知らせ';
+  recipients.forEach(function (to) {
+    try {
+      sendBrandedEmail_(to, subject, plain, null, { name: 'To-Do List（自動リマインド）' });
+    } catch (mailErr) {
+      Logger.log('完了レポート送信失敗: ' + to + ' / ' + mailErr);
+    }
+  });
+}
+
+/**
+ * 毎朝8時に実行。期限2日前・前日・当日のみ、未実施者へ最大3回（超過後は送らない）。
+ */
+function processDeadlineRemindersBatch() {
+  var report = {
+    runAt: new Date(),
+    sentCount: 0,
+    skippedAlreadySent: 0,
+    tasksInWindow: 0,
+    taskSummaries: [],
+    sentEmails: [],
+    errors: []
+  };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('申請データ');
+  if (!sheet) {
+    report.errors.push('申請データシートがありません');
+    sendDeadlineReminderReportEmail_(report);
+    return;
+  }
+
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    sendDeadlineReminderReportEmail_(report);
+    return;
+  }
+  values.shift();
+
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var allStores = getStoreData();
+  var areasList = getAreasListFromStores_(allStores);
+  var employees = getEmployees();
+  var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
+  var fromLabel = 'To-Do List（自動リマインド）';
+
+  values.forEach(function (row) {
+    var taskId = String(row[0] || '').trim();
+    if (!taskId) return;
+
+    var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+    if (progress.complete) return;
+
+    var daysRemaining = calcDaysUntilDeadline_(row[3], today);
+    if (daysRemaining === null) return;
+    var reminderType = getDeadlineReminderType_(daysRemaining);
+    if (!reminderType) return;
+
+    report.tasksInWindow++;
+    var requestKind = getRequestKindFromRow_(row);
+    var mode = requestKind === 'store' ? 'store' : 'employee';
+    var recipients = buildAdminTaskRecipients_(row, requestKind, employees, allStores, areasList);
+    var emailsToSend = collectIncompleteReminderTargets_(recipients, mode);
+    if (!emailsToSend.length) return;
+
+    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
+    report.taskSummaries.push({
+      taskId: taskId,
+      reminderType: reminderType,
+      requestKindLabel: getRequestKindLabel_(requestKind),
+      deadline: taskItem.deadline || ''
+    });
+
+    emailsToSend.forEach(function (target) {
+      var em = String(target.email || '').trim();
+      if (!em) return;
+      if (hasDeadlineReminderBeenSent_(taskId, em, reminderType)) {
+        report.skippedAlreadySent++;
+        return;
+      }
+      try {
+        sendAutomatedDeadlineReminderToTarget_(
+          target,
+          mode,
+          taskItem,
+          reminderType,
+          checklistUrl,
+          fromLabel
+        );
+        logDeadlineReminderSend_(taskId, em, reminderType);
+        report.sentCount++;
+        report.sentEmails.push(em);
+      } catch (mailErr) {
+        report.errors.push(taskId + ' / ' + em + ': ' + String(mailErr));
+      }
+    });
+  });
+
+  if (report.sentCount > 0 || report.errors.length > 0 || report.tasksInWindow > 0) {
+    sendDeadlineReminderReportEmail_(report);
+  }
+}
+
+/** GAS エディタで1回実行して、毎日8:00（JST）の時間主導トリガーを登録 */
+function setupDeadlineReminderTrigger() {
+  removeDeadlineReminderTriggers_();
+  ScriptApp.newTrigger('processDeadlineRemindersBatch')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .inTimezone('Asia/Tokyo')
+    .create();
+  return '期限リマインドトリガーを登録しました（毎日 8:00 JST）。';
+}
+
+function removeDeadlineReminderTriggers_() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'processDeadlineRemindersBatch') {
+      ScriptApp.deleteTrigger(trigger);
     }
   });
 }
@@ -1252,8 +1768,8 @@ function getIncompleteTasksForUserRows_(values, userNorm, userEmailRaw, userStor
       contentPreview:
         String(row[5] || '').length > 80 ? String(row[5]).substring(0, 80) + '…' : String(row[5] || ''),
       deadline: deadlineStr,
-      requestKind: requestKind === 'store' ? 'store' : 'employee',
-      requestKindLabel: requestKind === 'store' ? '店舗依頼' : '社員依頼',
+      requestKind: requestKind,
+      requestKindLabel: getRequestKindLabel_(requestKind),
       overdue: overdue
     });
   });
@@ -1471,11 +1987,17 @@ function buildAdminTaskSummaryFromRow_(row, allStores, areasList, today) {
   return {
     id: String(row[0] || '').trim(),
     requestKind: progress.kind,
-    requestKindLabel: progress.kind === 'store' ? '店舗依頼' : '社員依頼',
+    requestKindLabel: getRequestKindLabel_(progress.kind),
     type: String(row[2] || ''),
     sender: String(row[4] || ''),
     contentPreview: preview,
     contentFull: content,
+    urls: [String(row[6] || ''), String(row[7] || ''), String(row[8] || '')].filter(function (u) {
+      return String(u || '').trim();
+    }),
+    images: [String(row[9] || ''), String(row[10] || ''), String(row[11] || '')].filter(function (u) {
+      return String(u || '').trim();
+    }),
     deadline: deadlineStr,
     targetTags: String(row[12] || ''),
     progressLabel: progress.label,
@@ -1497,7 +2019,7 @@ function getAdminScheduledRows_() {
     .map(function (row) {
       var id = String(row[0] || '').trim();
       if (!id) return null;
-      var rk = String(row[14] || '').toLowerCase() === 'store' ? 'store' : 'employee';
+      var rk = normalizeRequestKind_(row[14]);
       var targets = String(row[13] || '')
         .split(',')
         .map(function (e) {
@@ -1515,7 +2037,7 @@ function getAdminScheduledRows_() {
         targetTags: String(row[12] || ''),
         targetCount: targets.length,
         requestKind: rk,
-        requestKindLabel: rk === 'store' ? '店舗依頼' : '社員依頼'
+        requestKindLabel: getRequestKindLabel_(rk)
       };
     })
     .filter(Boolean)
@@ -1683,6 +2205,138 @@ function sendAdminTaskReminder(taskId, keys, mode, customIntro) {
 }
 
 /**
+ * 依頼者本人向け：自分が出した依頼の未実施者へリマインド（再投稿画面から）
+ * 新規タスクは作らず、既存依頼の未完了者だけにメール送信する。
+ */
+function sendMyTaskReminder(taskId) {
+  try {
+    var viewerEmail = Session.getActiveUser().getEmail();
+    if (!viewerEmail) {
+      return { ok: false, message: 'Google アカウントでログインした状態で実行してください。' };
+    }
+    if (!taskId) {
+      return { ok: false, message: 'タスクが指定されていません。' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('申請データ');
+    if (!sheet) return { ok: false, message: '申請データシートがありません。' };
+    var values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return { ok: false, message: 'タスクがありません。' };
+    values.shift();
+
+    var row = findTaskRowById_(values, taskId);
+    if (!row) return { ok: false, message: 'タスクが見つかりません。' };
+
+    var employees = getEmployees();
+    var empMap = getEmployeesByEmailMap_(employees);
+    var viewerEmp = empMap[normalizeTaskEmail(viewerEmail)] || null;
+    var viewerName = viewerEmp ? String(viewerEmp.name || '').trim() : '';
+    if (!viewerName) viewerName = String(viewerEmail).split('@')[0];
+
+    var senderName = String(row[4] || '').trim();
+    if (!senderName || senderName !== viewerName) {
+      return { ok: false, message: '自分が投稿した依頼のみリマインドできます。' };
+    }
+
+    var allStores = getStoreData();
+    var areasList = getAreasListFromStores_(allStores);
+    var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+    var mode = progress.kind === 'store' ? 'store' : 'employee';
+    var recipients = buildAdminTaskRecipients_(row, progress.kind, employees, allStores, areasList);
+
+    var emailsToSend = [];
+    var emailMap = {};
+    if (mode === 'store') {
+      recipients.forEach(function (r) {
+        if (r.done) return;
+        var sn = String(r.storeName || r.label || r.key || '').trim();
+        if (!sn) return;
+        (r.assignees || []).forEach(function (a) {
+          var em = normalizeTaskEmail(a.email);
+          if (!em) return;
+          if (!emailMap[em]) {
+            emailMap[em] = {
+              email: String(a.email).trim(),
+              name: a.name || a.email,
+              stores: []
+            };
+          }
+          if (emailMap[em].stores.indexOf(sn) < 0) {
+            emailMap[em].stores.push(sn);
+          }
+        });
+      });
+      Object.keys(emailMap).forEach(function (em) {
+        emailsToSend.push(emailMap[em]);
+      });
+    } else {
+      var seen = {};
+      recipients.forEach(function (r) {
+        if (r.done) return;
+        var em = normalizeTaskEmail(r.email);
+        if (em && !seen[em]) {
+          seen[em] = true;
+          emailsToSend.push({ email: String(r.email).trim(), name: r.name || r.email });
+        }
+      });
+    }
+
+    if (emailsToSend.length === 0) {
+      return { ok: false, message: '未実施の対象がありません（全員完了済みです）。' };
+    }
+
+    var viewerTeam = viewerEmp ? String(viewerEmp.team || '').trim() : '';
+    var fromLabel = viewerTeam
+      ? viewerName + '（' + viewerTeam + ' チーム）'
+      : viewerName;
+    var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
+    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
+    var subject = '【To-Do List】' + viewerName + ' からのリマインド';
+    var introText = buildDefaultTeamReminderIntro_(viewerName, viewerTeam);
+
+    var sent = 0;
+    var errors = [];
+    emailsToSend.forEach(function (target) {
+      try {
+        var plain;
+        var html;
+        if (mode === 'store' && target.stores && target.stores.length) {
+          var bodies = buildTeamProgressStoreReminderBodies_(
+            target.name, introText, taskItem, target.stores, checklistUrl, fromLabel, viewerEmail
+          );
+          plain = bodies.plain;
+          html = bodies.html;
+        } else {
+          plain = buildTeamProgressReminderBody_(
+            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
+          );
+          html = buildTeamProgressReminderHtml_(
+            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
+          );
+        }
+        sendBrandedEmail_(target.email, subject, plain, html, {
+          name: fromLabel,
+          replyTo: viewerEmail
+        });
+        sent++;
+      } catch (mailErr) {
+        errors.push(target.email + ': ' + String(mailErr));
+      }
+    });
+
+    if (sent === 0) {
+      return { ok: false, message: '送信に失敗しました。\n' + errors.join('\n') };
+    }
+    var msg = sent + ' 名の未実施者にリマインドを送信しました。';
+    if (errors.length) msg += '\n（失敗: ' + errors.length + ' 件）';
+    return { ok: true, message: msg, sent: sent, failed: errors.length };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
+}
+
+/**
  * 依頼行ごとの進捗（管理者集計用）
  */
 function computeTaskProgressAdmin_(row, allStores, areasList) {
@@ -1719,7 +2373,489 @@ function computeTaskProgressAdmin_(row, allStores, areasList) {
     done: doneP,
     total: totalP,
     label: totalP ? doneP + '/' + totalP + '名' : doneP + '名',
-    kind: 'employee'
+    kind: requestKind
+  };
+}
+
+/**
+ * 完了時刻文字列（MM/dd HH:mm 等）を Date に変換。年は基準日に合わせる。
+ */
+function parseLooseCompletionDate_(str, refDate) {
+  var s = String(str || '').trim();
+  if (!s) return null;
+  var ref = refDate instanceof Date && !isNaN(refDate.getTime()) ? refDate : new Date();
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})$/);
+  if (m) {
+    var month = parseInt(m[1], 10) - 1;
+    var day = parseInt(m[2], 10);
+    var year;
+    if (m[3]) {
+      year = parseInt(m[3], 10);
+      if (year < 100) year += 2000;
+    } else {
+      year = ref.getFullYear();
+    }
+    var hour = parseInt(m[4], 10);
+    var minute = parseInt(m[5], 10);
+    var d = new Date(year, month, day, hour, minute, 0, 0);
+    if (!m[3]) {
+      var diff = d.getTime() - ref.getTime();
+      if (diff > 180 * 24 * 60 * 60 * 1000) d = new Date(year - 1, month, day, hour, minute, 0, 0);
+      else if (diff < -180 * 24 * 60 * 60 * 1000) d = new Date(year + 1, month, day, hour, minute, 0, 0);
+    }
+    return isNaN(d.getTime()) ? null : d;
+  }
+  var parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function reminderTypeLabelJa_(type) {
+  if (type === '2d') return '2日前';
+  if (type === '1d') return '前日';
+  if (type === '0d') return '当日';
+  return String(type || '');
+}
+
+function emptyWaveSnapshot_() {
+  return { available: false, done: 0, total: 0, pct: null };
+}
+
+function snapshotWaveProgress_(units, cutoffDate) {
+  var snap = snapshotProgressAtCutoff_(units, cutoffDate);
+  return {
+    available: true,
+    done: snap.done,
+    total: snap.total,
+    pct: snap.pct
+  };
+}
+
+function getTaskDeadlineEnd_(row) {
+  var deadlineVal = row[3];
+  if (!deadlineVal) return null;
+  var d = new Date(deadlineVal);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function resolvePersonNameEmail_(emailNorm, empMap) {
+  var emp = empMap[emailNorm];
+  var raw = emp ? String(emp.email || '').trim() : emailNorm;
+  var name = emp ? String(emp.name || '').trim() || raw : emailNorm;
+  return {
+    name: name,
+    email: raw,
+    key: emailNorm,
+    role: emp ? String(emp.role || '').trim() : '',
+    team: emp ? String(emp.team || '').trim() : ''
+  };
+}
+
+/**
+ * リマインド送信履歴 → タスクIDごとの波（各 reminderType の最古 sentAt）
+ */
+function loadDeadlineReminderWaveIndex_() {
+  var byTask = {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  if (!sheet) {
+    return { byTask: byTask, totalSends: 0 };
+  }
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    return { byTask: byTask, totalSends: 0 };
+  }
+  var totalSends = 0;
+  for (var i = 1; i < values.length; i++) {
+    var taskId = String(values[i][0] || '').trim();
+    var email = normalizeTaskEmail(values[i][1]);
+    var type = String(values[i][2] || '').trim();
+    var sentRaw = values[i][3];
+    if (!taskId || !type) continue;
+    var sentAt = sentRaw instanceof Date ? sentRaw : new Date(sentRaw);
+    if (!(sentAt instanceof Date) || isNaN(sentAt.getTime())) continue;
+    totalSends++;
+    if (!byTask[taskId]) {
+      byTask[taskId] = {
+        waves: {},
+        sendCount: 0,
+        recipients: {}
+      };
+    }
+    byTask[taskId].sendCount++;
+    if (email) byTask[taskId].recipients[email] = true;
+    if (!byTask[taskId].waves[type] || sentAt.getTime() < byTask[taskId].waves[type].getTime()) {
+      byTask[taskId].waves[type] = sentAt;
+    }
+  }
+  return { byTask: byTask, totalSends: totalSends };
+}
+
+function buildReminderEffectUnits_(row, allStores, areasList, refDate, empMap) {
+  var requestKind = getRequestKindFromRow_(row);
+  var payload = parseCompletionPayload_(String(row[14] || '[]'));
+  var units = [];
+
+  if (requestKind === 'store') {
+    var taskStores = parseTargetStoresFromTags_(String(row[12] || ''), allStores, areasList);
+    taskStores.forEach(function (storeName) {
+      var info = payload.stores && payload.stores[storeName] ? payload.stores[storeName] : null;
+      var done = !!info;
+      var doneAt = done ? parseLooseCompletionDate_(info.at || info.time || '', refDate) : null;
+      var people = [];
+      Object.keys(empMap || {}).forEach(function (em) {
+        var emp = empMap[em];
+        if ((emp.stores || []).indexOf(storeName) >= 0) {
+          people.push(resolvePersonNameEmail_(em, empMap));
+        }
+      });
+      units.push({
+        key: storeName,
+        done: done,
+        doneAt: doneAt,
+        people: people
+      });
+    });
+    return { kind: 'store', unitLabel: '店舗', units: units };
+  }
+
+  var targetEmails = parseTargetEmails(String(row[13] || ''));
+  var doneMap = {};
+  (payload.people || []).forEach(function (p) {
+    var em = normalizeTaskEmail(p.email);
+    if (!em) return;
+    doneMap[em] = {
+      done: true,
+      doneAt: parseLooseCompletionDate_(p.time || p.at || '', refDate)
+    };
+  });
+  targetEmails.forEach(function (em) {
+    var hit = doneMap[em];
+    var person = resolvePersonNameEmail_(em, empMap || {});
+    units.push({
+      key: em,
+      done: !!(hit && hit.done),
+      doneAt: hit ? hit.doneAt : null,
+      name: person.name,
+      email: person.email,
+      people: [person]
+    });
+  });
+  return {
+    kind: requestKind,
+    unitLabel: '名',
+    units: units
+  };
+}
+
+function snapshotProgressAtCutoff_(units, cutoffDate) {
+  var total = units.length;
+  var done = 0;
+  if (!cutoffDate) {
+    units.forEach(function (u) {
+      if (u.done) done++;
+    });
+  } else {
+    var cut = cutoffDate.getTime();
+    units.forEach(function (u) {
+      if (u.doneAt && u.doneAt.getTime() < cut) done++;
+    });
+  }
+  return {
+    done: done,
+    total: total,
+    pct: total ? Math.round((done / total) * 100) : 0
+  };
+}
+
+function collectIncompletePeople_(units) {
+  var seen = {};
+  var list = [];
+  units.forEach(function (u) {
+    if (u.done) return;
+    (u.people || []).forEach(function (p) {
+      var key = p.key || normalizeTaskEmail(p.email);
+      if (!key || seen[key]) return;
+      seen[key] = true;
+      list.push({
+        name: p.name || p.email || key,
+        email: p.email || key
+      });
+    });
+  });
+  list.sort(function (a, b) {
+    return String(a.name).localeCompare(String(b.name), 'ja');
+  });
+  return list;
+}
+
+/**
+ * 波の進捗:
+ * - 2日前: 2d送信後〜翌日リマインド前（1d or 0d or 現在）
+ * - 前日: 1d送信後〜当日リマインド前（0d or 現在）
+ * - 当日: 0d送信後〜現在（0d未送信なら —）
+ * - 超過現在: いま未完了の人数/店舗数 + 氏名・メール一覧
+ */
+function buildReminderEffectForTask_(row, taskLog, allStores, areasList, today, empMap) {
+  if (!taskLog || !taskLog.waves) return null;
+  var waves = taskLog.waves;
+  if (!waves['2d'] && !waves['1d'] && !waves['0d']) return null;
+
+  var refDate = waves['2d'] || waves['1d'] || waves['0d'];
+  var built = buildReminderEffectUnits_(row, allStores, areasList, refDate, empMap);
+  var units = built.units;
+  if (!units.length) return null;
+
+  var at2d = emptyWaveSnapshot_();
+  var at1d = emptyWaveSnapshot_();
+  var at0d = emptyWaveSnapshot_();
+
+  if (waves['2d']) {
+    at2d = snapshotWaveProgress_(units, waves['1d'] || waves['0d'] || null);
+  }
+  if (waves['1d']) {
+    at1d = snapshotWaveProgress_(units, waves['0d'] || null);
+  }
+  if (waves['0d']) {
+    at0d = snapshotWaveProgress_(units, null);
+  }
+
+  var finalSnap = snapshotProgressAtCutoff_(units, null);
+  var incompletePeople = collectIncompletePeople_(units);
+  var incompleteCount = built.kind === 'store'
+    ? units.filter(function (u) { return !u.done; }).length
+    : incompletePeople.length;
+
+  var summary = buildAdminTaskSummaryFromRow_(row, allStores, areasList, today);
+  var deadlineEnd = getTaskDeadlineEnd_(row);
+  var recipientCount = Object.keys(taskLog.recipients || {}).length;
+
+  var ordered = [];
+  ['2d', '1d', '0d'].forEach(function (t) {
+    if (waves[t]) {
+      ordered.push({
+        type: t,
+        label: reminderTypeLabelJa_(t),
+        sentAt: Utilities.formatDate(waves[t], 'JST', 'yyyy/MM/dd HH:mm')
+      });
+    }
+  });
+
+  return {
+    id: summary.id,
+    requestKind: summary.requestKind,
+    requestKindLabel: summary.requestKindLabel,
+    type: summary.type,
+    sender: summary.sender,
+    contentPreview: summary.contentPreview,
+    contentFull: summary.contentFull,
+    deadline: summary.deadline,
+    complete: summary.complete,
+    overdue: summary.overdue,
+    statusLabel: summary.statusLabel,
+    unitLabel: built.unitLabel,
+    sendCount: taskLog.sendCount || 0,
+    recipientCount: recipientCount,
+    waves: ordered,
+    at2d: at2d,
+    at1d: at1d,
+    at0d: at0d,
+    final: finalSnap,
+    overdueNow: {
+      count: incompleteCount,
+      unitLabel: built.unitLabel,
+      people: incompletePeople
+    },
+    deadlineEndMs: deadlineEnd ? deadlineEnd.getTime() : null,
+    _units: units
+  };
+}
+
+function accumulatePersonTaskStats_(personMap, units, deadlineEnd, taskOverdue) {
+  units.forEach(function (u) {
+    (u.people || []).forEach(function (p) {
+      var key = p.key || normalizeTaskEmail(p.email);
+      if (!key) return;
+      if (!personMap[key]) {
+        personMap[key] = {
+          name: p.name || p.email || key,
+          email: p.email || key,
+          role: String(p.role || '').trim(),
+          team: String(p.team || '').trim(),
+          teams: parseEmployeeTeams_(p.team || ''),
+          onTimeCount: 0,
+          overdueCount: 0,
+          openCount: 0
+        };
+      } else {
+        if (!personMap[key].role && p.role) personMap[key].role = String(p.role || '').trim();
+        if (!personMap[key].team && p.team) {
+          personMap[key].team = String(p.team || '').trim();
+          personMap[key].teams = parseEmployeeTeams_(p.team || '');
+        }
+      }
+      var row = personMap[key];
+      if (u.done) {
+        var onTime = true;
+        if (deadlineEnd && u.doneAt) {
+          onTime = u.doneAt.getTime() <= deadlineEnd.getTime();
+        } else if (deadlineEnd && !u.doneAt && taskOverdue) {
+          onTime = false;
+        }
+        if (onTime) row.onTimeCount++;
+        else row.overdueCount++;
+      } else if (taskOverdue) {
+        row.overdueCount++;
+        row.openCount++;
+      } else {
+        row.openCount++;
+      }
+    });
+  });
+}
+
+function buildAdminReminderEffects_(taskRows, allStores, areasList, today, employees) {
+  var index = loadDeadlineReminderWaveIndex_();
+  var empMap = getEmployeesByEmailMap_(employees || []);
+  var effects = [];
+  var waveTaskCounts = { '2d': 0, '1d': 0, '0d': 0 };
+  var sum2d = { done: 0, total: 0, n: 0 };
+  var sum1d = { done: 0, total: 0, n: 0 };
+  var sum0d = { done: 0, total: 0, n: 0 };
+  var sumIncomplete = 0;
+  var sumUnits = 0;
+  var overduePeopleMap = {};
+  var personStatsMap = {};
+
+  taskRows.forEach(function (row) {
+    var id = String(row[0] || '').trim();
+    if (!id || !index.byTask[id]) return;
+    var effect = buildReminderEffectForTask_(row, index.byTask[id], allStores, areasList, today, empMap);
+    if (!effect) return;
+
+    if (effect.requestKind !== 'store') {
+      accumulatePersonTaskStats_(
+        personStatsMap,
+        effect._units || [],
+        effect.deadlineEndMs ? new Date(effect.deadlineEndMs) : null,
+        !!effect.overdue
+      );
+    }
+    delete effect._units;
+
+    effects.push(effect);
+    effect.waves.forEach(function (w) {
+      if (waveTaskCounts[w.type] != null) waveTaskCounts[w.type]++;
+    });
+
+    if (effect.at2d && effect.at2d.available) {
+      sum2d.done += effect.at2d.done;
+      sum2d.total += effect.at2d.total;
+      sum2d.n++;
+    }
+    if (effect.at1d && effect.at1d.available) {
+      sum1d.done += effect.at1d.done;
+      sum1d.total += effect.at1d.total;
+      sum1d.n++;
+    }
+    if (effect.at0d && effect.at0d.available) {
+      sum0d.done += effect.at0d.done;
+      sum0d.total += effect.at0d.total;
+      sum0d.n++;
+    }
+
+    sumIncomplete += effect.overdueNow ? effect.overdueNow.count : 0;
+    sumUnits += effect.final ? effect.final.total : 0;
+
+    (effect.overdueNow.people || []).forEach(function (p) {
+      var key = normalizeTaskEmail(p.email);
+      if (!key || overduePeopleMap[key]) return;
+      overduePeopleMap[key] = {
+        name: p.name || p.email,
+        email: p.email
+      };
+    });
+  });
+
+  effects.sort(function (a, b) {
+    var ac = a.overdueNow ? a.overdueNow.count : 0;
+    var bc = b.overdueNow ? b.overdueNow.count : 0;
+    if (bc !== ac) return bc - ac;
+    if (a.complete !== b.complete) return a.complete ? 1 : -1;
+    return String(b.deadline || '').localeCompare(String(a.deadline || ''));
+  });
+
+  var pct = function (done, total) {
+    return total ? Math.round((done / total) * 100) : 0;
+  };
+
+  var overduePeople = Object.keys(overduePeopleMap)
+    .map(function (k) {
+      return overduePeopleMap[k];
+    })
+    .sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name), 'ja');
+    });
+
+  var personStats = Object.keys(personStatsMap)
+    .map(function (k) {
+      return personStatsMap[k];
+    })
+    .sort(function (a, b) {
+      if (b.overdueCount !== a.overdueCount) return b.overdueCount - a.overdueCount;
+      if (b.onTimeCount !== a.onTimeCount) return b.onTimeCount - a.onTimeCount;
+      return String(a.name).localeCompare(String(b.name), 'ja');
+    });
+
+  var roleSet = {};
+  var teamSet = {};
+  personStats.forEach(function (p) {
+    if (p.role) roleSet[p.role] = true;
+    (p.teams && p.teams.length ? p.teams : parseEmployeeTeams_(p.team)).forEach(function (t) {
+      if (t) teamSet[t] = true;
+    });
+  });
+  var filterRoles = Object.keys(roleSet).sort(function (a, b) {
+    return a.localeCompare(b, 'ja');
+  });
+  var filterTeams = Object.keys(teamSet).sort(function (a, b) {
+    return a.localeCompare(b, 'ja');
+  });
+
+  return {
+    tasks: effects,
+    overduePeople: overduePeople,
+    personStats: personStats,
+    filterRoles: filterRoles,
+    filterTeams: filterTeams,
+    summary: {
+      taskCount: effects.length,
+      totalSends: index.totalSends,
+      totalUnits: sumUnits,
+      unitLabel: '対象',
+      waveTaskCounts: waveTaskCounts,
+      at2d: {
+        available: sum2d.n > 0,
+        done: sum2d.done,
+        total: sum2d.total,
+        pct: sum2d.n > 0 ? pct(sum2d.done, sum2d.total) : null
+      },
+      at1d: {
+        available: sum1d.n > 0,
+        done: sum1d.done,
+        total: sum1d.total,
+        pct: sum1d.n > 0 ? pct(sum1d.done, sum1d.total) : null
+      },
+      at0d: {
+        available: sum0d.n > 0,
+        done: sum0d.done,
+        total: sum0d.total,
+        pct: sum0d.n > 0 ? pct(sum0d.done, sum0d.total) : null
+      },
+      overdueNowCount: sumIncomplete,
+      overduePeopleCount: overduePeople.length
+    }
   };
 }
 
@@ -1754,6 +2890,25 @@ function getAdminDashboardData() {
       usersNoAssignments: [],
       stats: { totalRegistered: 0, withIncomplete: 0, allClearCount: 0, noAssignmentsCount: 0 }
     };
+    var emptyReminderEffects = {
+      tasks: [],
+      overduePeople: [],
+      personStats: [],
+      filterRoles: [],
+      filterTeams: [],
+      summary: {
+        taskCount: 0,
+        totalSends: 0,
+        totalUnits: 0,
+        unitLabel: '対象',
+        waveTaskCounts: { '2d': 0, '1d': 0, '0d': 0 },
+        at2d: { available: false, done: 0, total: 0, pct: null },
+        at1d: { available: false, done: 0, total: 0, pct: null },
+        at0d: { available: false, done: 0, total: 0, pct: null },
+        overdueNowCount: 0,
+        overduePeopleCount: 0
+      }
+    };
     if (!sheet) {
       return {
         ok: true,
@@ -1774,7 +2929,8 @@ function getAdminDashboardData() {
         employeeTasks: [],
         storeTasks: [],
         scheduledTasks: getAdminScheduledRows_(),
-        userProgress: emptyUserProgress
+        userProgress: emptyUserProgress,
+        reminderEffects: emptyReminderEffects
       };
     }
 
@@ -1801,7 +2957,8 @@ function getAdminDashboardData() {
         employeeTasks: [],
         storeTasks: [],
         scheduledTasks: getAdminScheduledRows_(),
-        userProgress: emptyUserProgress
+        userProgress: emptyUserProgress,
+        reminderEffects: emptyReminderEffects
       };
     }
     values.shift();
@@ -1834,8 +2991,9 @@ function getAdminDashboardData() {
       } else {
         summary.open++;
         if (taskObj.overdue) summary.overdueOpen++;
-        if (progress.kind === 'employee') summary.employeeOpen++;
-        else summary.storeOpen++;
+        if (progress.kind === 'store') summary.storeOpen++;
+        else if (progress.kind === 'tf') summary.tfOpen = (summary.tfOpen || 0) + 1;
+        else summary.employeeOpen++;
       }
 
       taskObj.recipients = buildAdminTaskRecipients_(row, progress.kind, employees, allStores, areasList);
@@ -1854,7 +3012,11 @@ function getAdminDashboardData() {
     var storeTasks = tasks.filter(function (t) {
       return t.requestKind === 'store';
     });
+    var tfTasks = tasks.filter(function (t) {
+      return t.requestKind === 'tf';
+    });
     var scheduledTasks = getAdminScheduledRows_();
+    var reminderEffects = buildAdminReminderEffects_(values, allStores, areasList, today, employees);
 
     var userRows = [];
     employees.forEach(function (emp) {
@@ -1910,7 +3072,9 @@ function getAdminDashboardData() {
       tasks: tasks,
       employeeTasks: employeeTasks,
       storeTasks: storeTasks,
+      tfTasks: tfTasks,
       scheduledTasks: scheduledTasks,
+      reminderEffects: reminderEffects,
       userProgress: {
         userRows: userRows,
         usersWithIncomplete: usersWithIncomplete,
@@ -2253,6 +3417,7 @@ function getTeamProgressData(teamName) {
   }
 }
 
+/** チーム進捗リマインド用の既定本文（リーダー名・チーム名を差し込み） */
 function buildDefaultTeamReminderIntro_(viewerName, viewerTeam) {
   var teamLabel = viewerTeam ? viewerTeam + 'チーム' : 'TFチーム';
   var nameLabel = viewerName || '担当';
@@ -2350,6 +3515,14 @@ function buildTeamProgressStoreReminderBodies_(recipientName, intro, taskItem, s
   return { plain: lines.join('\n'), html: html };
 }
 
+/**
+ * チーム進捗ビュー用：依頼1件のリマインドを未実施者へ送信。
+ * - 認可: 該当チームの閲覧者（または管理者）であること
+ * - 送信元(From): スクリプトの実行アカウント（GAS の制約で変更不可）
+ * - 表示名: 「○○（チームリーダー）」 — リーダー本人として見える
+ * - 返信先(Reply-To): リーダーのメールに自動で返るよう設定
+ * - 本文: リーダー名の署名つき
+ */
 function sendTeamProgressReminder(taskId, keys, mode, teamName, customIntro) {
   try {
     return { ok: false, message: 'この画面は閲覧専用のため、リマインド送信はできません。' };

@@ -2205,6 +2205,138 @@ function sendAdminTaskReminder(taskId, keys, mode, customIntro) {
 }
 
 /**
+ * 依頼者本人向け：自分が出した依頼の未実施者へリマインド（再投稿画面から）
+ * 新規タスクは作らず、既存依頼の未完了者だけにメール送信する。
+ */
+function sendMyTaskReminder(taskId) {
+  try {
+    var viewerEmail = Session.getActiveUser().getEmail();
+    if (!viewerEmail) {
+      return { ok: false, message: 'Google アカウントでログインした状態で実行してください。' };
+    }
+    if (!taskId) {
+      return { ok: false, message: 'タスクが指定されていません。' };
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('申請データ');
+    if (!sheet) return { ok: false, message: '申請データシートがありません。' };
+    var values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return { ok: false, message: 'タスクがありません。' };
+    values.shift();
+
+    var row = findTaskRowById_(values, taskId);
+    if (!row) return { ok: false, message: 'タスクが見つかりません。' };
+
+    var employees = getEmployees();
+    var empMap = getEmployeesByEmailMap_(employees);
+    var viewerEmp = empMap[normalizeTaskEmail(viewerEmail)] || null;
+    var viewerName = viewerEmp ? String(viewerEmp.name || '').trim() : '';
+    if (!viewerName) viewerName = String(viewerEmail).split('@')[0];
+
+    var senderName = String(row[4] || '').trim();
+    if (!senderName || senderName !== viewerName) {
+      return { ok: false, message: '自分が投稿した依頼のみリマインドできます。' };
+    }
+
+    var allStores = getStoreData();
+    var areasList = getAreasListFromStores_(allStores);
+    var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+    var mode = progress.kind === 'store' ? 'store' : 'employee';
+    var recipients = buildAdminTaskRecipients_(row, progress.kind, employees, allStores, areasList);
+
+    var emailsToSend = [];
+    var emailMap = {};
+    if (mode === 'store') {
+      recipients.forEach(function (r) {
+        if (r.done) return;
+        var sn = String(r.storeName || r.label || r.key || '').trim();
+        if (!sn) return;
+        (r.assignees || []).forEach(function (a) {
+          var em = normalizeTaskEmail(a.email);
+          if (!em) return;
+          if (!emailMap[em]) {
+            emailMap[em] = {
+              email: String(a.email).trim(),
+              name: a.name || a.email,
+              stores: []
+            };
+          }
+          if (emailMap[em].stores.indexOf(sn) < 0) {
+            emailMap[em].stores.push(sn);
+          }
+        });
+      });
+      Object.keys(emailMap).forEach(function (em) {
+        emailsToSend.push(emailMap[em]);
+      });
+    } else {
+      var seen = {};
+      recipients.forEach(function (r) {
+        if (r.done) return;
+        var em = normalizeTaskEmail(r.email);
+        if (em && !seen[em]) {
+          seen[em] = true;
+          emailsToSend.push({ email: String(r.email).trim(), name: r.name || r.email });
+        }
+      });
+    }
+
+    if (emailsToSend.length === 0) {
+      return { ok: false, message: '未実施の対象がありません（全員完了済みです）。' };
+    }
+
+    var viewerTeam = viewerEmp ? String(viewerEmp.team || '').trim() : '';
+    var fromLabel = viewerTeam
+      ? viewerName + '（' + viewerTeam + ' チーム）'
+      : viewerName;
+    var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
+    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
+    var subject = '【To-Do List】' + viewerName + ' からのリマインド';
+    var introText = buildDefaultTeamReminderIntro_(viewerName, viewerTeam);
+
+    var sent = 0;
+    var errors = [];
+    emailsToSend.forEach(function (target) {
+      try {
+        var plain;
+        var html;
+        if (mode === 'store' && target.stores && target.stores.length) {
+          var bodies = buildTeamProgressStoreReminderBodies_(
+            target.name, introText, taskItem, target.stores, checklistUrl, fromLabel, viewerEmail
+          );
+          plain = bodies.plain;
+          html = bodies.html;
+        } else {
+          plain = buildTeamProgressReminderBody_(
+            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
+          );
+          html = buildTeamProgressReminderHtml_(
+            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
+          );
+        }
+        sendBrandedEmail_(target.email, subject, plain, html, {
+          name: fromLabel,
+          replyTo: viewerEmail
+        });
+        sent++;
+      } catch (mailErr) {
+        errors.push(target.email + ': ' + String(mailErr));
+      }
+    });
+
+    if (sent === 0) {
+      return { ok: false, message: '送信に失敗しました。\n' + errors.join('\n') };
+    }
+    var msg = sent + ' 名の未実施者にリマインドを送信しました。';
+    if (errors.length) msg += '\n（失敗: ' + errors.length + ' 件）';
+    return { ok: true, message: msg, sent: sent, failed: errors.length };
+  } catch (e) {
+    return { ok: false, message: String(e) };
+  }
+}
+
+/**
  * 依頼行ごとの進捗（管理者集計用）
  */
 function computeTaskProgressAdmin_(row, allStores, areasList) {
@@ -2246,6 +2378,488 @@ function computeTaskProgressAdmin_(row, allStores, areasList) {
 }
 
 /**
+ * 完了時刻文字列（MM/dd HH:mm 等）を Date に変換。年は基準日に合わせる。
+ */
+function parseLooseCompletionDate_(str, refDate) {
+  var s = String(str || '').trim();
+  if (!s) return null;
+  var ref = refDate instanceof Date && !isNaN(refDate.getTime()) ? refDate : new Date();
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})$/);
+  if (m) {
+    var month = parseInt(m[1], 10) - 1;
+    var day = parseInt(m[2], 10);
+    var year;
+    if (m[3]) {
+      year = parseInt(m[3], 10);
+      if (year < 100) year += 2000;
+    } else {
+      year = ref.getFullYear();
+    }
+    var hour = parseInt(m[4], 10);
+    var minute = parseInt(m[5], 10);
+    var d = new Date(year, month, day, hour, minute, 0, 0);
+    if (!m[3]) {
+      var diff = d.getTime() - ref.getTime();
+      if (diff > 180 * 24 * 60 * 60 * 1000) d = new Date(year - 1, month, day, hour, minute, 0, 0);
+      else if (diff < -180 * 24 * 60 * 60 * 1000) d = new Date(year + 1, month, day, hour, minute, 0, 0);
+    }
+    return isNaN(d.getTime()) ? null : d;
+  }
+  var parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function reminderTypeLabelJa_(type) {
+  if (type === '2d') return '2日前';
+  if (type === '1d') return '前日';
+  if (type === '0d') return '当日';
+  return String(type || '');
+}
+
+function emptyWaveSnapshot_() {
+  return { available: false, done: 0, total: 0, pct: null };
+}
+
+function snapshotWaveProgress_(units, cutoffDate) {
+  var snap = snapshotProgressAtCutoff_(units, cutoffDate);
+  return {
+    available: true,
+    done: snap.done,
+    total: snap.total,
+    pct: snap.pct
+  };
+}
+
+function getTaskDeadlineEnd_(row) {
+  var deadlineVal = row[3];
+  if (!deadlineVal) return null;
+  var d = new Date(deadlineVal);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function resolvePersonNameEmail_(emailNorm, empMap) {
+  var emp = empMap[emailNorm];
+  var raw = emp ? String(emp.email || '').trim() : emailNorm;
+  var name = emp ? String(emp.name || '').trim() || raw : emailNorm;
+  return {
+    name: name,
+    email: raw,
+    key: emailNorm,
+    role: emp ? String(emp.role || '').trim() : '',
+    team: emp ? String(emp.team || '').trim() : ''
+  };
+}
+
+/**
+ * リマインド送信履歴 → タスクIDごとの波（各 reminderType の最古 sentAt）
+ */
+function loadDeadlineReminderWaveIndex_() {
+  var byTask = {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  if (!sheet) {
+    return { byTask: byTask, totalSends: 0 };
+  }
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) {
+    return { byTask: byTask, totalSends: 0 };
+  }
+  var totalSends = 0;
+  for (var i = 1; i < values.length; i++) {
+    var taskId = String(values[i][0] || '').trim();
+    var email = normalizeTaskEmail(values[i][1]);
+    var type = String(values[i][2] || '').trim();
+    var sentRaw = values[i][3];
+    if (!taskId || !type) continue;
+    var sentAt = sentRaw instanceof Date ? sentRaw : new Date(sentRaw);
+    if (!(sentAt instanceof Date) || isNaN(sentAt.getTime())) continue;
+    totalSends++;
+    if (!byTask[taskId]) {
+      byTask[taskId] = {
+        waves: {},
+        sendCount: 0,
+        recipients: {}
+      };
+    }
+    byTask[taskId].sendCount++;
+    if (email) byTask[taskId].recipients[email] = true;
+    if (!byTask[taskId].waves[type] || sentAt.getTime() < byTask[taskId].waves[type].getTime()) {
+      byTask[taskId].waves[type] = sentAt;
+    }
+  }
+  return { byTask: byTask, totalSends: totalSends };
+}
+
+function buildReminderEffectUnits_(row, allStores, areasList, refDate, empMap) {
+  var requestKind = getRequestKindFromRow_(row);
+  var payload = parseCompletionPayload_(String(row[14] || '[]'));
+  var units = [];
+
+  if (requestKind === 'store') {
+    var taskStores = parseTargetStoresFromTags_(String(row[12] || ''), allStores, areasList);
+    taskStores.forEach(function (storeName) {
+      var info = payload.stores && payload.stores[storeName] ? payload.stores[storeName] : null;
+      var done = !!info;
+      var doneAt = done ? parseLooseCompletionDate_(info.at || info.time || '', refDate) : null;
+      var people = [];
+      Object.keys(empMap || {}).forEach(function (em) {
+        var emp = empMap[em];
+        if ((emp.stores || []).indexOf(storeName) >= 0) {
+          people.push(resolvePersonNameEmail_(em, empMap));
+        }
+      });
+      units.push({
+        key: storeName,
+        done: done,
+        doneAt: doneAt,
+        people: people
+      });
+    });
+    return { kind: 'store', unitLabel: '店舗', units: units };
+  }
+
+  var targetEmails = parseTargetEmails(String(row[13] || ''));
+  var doneMap = {};
+  (payload.people || []).forEach(function (p) {
+    var em = normalizeTaskEmail(p.email);
+    if (!em) return;
+    doneMap[em] = {
+      done: true,
+      doneAt: parseLooseCompletionDate_(p.time || p.at || '', refDate)
+    };
+  });
+  targetEmails.forEach(function (em) {
+    var hit = doneMap[em];
+    var person = resolvePersonNameEmail_(em, empMap || {});
+    units.push({
+      key: em,
+      done: !!(hit && hit.done),
+      doneAt: hit ? hit.doneAt : null,
+      name: person.name,
+      email: person.email,
+      people: [person]
+    });
+  });
+  return {
+    kind: requestKind,
+    unitLabel: '名',
+    units: units
+  };
+}
+
+function snapshotProgressAtCutoff_(units, cutoffDate) {
+  var total = units.length;
+  var done = 0;
+  if (!cutoffDate) {
+    units.forEach(function (u) {
+      if (u.done) done++;
+    });
+  } else {
+    var cut = cutoffDate.getTime();
+    units.forEach(function (u) {
+      if (u.doneAt && u.doneAt.getTime() < cut) done++;
+    });
+  }
+  return {
+    done: done,
+    total: total,
+    pct: total ? Math.round((done / total) * 100) : 0
+  };
+}
+
+function collectIncompletePeople_(units) {
+  var seen = {};
+  var list = [];
+  units.forEach(function (u) {
+    if (u.done) return;
+    (u.people || []).forEach(function (p) {
+      var key = p.key || normalizeTaskEmail(p.email);
+      if (!key || seen[key]) return;
+      seen[key] = true;
+      list.push({
+        name: p.name || p.email || key,
+        email: p.email || key
+      });
+    });
+  });
+  list.sort(function (a, b) {
+    return String(a.name).localeCompare(String(b.name), 'ja');
+  });
+  return list;
+}
+
+/**
+ * 波の進捗:
+ * - 2日前: 2d送信後〜翌日リマインド前（1d or 0d or 現在）
+ * - 前日: 1d送信後〜当日リマインド前（0d or 現在）
+ * - 当日: 0d送信後〜現在（0d未送信なら —）
+ * - 超過現在: いま未完了の人数/店舗数 + 氏名・メール一覧
+ */
+function buildReminderEffectForTask_(row, taskLog, allStores, areasList, today, empMap) {
+  if (!taskLog || !taskLog.waves) return null;
+  var waves = taskLog.waves;
+  if (!waves['2d'] && !waves['1d'] && !waves['0d']) return null;
+
+  var refDate = waves['2d'] || waves['1d'] || waves['0d'];
+  var built = buildReminderEffectUnits_(row, allStores, areasList, refDate, empMap);
+  var units = built.units;
+  if (!units.length) return null;
+
+  var at2d = emptyWaveSnapshot_();
+  var at1d = emptyWaveSnapshot_();
+  var at0d = emptyWaveSnapshot_();
+
+  if (waves['2d']) {
+    at2d = snapshotWaveProgress_(units, waves['1d'] || waves['0d'] || null);
+  }
+  if (waves['1d']) {
+    at1d = snapshotWaveProgress_(units, waves['0d'] || null);
+  }
+  if (waves['0d']) {
+    at0d = snapshotWaveProgress_(units, null);
+  }
+
+  var finalSnap = snapshotProgressAtCutoff_(units, null);
+  var incompletePeople = collectIncompletePeople_(units);
+  var incompleteCount = built.kind === 'store'
+    ? units.filter(function (u) { return !u.done; }).length
+    : incompletePeople.length;
+
+  var summary = buildAdminTaskSummaryFromRow_(row, allStores, areasList, today);
+  var deadlineEnd = getTaskDeadlineEnd_(row);
+  var recipientCount = Object.keys(taskLog.recipients || {}).length;
+
+  var ordered = [];
+  ['2d', '1d', '0d'].forEach(function (t) {
+    if (waves[t]) {
+      ordered.push({
+        type: t,
+        label: reminderTypeLabelJa_(t),
+        sentAt: Utilities.formatDate(waves[t], 'JST', 'yyyy/MM/dd HH:mm')
+      });
+    }
+  });
+
+  return {
+    id: summary.id,
+    requestKind: summary.requestKind,
+    requestKindLabel: summary.requestKindLabel,
+    type: summary.type,
+    sender: summary.sender,
+    contentPreview: summary.contentPreview,
+    contentFull: summary.contentFull,
+    deadline: summary.deadline,
+    complete: summary.complete,
+    overdue: summary.overdue,
+    statusLabel: summary.statusLabel,
+    unitLabel: built.unitLabel,
+    sendCount: taskLog.sendCount || 0,
+    recipientCount: recipientCount,
+    waves: ordered,
+    at2d: at2d,
+    at1d: at1d,
+    at0d: at0d,
+    final: finalSnap,
+    overdueNow: {
+      count: incompleteCount,
+      unitLabel: built.unitLabel,
+      people: incompletePeople
+    },
+    deadlineEndMs: deadlineEnd ? deadlineEnd.getTime() : null,
+    _units: units
+  };
+}
+
+function accumulatePersonTaskStats_(personMap, units, deadlineEnd, taskOverdue) {
+  units.forEach(function (u) {
+    (u.people || []).forEach(function (p) {
+      var key = p.key || normalizeTaskEmail(p.email);
+      if (!key) return;
+      if (!personMap[key]) {
+        personMap[key] = {
+          name: p.name || p.email || key,
+          email: p.email || key,
+          role: String(p.role || '').trim(),
+          team: String(p.team || '').trim(),
+          teams: parseEmployeeTeams_(p.team || ''),
+          onTimeCount: 0,
+          overdueCount: 0,
+          openCount: 0
+        };
+      } else {
+        if (!personMap[key].role && p.role) personMap[key].role = String(p.role || '').trim();
+        if (!personMap[key].team && p.team) {
+          personMap[key].team = String(p.team || '').trim();
+          personMap[key].teams = parseEmployeeTeams_(p.team || '');
+        }
+      }
+      var row = personMap[key];
+      if (u.done) {
+        var onTime = true;
+        if (deadlineEnd && u.doneAt) {
+          onTime = u.doneAt.getTime() <= deadlineEnd.getTime();
+        } else if (deadlineEnd && !u.doneAt && taskOverdue) {
+          onTime = false;
+        }
+        if (onTime) row.onTimeCount++;
+        else row.overdueCount++;
+      } else if (taskOverdue) {
+        row.overdueCount++;
+        row.openCount++;
+      } else {
+        row.openCount++;
+      }
+    });
+  });
+}
+
+function buildAdminReminderEffects_(taskRows, allStores, areasList, today, employees) {
+  var index = loadDeadlineReminderWaveIndex_();
+  var empMap = getEmployeesByEmailMap_(employees || []);
+  var effects = [];
+  var waveTaskCounts = { '2d': 0, '1d': 0, '0d': 0 };
+  var sum2d = { done: 0, total: 0, n: 0 };
+  var sum1d = { done: 0, total: 0, n: 0 };
+  var sum0d = { done: 0, total: 0, n: 0 };
+  var sumIncomplete = 0;
+  var sumUnits = 0;
+  var overduePeopleMap = {};
+  var personStatsMap = {};
+
+  taskRows.forEach(function (row) {
+    var id = String(row[0] || '').trim();
+    if (!id || !index.byTask[id]) return;
+    var effect = buildReminderEffectForTask_(row, index.byTask[id], allStores, areasList, today, empMap);
+    if (!effect) return;
+
+    if (effect.requestKind !== 'store') {
+      accumulatePersonTaskStats_(
+        personStatsMap,
+        effect._units || [],
+        effect.deadlineEndMs ? new Date(effect.deadlineEndMs) : null,
+        !!effect.overdue
+      );
+    }
+    delete effect._units;
+
+    effects.push(effect);
+    effect.waves.forEach(function (w) {
+      if (waveTaskCounts[w.type] != null) waveTaskCounts[w.type]++;
+    });
+
+    if (effect.at2d && effect.at2d.available) {
+      sum2d.done += effect.at2d.done;
+      sum2d.total += effect.at2d.total;
+      sum2d.n++;
+    }
+    if (effect.at1d && effect.at1d.available) {
+      sum1d.done += effect.at1d.done;
+      sum1d.total += effect.at1d.total;
+      sum1d.n++;
+    }
+    if (effect.at0d && effect.at0d.available) {
+      sum0d.done += effect.at0d.done;
+      sum0d.total += effect.at0d.total;
+      sum0d.n++;
+    }
+
+    sumIncomplete += effect.overdueNow ? effect.overdueNow.count : 0;
+    sumUnits += effect.final ? effect.final.total : 0;
+
+    (effect.overdueNow.people || []).forEach(function (p) {
+      var key = normalizeTaskEmail(p.email);
+      if (!key || overduePeopleMap[key]) return;
+      overduePeopleMap[key] = {
+        name: p.name || p.email,
+        email: p.email
+      };
+    });
+  });
+
+  effects.sort(function (a, b) {
+    var ac = a.overdueNow ? a.overdueNow.count : 0;
+    var bc = b.overdueNow ? b.overdueNow.count : 0;
+    if (bc !== ac) return bc - ac;
+    if (a.complete !== b.complete) return a.complete ? 1 : -1;
+    return String(b.deadline || '').localeCompare(String(a.deadline || ''));
+  });
+
+  var pct = function (done, total) {
+    return total ? Math.round((done / total) * 100) : 0;
+  };
+
+  var overduePeople = Object.keys(overduePeopleMap)
+    .map(function (k) {
+      return overduePeopleMap[k];
+    })
+    .sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name), 'ja');
+    });
+
+  var personStats = Object.keys(personStatsMap)
+    .map(function (k) {
+      return personStatsMap[k];
+    })
+    .sort(function (a, b) {
+      if (b.overdueCount !== a.overdueCount) return b.overdueCount - a.overdueCount;
+      if (b.onTimeCount !== a.onTimeCount) return b.onTimeCount - a.onTimeCount;
+      return String(a.name).localeCompare(String(b.name), 'ja');
+    });
+
+  var roleSet = {};
+  var teamSet = {};
+  personStats.forEach(function (p) {
+    if (p.role) roleSet[p.role] = true;
+    (p.teams && p.teams.length ? p.teams : parseEmployeeTeams_(p.team)).forEach(function (t) {
+      if (t) teamSet[t] = true;
+    });
+  });
+  var filterRoles = Object.keys(roleSet).sort(function (a, b) {
+    return a.localeCompare(b, 'ja');
+  });
+  var filterTeams = Object.keys(teamSet).sort(function (a, b) {
+    return a.localeCompare(b, 'ja');
+  });
+
+  return {
+    tasks: effects,
+    overduePeople: overduePeople,
+    personStats: personStats,
+    filterRoles: filterRoles,
+    filterTeams: filterTeams,
+    summary: {
+      taskCount: effects.length,
+      totalSends: index.totalSends,
+      totalUnits: sumUnits,
+      unitLabel: '対象',
+      waveTaskCounts: waveTaskCounts,
+      at2d: {
+        available: sum2d.n > 0,
+        done: sum2d.done,
+        total: sum2d.total,
+        pct: sum2d.n > 0 ? pct(sum2d.done, sum2d.total) : null
+      },
+      at1d: {
+        available: sum1d.n > 0,
+        done: sum1d.done,
+        total: sum1d.total,
+        pct: sum1d.n > 0 ? pct(sum1d.done, sum1d.total) : null
+      },
+      at0d: {
+        available: sum0d.n > 0,
+        done: sum0d.done,
+        total: sum0d.total,
+        pct: sum0d.n > 0 ? pct(sum0d.done, sum0d.total) : null
+      },
+      overdueNowCount: sumIncomplete,
+      overduePeopleCount: overduePeople.length
+    }
+  };
+}
+
+/**
  * 管理用ダッシュボードデータ（一覧・集計）
  * @return {{ ok: boolean, message?: string, generatedAt?: string, spreadsheetUrl?: string, viewerEmail?: string, summary?: object, tasks?: object[] }}
  */
@@ -2276,6 +2890,25 @@ function getAdminDashboardData() {
       usersNoAssignments: [],
       stats: { totalRegistered: 0, withIncomplete: 0, allClearCount: 0, noAssignmentsCount: 0 }
     };
+    var emptyReminderEffects = {
+      tasks: [],
+      overduePeople: [],
+      personStats: [],
+      filterRoles: [],
+      filterTeams: [],
+      summary: {
+        taskCount: 0,
+        totalSends: 0,
+        totalUnits: 0,
+        unitLabel: '対象',
+        waveTaskCounts: { '2d': 0, '1d': 0, '0d': 0 },
+        at2d: { available: false, done: 0, total: 0, pct: null },
+        at1d: { available: false, done: 0, total: 0, pct: null },
+        at0d: { available: false, done: 0, total: 0, pct: null },
+        overdueNowCount: 0,
+        overduePeopleCount: 0
+      }
+    };
     if (!sheet) {
       return {
         ok: true,
@@ -2296,7 +2929,8 @@ function getAdminDashboardData() {
         employeeTasks: [],
         storeTasks: [],
         scheduledTasks: getAdminScheduledRows_(),
-        userProgress: emptyUserProgress
+        userProgress: emptyUserProgress,
+        reminderEffects: emptyReminderEffects
       };
     }
 
@@ -2323,7 +2957,8 @@ function getAdminDashboardData() {
         employeeTasks: [],
         storeTasks: [],
         scheduledTasks: getAdminScheduledRows_(),
-        userProgress: emptyUserProgress
+        userProgress: emptyUserProgress,
+        reminderEffects: emptyReminderEffects
       };
     }
     values.shift();
@@ -2381,6 +3016,7 @@ function getAdminDashboardData() {
       return t.requestKind === 'tf';
     });
     var scheduledTasks = getAdminScheduledRows_();
+    var reminderEffects = buildAdminReminderEffects_(values, allStores, areasList, today, employees);
 
     var userRows = [];
     employees.forEach(function (emp) {
@@ -2438,6 +3074,7 @@ function getAdminDashboardData() {
       storeTasks: storeTasks,
       tfTasks: tfTasks,
       scheduledTasks: scheduledTasks,
+      reminderEffects: reminderEffects,
       userProgress: {
         userRows: userRows,
         usersWithIncomplete: usersWithIncomplete,

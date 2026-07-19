@@ -513,6 +513,12 @@ const api = {
   updateScheduledTask: (id, data) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({ status: 'success', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).updateScheduledTask(id, data);
+  }),
+  sendMyTaskReminder: (taskId) => new Promise((res, rej) => {
+    if (!isGAS) {
+      return setTimeout(() => res({ ok: true, message: '（デモ）未実施者にリマインドを送信しました。', sent: 1 }), 600);
+    }
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).sendMyTaskReminder(taskId);
   })
 };
 
@@ -1305,6 +1311,7 @@ export default function App() {
   const [requestKind, setRequestKind] = useState(REQUEST_KIND.employee);
 
   const [sentTasks, setSentTasks] = useState([]);
+  const [remindingTaskId, setRemindingTaskId] = useState(null);
   const [scheduledTasks, setScheduledTasks] = useState([]);
   
   const [scheduleDate, setScheduleDate] = useState('1');
@@ -2034,6 +2041,23 @@ export default function App() {
     });
     setRequestRecipientExcluded(excludedEmailsFromSavedTargets(candidates, task.targets));
     setActiveTab('request');
+  };
+
+  const handleRemindClick = async (task) => {
+    if (!task?.id || remindingTaskId) return;
+    const ok = window.confirm(
+      'この依頼の未実施者だけにリマインドメールを送ります。\n（新しい依頼は作らず、既存のタスクへの催促です）\n\n送信してよろしいですか？'
+    );
+    if (!ok) return;
+    setRemindingTaskId(task.id);
+    try {
+      const res = await api.sendMyTaskReminder(task.id);
+      alert((res && res.message) || (res && res.ok ? '送信しました。' : '送信できませんでした。'));
+    } catch (error) {
+      alert('リマインド送信に失敗しました: ' + formatGasError(error));
+    } finally {
+      setRemindingTaskId(null);
+    }
   };
 
   const handleScheduleSubmit = async (e) => {
@@ -3198,7 +3222,11 @@ export default function App() {
                   <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
                     <br />
-                    <span className="text-sm font-semibold text-slate-500 mt-2 block">依頼内容・URL・添付・配信先を引き継ぎます。添付はサムネイルをタップすると開けます。期限だけ選び直してください。</span>
+                    <span className="text-sm font-semibold text-slate-500 mt-2 block">
+                      <strong className="text-slate-700">再利用して作成</strong> … 内容を引き継いで新しい依頼を作ります（期限を選び直してください）。
+                      <br />
+                      <strong className="text-slate-700">リマインドする</strong> … 新しい依頼は作らず、未実施の方だけに催促メールを送ります。
+                    </span>
                   </p>
                   
                   <div className="space-y-6 w-full">
@@ -3215,9 +3243,19 @@ export default function App() {
                            <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
                            <SavedAttachmentStrip urls={task.images} />
                          </div>
-                         <button onClick={() => handleRepostClick(task)} className={brutalBtnSecondary + " w-full md:w-auto px-8 flex-shrink-0"}>
-                           再利用して作成
-                         </button>
+                         <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0">
+                           <button type="button" onClick={() => handleRepostClick(task)} className={brutalBtnSecondary + " w-full md:w-auto px-8"}>
+                             再利用して作成
+                           </button>
+                           <button
+                             type="button"
+                             onClick={() => handleRemindClick(task)}
+                             disabled={!!remindingTaskId}
+                             className={brutalBtnSecondary + " w-full md:w-auto px-8 disabled:opacity-50 disabled:cursor-not-allowed"}
+                           >
+                             {remindingTaskId === task.id ? '送信中…' : 'リマインドする'}
+                           </button>
+                         </div>
                       </div>
                     ))}
                   </div>
