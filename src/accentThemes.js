@@ -1,8 +1,22 @@
 /**
  * アクセントカラー（Tailwind v4 パレットの oklch 値）
  * 設定は localStorage のみ。スプレッドシートには保存しません。
+ * 既定はブラック。
  */
 export const ACCENT_THEMES = [
+  {
+    id: 'black',
+    label: 'ブラック',
+    50: 'oklch(98.2% 0 0)',
+    100: 'oklch(94.5% 0 0)',
+    200: 'oklch(88% 0 0)',
+    300: 'oklch(75% 0 0)',
+    400: 'oklch(55% 0 0)',
+    500: 'oklch(32% 0 0)',
+    600: 'oklch(22% 0 0)',
+    700: 'oklch(16% 0 0)',
+    900: 'oklch(10% 0 0)',
+  },
   {
     id: 'indigo',
     label: 'インディゴ',
@@ -155,9 +169,18 @@ export function applyAccentTheme(themeId) {
 export function readStoredAccentId() {
   try {
     const v = localStorage.getItem(ACCENT_STORAGE_KEY);
+    // 旧既定のインディゴはブラックへ寄せる（手動でインディゴを選び直すことは可能）
+    if (v === 'indigo') {
+      try {
+        localStorage.setItem(ACCENT_STORAGE_KEY, 'black');
+      } catch {
+        /* ignore */
+      }
+      return 'black';
+    }
     if (v && ACCENT_THEMES.some((t) => t.id === v)) return v;
   } catch {
     /* ignore */
   }
-  return 'indigo';
+  return 'black';
 }

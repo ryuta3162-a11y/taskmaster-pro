@@ -2205,28 +2205,28 @@ function sendAdminTaskReminder(taskId, keys, mode, customIntro) {
 }
 
 /**
- * 依頼者本人向け：自分が出した依頼の未実施者へリマインド（再投稿画面から）
- * 新規タスクは作らず、既存依頼の未完了者だけにメール送信する。
+ * 依頼者本人向け：自分が出した依頼の未実施者メール一覧（再投稿の「リマインドする」用）
+ * 新規作成はフロントで行い、ここでは宛先候補だけ返す。
  */
-function sendMyTaskReminder(taskId) {
+function getMyTaskIncompleteTargets(taskId) {
   try {
     var viewerEmail = Session.getActiveUser().getEmail();
     if (!viewerEmail) {
-      return { ok: false, message: 'Google アカウントでログインした状態で実行してください。' };
+      return { ok: false, message: 'Google アカウントでログインした状態で実行してください。', targets: [] };
     }
     if (!taskId) {
-      return { ok: false, message: 'タスクが指定されていません。' };
+      return { ok: false, message: 'タスクが指定されていません。', targets: [] };
     }
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('申請データ');
-    if (!sheet) return { ok: false, message: '申請データシートがありません。' };
+    if (!sheet) return { ok: false, message: '申請データシートがありません。', targets: [] };
     var values = sheet.getDataRange().getValues();
-    if (values.length <= 1) return { ok: false, message: 'タスクがありません。' };
+    if (values.length <= 1) return { ok: false, message: 'タスクがありません。', targets: [] };
     values.shift();
 
     var row = findTaskRowById_(values, taskId);
-    if (!row) return { ok: false, message: 'タスクが見つかりません。' };
+    if (!row) return { ok: false, message: 'タスクが見つかりません。', targets: [] };
 
     var employees = getEmployees();
     var empMap = getEmployeesByEmailMap_(employees);
@@ -2236,103 +2236,49 @@ function sendMyTaskReminder(taskId) {
 
     var senderName = String(row[4] || '').trim();
     if (!senderName || senderName !== viewerName) {
-      return { ok: false, message: '自分が投稿した依頼のみリマインドできます。' };
+      return { ok: false, message: '自分が投稿した依頼のみリマインドできます。', targets: [] };
     }
 
     var allStores = getStoreData();
     var areasList = getAreasListFromStores_(allStores);
     var progress = computeTaskProgressAdmin_(row, allStores, areasList);
-    var mode = progress.kind === 'store' ? 'store' : 'employee';
     var recipients = buildAdminTaskRecipients_(row, progress.kind, employees, allStores, areasList);
 
-    var emailsToSend = [];
-    var emailMap = {};
-    if (mode === 'store') {
+    var targets = [];
+    var seen = {};
+    if (progress.kind === 'store') {
       recipients.forEach(function (r) {
         if (r.done) return;
-        var sn = String(r.storeName || r.label || r.key || '').trim();
-        if (!sn) return;
         (r.assignees || []).forEach(function (a) {
           var em = normalizeTaskEmail(a.email);
-          if (!em) return;
-          if (!emailMap[em]) {
-            emailMap[em] = {
-              email: String(a.email).trim(),
-              name: a.name || a.email,
-              stores: []
-            };
-          }
-          if (emailMap[em].stores.indexOf(sn) < 0) {
-            emailMap[em].stores.push(sn);
-          }
+          if (!em || seen[em]) return;
+          seen[em] = true;
+          targets.push(String(a.email).trim());
         });
       });
-      Object.keys(emailMap).forEach(function (em) {
-        emailsToSend.push(emailMap[em]);
-      });
     } else {
-      var seen = {};
       recipients.forEach(function (r) {
         if (r.done) return;
         var em = normalizeTaskEmail(r.email);
-        if (em && !seen[em]) {
-          seen[em] = true;
-          emailsToSend.push({ email: String(r.email).trim(), name: r.name || r.email });
-        }
+        if (!em || seen[em]) return;
+        seen[em] = true;
+        targets.push(String(r.email).trim());
       });
     }
 
-    if (emailsToSend.length === 0) {
-      return { ok: false, message: '未実施の対象がありません（全員完了済みです）。' };
-    }
-
-    var viewerTeam = viewerEmp ? String(viewerEmp.team || '').trim() : '';
-    var fromLabel = viewerTeam
-      ? viewerName + '（' + viewerTeam + ' チーム）'
-      : viewerName;
-    var checklistUrl = getTaskEmailLink_() || getTaskWebAppUrl_();
-    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
-    var subject = '【To-Do List】' + viewerName + ' からのリマインド';
-    var introText = buildDefaultTeamReminderIntro_(viewerName, viewerTeam);
-
-    var sent = 0;
-    var errors = [];
-    emailsToSend.forEach(function (target) {
-      try {
-        var plain;
-        var html;
-        if (mode === 'store' && target.stores && target.stores.length) {
-          var bodies = buildTeamProgressStoreReminderBodies_(
-            target.name, introText, taskItem, target.stores, checklistUrl, fromLabel, viewerEmail
-          );
-          plain = bodies.plain;
-          html = bodies.html;
-        } else {
-          plain = buildTeamProgressReminderBody_(
-            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
-          );
-          html = buildTeamProgressReminderHtml_(
-            target.name, introText, taskItem, checklistUrl, fromLabel, viewerEmail
-          );
-        }
-        sendBrandedEmail_(target.email, subject, plain, html, {
-          name: fromLabel,
-          replyTo: viewerEmail
-        });
-        sent++;
-      } catch (mailErr) {
-        errors.push(target.email + ': ' + String(mailErr));
-      }
-    });
-
-    if (sent === 0) {
-      return { ok: false, message: '送信に失敗しました。\n' + errors.join('\n') };
-    }
-    var msg = sent + ' 名の未実施者にリマインドを送信しました。';
-    if (errors.length) msg += '\n（失敗: ' + errors.length + ' 件）';
-    return { ok: true, message: msg, sent: sent, failed: errors.length };
+    return {
+      ok: true,
+      targets: targets,
+      count: targets.length,
+      requestKind: progress.kind,
+      incompleteUnits: progress.done != null ? Math.max(0, (progress.total || 0) - (progress.done || 0)) : targets.length,
+      unitLabel: progress.kind === 'store' ? '店舗' : '名',
+      message: targets.length
+        ? targets.length + ' 名の未実施者がいます。'
+        : '未実施の対象がありません（全員完了済みです）。'
+    };
   } catch (e) {
-    return { ok: false, message: String(e) };
+    return { ok: false, message: String(e), targets: [] };
   }
 }
 

@@ -514,11 +514,11 @@ const api = {
     if (!isGAS) return setTimeout(() => res({ status: 'success', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).updateScheduledTask(id, data);
   }),
-  sendMyTaskReminder: (taskId) => new Promise((res, rej) => {
+  getMyTaskIncompleteTargets: (taskId) => new Promise((res, rej) => {
     if (!isGAS) {
-      return setTimeout(() => res({ ok: true, message: '（デモ）未実施者にリマインドを送信しました。', sent: 1 }), 600);
+      return setTimeout(() => res({ ok: true, targets: [], count: 0, message: '（デモ）未実施者なし' }), 400);
     }
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).sendMyTaskReminder(taskId);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).getMyTaskIncompleteTargets(taskId);
   })
 };
 
@@ -1041,7 +1041,7 @@ function RegChip({ selected, onClick, children, compact }) {
 }
 
 /** 配信直前：条件に一致した社員一覧（個別に配信対象から外せる） */
-function RecipientRosterPanel({ num, recipients, excludedEmails, onToggle, onSetAllIncluded }) {
+function RecipientRosterPanel({ num, recipients, excludedEmails, onToggle, onSetAllIncluded, leadNote }) {
   const [query, setQuery] = useState('');
   const excluded = new Set((excludedEmails || []).map(normalizeRecipientEmail));
   const includedCount = recipients.filter((r) => !excluded.has(normalizeRecipientEmail(r.email))).length;
@@ -1062,6 +1062,9 @@ function RecipientRosterPanel({ num, recipients, excludedEmails, onToggle, onSet
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <h4 className={`${appLabel} !mb-1 !pb-2`}>{num}. 配信先の最終確認</h4>
+          {leadNote ? (
+            <p className={`${appText.meta} leading-relaxed text-slate-800 font-bold mb-1`}>{leadNote}</p>
+          ) : null}
           <p className={`${appText.meta} leading-relaxed`}>
             条件に一致した方を一覧表示しています。タップで配信対象から外せます（再度タップで戻せます）。
           </p>
@@ -1263,7 +1266,7 @@ export default function App() {
     screenTransition === 'forward' ? 'app-screen-forward' : screenTransition === 'back' ? 'app-screen-back' : 'app-screen-fade';
 
   const accountInitial = (currentUser?.name || '?').trim().charAt(0) || '?';
-  const [accentId, setAccentId] = useState('indigo');
+  const [accentId, setAccentId] = useState('black');
 
   useEffect(() => {
     const id = readStoredAccentId();
@@ -1312,6 +1315,8 @@ export default function App() {
 
   const [sentTasks, setSentTasks] = useState([]);
   const [remindingTaskId, setRemindingTaskId] = useState(null);
+  const [repostIntent, setRepostIntent] = useState(null); // 'repost' | 'remind' | null
+  const [repostHelpKey, setRepostHelpKey] = useState(null); // `${taskId}-repost` | `${taskId}-remind` | null
   const [scheduledTasks, setScheduledTasks] = useState([]);
   
   const [scheduleDate, setScheduleDate] = useState('1');
@@ -1989,13 +1994,20 @@ export default function App() {
       setRequestSelectedStores(getFieldStoreNames(allStores));
       setRequestSelectedRoles(ROLES);
       setRequestRecipientExcluded([]);
+      setRepostIntent(null);
       setActiveTab('home');
       refreshChecklistTasks({ silent: true });
       refreshSentTasks();
     } catch (error) { alert('送信失敗: ' + formatGasError(error)); } finally { setIsSubmitting(false); }
   };
 
-  const handleRepostClick = (task) => {
+  const handleRepostClick = (task, options = {}) => {
+    const targetEmails =
+      Array.isArray(options.targetsOverride) && options.targetsOverride.length > 0
+        ? options.targetsOverride
+        : task.targets;
+    const isRemind = options.mode === 'remind';
+
     let storedUrls = [''];
     if (Array.isArray(task.urls) && task.urls.length > 0) {
       storedUrls = [...task.urls];
@@ -2013,8 +2025,8 @@ export default function App() {
     }
 
     const derived =
-      Array.isArray(task.targets) && task.targets.length > 0
-        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, getFieldStoreNames(allStores), ROLES, TEAMS)
+      Array.isArray(targetEmails) && targetEmails.length > 0
+        ? deriveStoresAndRolesFromTargets(targetEmails, allEmployees, getFieldStoreNames(allStores), ROLES, TEAMS)
         : null;
     const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
 
@@ -2039,22 +2051,28 @@ export default function App() {
       rolesList: ROLES,
       teamsList: TEAMS,
     });
-    setRequestRecipientExcluded(excludedEmailsFromSavedTargets(candidates, task.targets));
+    setRequestRecipientExcluded(excludedEmailsFromSavedTargets(candidates, targetEmails));
+    setRepostIntent(isRemind ? 'remind' : 'repost');
     setActiveTab('request');
   };
 
   const handleRemindClick = async (task) => {
     if (!task?.id || remindingTaskId) return;
-    const ok = window.confirm(
-      'この依頼の未実施者だけにリマインドメールを送ります。\n（新しい依頼は作らず、既存のタスクへの催促です）\n\n送信してよろしいですか？'
-    );
-    if (!ok) return;
     setRemindingTaskId(task.id);
     try {
-      const res = await api.sendMyTaskReminder(task.id);
-      alert((res && res.message) || (res && res.ok ? '送信しました。' : '送信できませんでした。'));
+      const res = await api.getMyTaskIncompleteTargets(task.id);
+      if (!res || !res.ok) {
+        alert((res && res.message) || '未実施者を取得できませんでした。');
+        return;
+      }
+      const targets = Array.isArray(res.targets) ? res.targets : [];
+      if (!targets.length) {
+        alert(res.message || '未実施の対象がありません（全員完了済みです）。');
+        return;
+      }
+      handleRepostClick(task, { mode: 'remind', targetsOverride: targets });
     } catch (error) {
-      alert('リマインド送信に失敗しました: ' + formatGasError(error));
+      alert('未実施者の取得に失敗しました: ' + formatGasError(error));
     } finally {
       setRemindingTaskId(null);
     }
@@ -2395,7 +2413,8 @@ export default function App() {
     excludedEmails,
     setExcludedEmails,
     startNum = 5,
-    mode = REQUEST_KIND.store
+    mode = REQUEST_KIND.store,
+    rosterLeadNote = null
   ) => {
     const isAllStoresSelected = selectedStores.length === allStores.length && allStores.length > 0;
     const rosterStep = startNum + 1;
@@ -2407,6 +2426,7 @@ export default function App() {
         excludedEmails={excludedEmails}
         onToggle={(email) => toggleRecipientExcluded(excludedEmails, setExcludedEmails, email)}
         onSetAllIncluded={(on) => setAllRecipientsIncluded(setExcludedEmails, recipients, on)}
+        leadNote={rosterLeadNote}
       />
     );
 
@@ -2921,7 +2941,7 @@ export default function App() {
                      <Icon name="chevronLeft" /> 戻る
                    </button>
                    <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0">
-                     {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
+                     {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿・リマインド' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
                    </h2>
                  </>
                ) : (
@@ -3062,7 +3082,7 @@ export default function App() {
                     </button>
                     <button type="button" onClick={() => navigateTab('repost')} className={dashboardMenuTile}>
                       <div className={dashboardMenuIcon}><Icon name="history" /></div>
-                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">再投稿</h4>
+                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">再投稿・リマインド</h4>
                       <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
                     <button type="button" onClick={() => navigateTab('scheduled')} className={dashboardMenuTile}>
@@ -3201,7 +3221,12 @@ export default function App() {
                           requestRecipientExcluded,
                           setRequestRecipientExcluded,
                           5,
-                          requestKind
+                          requestKind,
+                          repostIntent === 'remind'
+                            ? 'リマインド：過去の未実施者のみを宛先にしています。'
+                            : repostIntent === 'repost'
+                              ? '再投稿：過去と同じ宛先を引き継いでいます。'
+                              : null
                         )}
                       </div>
                     </div>
@@ -3223,9 +3248,11 @@ export default function App() {
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
                     <br />
                     <span className="text-sm font-semibold text-slate-500 mt-2 block">
-                      <strong className="text-slate-700">再利用して作成</strong> … 内容を引き継いで新しい依頼を作ります（期限を選び直してください）。
+                      <strong className="text-slate-700">再投稿する</strong> … 過去と同じ宛先で、新しい依頼を作ります。
                       <br />
-                      <strong className="text-slate-700">リマインドする</strong> … 新しい依頼は作らず、未実施の方だけに催促メールを送ります。
+                      <strong className="text-slate-700">リマインドする</strong> … 過去の<strong>未実施者のみ</strong>を宛先にした状態で、新しい依頼を作ります。
+                      <br />
+                      どちらも期限は選び直してください。添付はサムネイルをタップすると開けます。
                     </span>
                   </p>
                   
@@ -3243,18 +3270,70 @@ export default function App() {
                            <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
                            <SavedAttachmentStrip urls={task.images} />
                          </div>
-                         <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0">
-                           <button type="button" onClick={() => handleRepostClick(task)} className={brutalBtnSecondary + " w-full md:w-auto px-8"}>
-                             再利用して作成
-                           </button>
-                           <button
-                             type="button"
-                             onClick={() => handleRemindClick(task)}
-                             disabled={!!remindingTaskId}
-                             className={brutalBtnSecondary + " w-full md:w-auto px-8 disabled:opacity-50 disabled:cursor-not-allowed"}
-                           >
-                             {remindingTaskId === task.id ? '送信中…' : 'リマインドする'}
-                           </button>
+                         <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0 md:min-w-[12.5rem]">
+                           <div className="flex items-stretch gap-1.5">
+                             <button type="button" onClick={() => handleRepostClick(task, { mode: 'repost' })} className={brutalBtnSecondary + " flex-1 px-6"}>
+                               再投稿する
+                             </button>
+                             <button
+                               type="button"
+                               aria-label="再投稿するの説明"
+                               aria-expanded={repostHelpKey === task.id + '-repost'}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setRepostHelpKey((k) => (k === task.id + '-repost' ? null : task.id + '-repost'));
+                               }}
+                               className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                             >
+                               ?
+                             </button>
+                           </div>
+                           {repostHelpKey === task.id + '-repost' ? (
+                             <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
+                               <strong className="text-slate-800">再投稿する</strong>
+                               <br />
+                               過去と同じ内容・宛先で、新しい依頼を作れます。
+                               <br />
+                               「2. 期限（DL）」だけ選び直します。
+                               <br />
+                               （文面・画像・URLの変更も可能です）
+                             </p>
+                           ) : null}
+                           <div className="flex items-stretch gap-1.5">
+                             <button
+                               type="button"
+                               onClick={() => handleRemindClick(task)}
+                               disabled={!!remindingTaskId}
+                               className={brutalBtnSecondary + " flex-1 px-6 disabled:opacity-50 disabled:cursor-not-allowed"}
+                             >
+                               {remindingTaskId === task.id ? '準備中…' : 'リマインドする'}
+                             </button>
+                             <button
+                               type="button"
+                               aria-label="リマインドするの説明"
+                               aria-expanded={repostHelpKey === task.id + '-remind'}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setRepostHelpKey((k) => (k === task.id + '-remind' ? null : task.id + '-remind'));
+                               }}
+                               className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                             >
+                               ?
+                             </button>
+                           </div>
+                           {repostHelpKey === task.id + '-remind' ? (
+                             <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
+                               <strong className="text-slate-800">リマインドする</strong>
+                               <br />
+                               未実施の人だけを宛先に入れた状態で、再投稿できます。
+                               <br />
+                               「2. 期限（DL）」だけ選び直します。
+                               <br />
+                               （文面・画像・URLの変更も可能です）
+                               <br />
+                               ※期限を過ぎても未実施の方への催促に使ってください。
+                             </p>
+                           ) : null}
                          </div>
                       </div>
                     ))}
