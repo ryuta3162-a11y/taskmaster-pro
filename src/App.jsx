@@ -3248,11 +3248,13 @@ export default function App() {
                     <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
                     <br />
                     <span className="text-sm font-semibold text-slate-500 mt-2 block">
-                      <strong className="text-slate-700">再投稿する</strong> … 過去と同じ宛先で、新しい依頼を作ります。
+                      <strong className="text-slate-700">再投稿する</strong> … 過去と同じ内容・宛先で、新しい依頼を作れます。
                       <br />
-                      <strong className="text-slate-700">リマインドする</strong> … 過去の<strong>未実施者のみ</strong>を宛先にした状態で、新しい依頼を作ります。
+                      <strong className="text-slate-700">リマインドする</strong> … 過去の<strong>未実施者のみ</strong>を宛先にした状態で、再投稿できます。
                       <br />
-                      どちらも期限は選び直してください。添付はサムネイルをタップすると開けます。
+                      一覧には<strong>期限が過ぎた依頼だけ</strong>が出ます（期限当日までは表示しません）。
+                      <br />
+                      どちらも「2. 期限（DL）」は選び直してください。添付はサムネイルをタップすると開けます。
                     </span>
                   </p>
                   

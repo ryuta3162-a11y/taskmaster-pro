@@ -748,10 +748,15 @@ function getSentTasks(userName) {
     const values = sheet.getDataRange().getValues();
     if (values.length <= 1) return [];
     values.shift();
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     return values.map(row => ({
       id: String(row[0] || ""),
       createdAt: row[1] ? Utilities.formatDate(new Date(row[1]), "JST", "yyyy/MM/dd") : "",
       deadline: row[3] ? Utilities.formatDate(new Date(row[3]), "JST", "yyyy-MM-dd") : "",
+      deadlineRaw: row[3],
       sender: String(row[4] || ""),
       content: String(row[5] || ""),
       urls: [String(row[6]||""), String(row[7]||""), String(row[8]||"")].filter(Boolean),
@@ -760,7 +765,18 @@ function getSentTasks(userName) {
       /** 配信先メール（再投稿で役職・店舗を正確に復元するため） */
       targets: String(row[13] || "").split(",").map(function (e) { return e.trim(); }).filter(Boolean),
       requestKind: normalizeRequestKind_(row[15])
-    })).filter(t => t.sender === userName).reverse();
+    })).filter(function (t) {
+      if (t.sender !== userName) return false;
+      // 期限が過ぎた依頼のみ（期限当日はまだ出さない → 二重配信防止）
+      if (!t.deadlineRaw) return false;
+      var d = new Date(t.deadlineRaw);
+      if (isNaN(d.getTime())) return false;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() < today.getTime();
+    }).map(function (t) {
+      delete t.deadlineRaw;
+      return t;
+    }).reverse();
   } catch(e) { return []; }
 }
 
