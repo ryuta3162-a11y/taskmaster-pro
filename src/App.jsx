@@ -34,8 +34,6 @@ const appKindRadio = (on) =>
   `flex items-center gap-3 flex-1 p-4 rounded-xl border cursor-pointer transition-colors ${
     on ? 'border-[var(--acc-500)] bg-[var(--acc-50)] ring-1 ring-[var(--acc-200)]/40' : 'border-slate-200 bg-white hover:border-slate-300'
   }`;
-/** 定期配信：スケジュール直下のオプション（黄色ではなくアクセント系の控えめボックス） */
-const appScheduleOption = 'flex items-start gap-3 mt-5 p-4 rounded-xl border border-[var(--acc-200)]/55 bg-[var(--acc-50)]/50 cursor-pointer hover:bg-[var(--acc-50)]/80 transition-colors ring-1 ring-black/[0.03]';
 const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
 /** ダッシュボード（ホーム）の4メニュー用・やや大きめ */
 const dashboardMenuTile = "w-full text-left bg-white rounded-2xl p-5 md:p-7 min-h-[5.25rem] md:min-h-[6.25rem] shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-black/[0.05] active:scale-[0.99] transition-all flex items-center gap-4 md:gap-5";
@@ -67,7 +65,7 @@ function parseAppEntryFromQueryString(queryString) {
     return { checklistOnlyMode: true, initialTab: 'checklist' };
   }
   const tab = params.get('tab');
-  const allowed = ['home', 'request', 'repost', 'scheduled', 'checklist'];
+  const allowed = ['home', 'request', 'repost', 'checklist'];
   if (tab && allowed.includes(tab)) {
     return { checklistOnlyMode: false, initialTab: tab };
   }
@@ -136,7 +134,7 @@ function fetchAppEntryFromGas(callback) {
         return;
       }
       const tab = loc && loc.parameter && loc.parameter.tab;
-      const allowed = ['home', 'request', 'repost', 'scheduled', 'checklist'];
+      const allowed = ['home', 'request', 'repost', 'checklist'];
       if (tab && allowed.includes(tab)) {
         callback({ checklistOnlyMode: false, initialTab: tab });
       }
@@ -206,15 +204,6 @@ function getFieldStoreNames(allStores) {
 
 /** 従業員シートの管轄店舗上限（H列〜、GAS の EMPLOYEE_STORE_COL_MAX と一致） */
 const MAX_EMPLOYEE_STORES = 50;
-
-/** 定期配信の実行時刻（GAS の processScheduledTasksBatch と一致させる） */
-const SCHEDULE_DELIVERY_TIME = '10:00';
-
-/** 「毎月 N日 10:00」形式から日だけ取り出す */
-function parseCycleDayFromString(cycleStr) {
-  const m = String(cycleStr || '').match(/毎月\s+(\d{1,2})日/);
-  return m ? m[1] : '1';
-}
 
 /** 従業員データのチーム列（カンマ区切り可）を配列に */
 function parseEmployeeTeams(teamStr) {
@@ -497,22 +486,6 @@ const api = {
   getSentTasks: (name) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res([]), 800);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).getSentTasks(name);
-  }),
-  getScheduledTasks: (name) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res([]), 800);
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).getScheduledTasks(name);
-  }),
-  registerScheduledTask: (data) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({ status: 'success', driveErrors: [] }), 1000);
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).registerScheduledTask(data);
-  }),
-  deleteScheduledTask: (id) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({status:'success'}), 1000);
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).deleteScheduledTask(id);
-  }),
-  updateScheduledTask: (id, data) => new Promise((res, rej) => {
-    if (!isGAS) return setTimeout(() => res({ status: 'success', driveErrors: [] }), 1000);
-    google.script.run.withSuccessHandler(res).withFailureHandler(rej).updateScheduledTask(id, data);
   }),
   getMyTaskIncompleteTargets: (taskId) => new Promise((res, rej) => {
     if (!isGAS) {
@@ -1257,6 +1230,8 @@ export default function App() {
 
   const navigateTab = (tab) => {
     if (checklistOnlyMode && tab !== 'checklist') return;
+    // 定期配信は廃止
+    if (tab === 'scheduled') tab = 'home';
     setScreenTransition(tab === 'home' ? 'back' : activeTab === 'home' ? 'forward' : 'fade');
     setActiveTab(tab);
     setIsAccountMenuOpen(false);
@@ -1317,21 +1292,6 @@ export default function App() {
   const [remindingTaskId, setRemindingTaskId] = useState(null);
   const [repostIntent, setRepostIntent] = useState(null); // 'repost' | 'remind' | null
   const [repostHelpKey, setRepostHelpKey] = useState(null); // `${taskId}-repost` | `${taskId}-remind` | null
-  const [scheduledTasks, setScheduledTasks] = useState([]);
-  
-  const [scheduleDate, setScheduleDate] = useState('1');
-  const [scheduleForm, setScheduleForm] = useState({ deadlineOffset: '月末', content: '', urls: [''] });
-  /** チェック時は初回の今月分タスクを作らず、翌月の定期配信からのみ開始 */
-  const [scheduleSkipInitialMonth, setScheduleSkipInitialMonth] = useState(false);
-  /** 編集中の定期配信ID（null なら新規登録） */
-  const [scheduleEditingId, setScheduleEditingId] = useState(null);
-  const [scheduleImages, setScheduleImages] = useState([]); 
-  const [scheduleSelectedStores, setScheduleSelectedStores] = useState([]);
-  const [scheduleSelectedRoles, setScheduleSelectedRoles] = useState(ROLES);
-  const [scheduleSelectedTeams, setScheduleSelectedTeams] = useState(TEAMS);
-  /** 定期配信：配信先一覧で除外したメール（小文字） */
-  const [scheduleRecipientExcluded, setScheduleRecipientExcluded] = useState([]);
-  const [scheduleRequestKind, setScheduleRequestKind] = useState(REQUEST_KIND.employee);
 
   const targetListParams = useMemo(
     () => ({ allEmployees, rolesList: ROLES, teamsList: TEAMS }),
@@ -1356,33 +1316,10 @@ export default function App() {
     ]
   );
 
-  const scheduleRecipientCandidates = useMemo(
-    () =>
-      computeTargetRecipientsList({
-        requestKind: scheduleRequestKind,
-        selectedStores: scheduleSelectedStores,
-        selectedRoles: scheduleSelectedRoles,
-        selectedTeams: scheduleSelectedTeams,
-        ...targetListParams,
-      }),
-    [
-      scheduleRequestKind,
-      scheduleSelectedStores,
-      scheduleSelectedRoles,
-      scheduleSelectedTeams,
-      targetListParams,
-    ]
-  );
-
   useEffect(() => {
     const valid = new Set(requestRecipientCandidates.map((r) => normalizeRecipientEmail(r.email)));
     setRequestRecipientExcluded((prev) => prev.filter((e) => valid.has(e)));
   }, [requestRecipientCandidates]);
-
-  useEffect(() => {
-    const valid = new Set(scheduleRecipientCandidates.map((r) => normalizeRecipientEmail(r.email)));
-    setScheduleRecipientExcluded((prev) => prev.filter((e) => valid.has(e)));
-  }, [scheduleRecipientCandidates]);
 
   const todayForMin = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
 
@@ -1400,7 +1337,6 @@ export default function App() {
       
       const allStoreNames = getFieldStoreNames(strData);
       setRequestSelectedStores(allStoreNames);
-      setScheduleSelectedStores(allStoreNames);
 
       const savedEmail = localStorage.getItem('taskmaster_user_email');
       const user = emps.find(e => e.email === savedEmail);
@@ -1431,11 +1367,6 @@ export default function App() {
     api.getSentTasks(currentUser.name).then((res) => setSentTasks(Array.isArray(res) ? res : []));
   }, [currentUser?.name]);
 
-  const refreshScheduledTasks = useCallback(() => {
-    if (!currentUser?.name) return;
-    api.getScheduledTasks(currentUser.name).then((res) => setScheduledTasks(Array.isArray(res) ? res : []));
-  }, [currentUser?.name]);
-
   const refreshAllAppData = useCallback(() => {
     if (!currentUser?.email) return;
     setTasksLoading(true);
@@ -1444,7 +1375,6 @@ export default function App() {
       .then((data) => {
         setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
         setSentTasks(Array.isArray(data?.sentTasks) ? data.sentTasks : []);
-        setScheduledTasks(Array.isArray(data?.scheduledTasks) ? data.scheduledTasks : []);
         setTasksLoading(false);
       })
       .catch(() => setTasksLoading(false));
@@ -1458,11 +1388,6 @@ export default function App() {
     if (authStep !== 'ready' || !currentUser) return;
     if (activeTab === 'repost') refreshSentTasks();
   }, [activeTab, authStep, currentUser, refreshSentTasks]);
-
-  useEffect(() => {
-    if (authStep !== 'ready' || !currentUser) return;
-    if (activeTab === 'scheduled') refreshScheduledTasks();
-  }, [activeTab, authStep, currentUser, refreshScheduledTasks]);
 
   useEffect(() => {
     if (checklistKindFilter === 'employee') setSelectedChecklistStores([]);
@@ -1751,22 +1676,13 @@ export default function App() {
     newUrls[index] = value;
     setRequestForm({ ...requestForm, urls: newUrls });
   };
-  const handleScheduleUrlChange = (index, value) => {
-    const newUrls = [...scheduleForm.urls];
-    newUrls[index] = value;
-    setScheduleForm({ ...scheduleForm, urls: newUrls });
-  };
 
   const handleImageChange = (e, formType) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
 
     const append = (item) => {
-      if (formType === 'request') {
-        setRequestImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
-      } else {
-        setScheduleImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
-      }
+      setRequestImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
     };
 
     files.forEach((file) => {
@@ -1838,11 +1754,7 @@ export default function App() {
     e.target.value = '';
 
     const append = (item) => {
-      if (formType === 'request') {
-        setRequestImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
-      } else {
-        setScheduleImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
-      }
+      setRequestImages((prev) => (prev.length < MAX_ATTACHMENTS ? [...prev, item] : prev));
     };
 
     files.forEach((file) => {
@@ -1874,8 +1786,7 @@ export default function App() {
   };
 
   const removeImage = (index, formType) => {
-    if (formType === 'request') setRequestImages(prev => prev.filter((_, i) => i !== index));
-    else setScheduleImages(prev => prev.filter((_, i) => i !== index));
+    setRequestImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const buildTeamTag = (selectedTeams) => {
@@ -2075,166 +1986,6 @@ export default function App() {
       alert('未実施者の取得に失敗しました: ' + formatGasError(error));
     } finally {
       setRemindingTaskId(null);
-    }
-  };
-
-  const handleScheduleSubmit = async (e) => {
-    e.preventDefault();
-    const targetErr = validateTargetSelection(scheduleRequestKind, {
-      roles: scheduleSelectedRoles,
-      teams: scheduleSelectedTeams,
-      stores: scheduleSelectedStores,
-    });
-    if (targetErr) return alert(targetErr);
-
-    const includedRecipients = filterRecipientsByExclusions(
-      scheduleRecipientCandidates,
-      scheduleRecipientExcluded
-    );
-    if (scheduleRecipientCandidates.length === 0) {
-      const rkEmpty = normalizeRequestKind(scheduleRequestKind);
-      const emptyMsg =
-        rkEmpty === REQUEST_KIND.employee
-          ? '配信先となる社員がいません。役職の選択を見直してください。'
-          : rkEmpty === REQUEST_KIND.store
-            ? '配信先となる社員がいません。店舗の選択を見直してください。'
-            : '配信先となる社員がいません。チームの選択を見直してください。';
-      return alert(emptyMsg);
-    }
-    if (includedRecipients.length === 0) {
-      return alert('配信対象が0名です。配信先の最終確認で1名以上を「配信」にしてください。');
-    }
-
-    setIsSubmitting(true);
-    const targetEmails = includedRecipients.map((r) => r.email);
-
-    const validUrls = scheduleForm.urls.filter(u => u.trim() !== '');
-    const finalTagsStr = generateTargetTags(
-      scheduleRequestKind,
-      scheduleRequestKind === REQUEST_KIND.store ? scheduleSelectedStores : getFieldStoreNames(allStores),
-      scheduleSelectedRoles,
-      scheduleSelectedTeams
-    );
-    const cycleString = `毎月 ${scheduleDate}日 ${SCHEDULE_DELIVERY_TIME}`;
-    const scheduleImagePayload = scheduleImages.map((img) =>
-      img.reuseUrl
-        ? { name: img.name, type: img.type || 'image/jpeg', reuseUrl: img.reuseUrl }
-        : { name: img.name, type: img.type, base64: img.base64 }
-    );
-
-    try {
-      if (scheduleEditingId) {
-        const upd = await api.updateScheduledTask(scheduleEditingId, {
-          sender: currentUser.name,
-          cycle: cycleString,
-          deadlineOffset: scheduleForm.deadlineOffset,
-          content: scheduleForm.content,
-          urls: validUrls,
-          targetTags: finalTagsStr,
-          targets: targetEmails,
-          requestKind: scheduleRequestKind,
-          images: scheduleImagePayload
-        });
-        let msg = '保存しました。次回の定期配信からこの内容で送信されます。';
-        if (upd.driveErrors && upd.driveErrors.length) {
-          msg += '\n\n【添付ファイルの保存に失敗したものがあります】\n' + upd.driveErrors.join('\n');
-        }
-        alert(msg);
-      } else {
-        const reg = await api.registerScheduledTask({
-          sender: currentUser.name,
-          cycle: cycleString,
-          deadlineOffset: scheduleForm.deadlineOffset,
-          content: scheduleForm.content,
-          urls: validUrls,
-          targetTags: finalTagsStr,
-          targets: targetEmails,
-          requestKind: scheduleRequestKind,
-          images: scheduleImagePayload,
-          skipInitialTask: scheduleSkipInitialMonth
-        });
-        let msg = 'スケジュールを登録しました！';
-        if (reg.driveErrors && reg.driveErrors.length) {
-          msg += '\n\n【添付ファイルの保存に失敗したものがあります】\n' + reg.driveErrors.join('\n');
-        }
-        alert(msg);
-      }
-      setScheduleEditingId(null);
-      setScheduleForm({ deadlineOffset: '月末', content: '', urls: [''] });
-      setScheduleSkipInitialMonth(false);
-      setScheduleDate('1');
-      setScheduleImages([]);
-      setScheduleRequestKind(REQUEST_KIND.employee);
-      setScheduleSelectedStores(getFieldStoreNames(allStores));
-      setScheduleSelectedRoles(ROLES);
-      setScheduleSelectedTeams(TEAMS);
-      setScheduleRecipientExcluded([]);
-      refreshScheduledTasks();
-      refreshChecklistTasks({ silent: true });
-    } catch (error) {
-      alert((scheduleEditingId ? '保存に失敗しました: ' : '登録失敗: ') + formatGasError(error));
-    } finally { setIsSubmitting(false); }
-  };
-
-  const handleEditScheduleClick = (task) => {
-    setScheduleEditingId(task.id);
-    setScheduleDate(parseCycleDayFromString(task.cycle));
-    const urls = task.urls && task.urls.length > 0 ? [...task.urls] : [''];
-    setScheduleForm({
-      deadlineOffset: task.deadlineOffset || '月末',
-      content: task.content || '',
-      urls
-    });
-    const imgs = [];
-    if (Array.isArray(task.images)) {
-      task.images.forEach((url, idx) => {
-        const item = attachmentFromStoredUrl_(url, idx);
-        if (item) imgs.push(item);
-      });
-    }
-    setScheduleImages(imgs);
-    const derived =
-      Array.isArray(task.targets) && task.targets.length > 0
-        ? deriveStoresAndRolesFromTargets(task.targets, allEmployees, getFieldStoreNames(allStores), ROLES, TEAMS)
-        : null;
-    const { stores, roles, teams } = derived || parseTargetTagsToSelection(task.targetTags, allStores, AREAS, ROLES, TEAMS);
-    const rk = normalizeRequestKind(task.requestKind);
-    setScheduleSelectedStores(stores);
-    setScheduleSelectedRoles(roles);
-    setScheduleSelectedTeams(teams);
-    setScheduleRequestKind(rk);
-    const candidates = computeTargetRecipientsList({
-      requestKind: rk,
-      selectedStores: stores,
-      selectedRoles: roles,
-      selectedTeams: teams,
-      allEmployees,
-      rolesList: ROLES,
-      teamsList: TEAMS,
-    });
-    setScheduleRecipientExcluded(excludedEmailsFromSavedTargets(candidates, task.targets));
-    setScheduleSkipInitialMonth(false);
-    setActiveTab('scheduled');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleCancelScheduleEdit = () => {
-    setScheduleEditingId(null);
-    setScheduleForm({ deadlineOffset: '月末', content: '', urls: [''] });
-    setScheduleSkipInitialMonth(false);
-    setScheduleDate('1');
-    setScheduleImages([]);
-    setScheduleRequestKind(REQUEST_KIND.employee);
-    setScheduleSelectedStores(getFieldStoreNames(allStores));
-    setScheduleSelectedRoles(ROLES);
-    setScheduleSelectedTeams(TEAMS);
-    setScheduleRecipientExcluded([]);
-  };
-
-  const handleDeleteSchedule = async (id) => {
-    if (window.confirm('この定期配信を削除（停止）しますか？')) {
-      await api.deleteScheduledTask(id);
-      refreshScheduledTasks();
     }
   };
 
@@ -2941,7 +2692,7 @@ export default function App() {
                      <Icon name="chevronLeft" /> 戻る
                    </button>
                    <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0">
-                     {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿・リマインド' : activeTab === 'scheduled' ? '定期配信' : 'リストチェック'}
+                     {activeTab === 'request' ? 'タスク配信' : activeTab === 'repost' ? '再投稿・リマインド' : 'リストチェック'}
                    </h2>
                  </>
                ) : (
@@ -3083,11 +2834,6 @@ export default function App() {
                     <button type="button" onClick={() => navigateTab('repost')} className={dashboardMenuTile}>
                       <div className={dashboardMenuIcon}><Icon name="history" /></div>
                       <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">再投稿・リマインド</h4>
-                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
-                    </button>
-                    <button type="button" onClick={() => navigateTab('scheduled')} className={dashboardMenuTile}>
-                      <div className={dashboardMenuIcon}><Icon name="repeat" /></div>
-                      <h4 className="text-lg md:text-xl font-bold text-slate-900 flex-1">定期配信</h4>
                       <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
                     </button>
                     <button type="button" onClick={() => navigateTab('checklist')} className={dashboardMenuTile + ' relative'}>
@@ -3245,7 +2991,7 @@ export default function App() {
               {!checklistOnlyMode && activeTab === 'repost' && (
                 <div className="animate-fade-in w-full mt-4">
                   <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
-                    <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます（定期配信の一覧とは別です）。
+                    <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます。
                     <br />
                     <span className="text-sm font-semibold text-slate-500 mt-2 block">
                       <strong className="text-slate-700">再投稿する</strong> … 過去と同じ内容・宛先で、新しい依頼を作れます。
@@ -3343,186 +3089,7 @@ export default function App() {
                 </div>
               )}
               
-              {/* === 定期配信 === */}
-              {!checklistOnlyMode && activeTab === 'scheduled' && (
-                <div className="w-full space-y-10 animate-fade-in mt-4">
-                  {scheduleEditingId && (
-                    <div className="rounded-2xl border border-[var(--acc-200)]/60 bg-[var(--acc-50)]/60 p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <p className={`${appText.body} font-bold text-slate-800`}>
-                        編集中：保存すると<strong>次回の定期配信から</strong>この内容で送信されます（今日のタスクは増えません）。
-                      </p>
-                      <button type="button" onClick={handleCancelScheduleEdit} className={brutalBtnSecondary + " whitespace-nowrap py-3 px-5"}>
-                        編集をやめる
-                      </button>
-                    </div>
-                  )}
-                  <form onSubmit={handleScheduleSubmit} className="flex flex-col gap-6 w-full">
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-0 w-full">
-                      {/* 左列：1〜4 */}
-                      <div className="flex flex-col gap-5 w-full xl:pr-8 xl:border-r xl:border-slate-200/80">
-                        <div className={appSection}>
-                          <label className={appLabelKind}>依頼の種類 <span className="text-rose-500">*</span></label>
-                          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                            <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.employee)}>
-                              <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.employee} onChange={() => setScheduleRequestKind(REQUEST_KIND.employee)} />
-                              <span className={`${appText.body} font-bold text-slate-900`}>社員への依頼</span>
-                            </label>
-                            <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.store)}>
-                              <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.store} onChange={() => setScheduleRequestKind(REQUEST_KIND.store)} />
-                              <span className={`${appText.body} font-bold text-slate-900`}>店舗への依頼</span>
-                            </label>
-                            <label className={appKindRadio(scheduleRequestKind === REQUEST_KIND.tf)}>
-                              <input type="radio" name="scheduleRequestKind" className="w-4 h-4 accent-[var(--acc-600)] shrink-0" checked={scheduleRequestKind === REQUEST_KIND.tf} onChange={() => setScheduleRequestKind(REQUEST_KIND.tf)} />
-                              <span className={`${appText.body} font-bold text-slate-900`}>TFチームの依頼</span>
-                            </label>
-                          </div>
-                        </div>
-                        <div className={appSection}>
-                          <label className={appLabel}>1. 配信スケジュール <span className="text-rose-500">*</span></label>
-                          <p className={`${appText.meta} mb-4`}>配信時刻は<strong className="text-slate-700">午前10:00</strong>固定です。</p>
-                          <div className="flex flex-col sm:flex-row gap-4 mt-2">
-                            <div className="flex-1">
-                              <label className="text-xs font-bold text-slate-600 mb-2 block">毎月何日に配信するか</label>
-                              <div className="relative">
-                                <select value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className={brutalInput + " appearance-none text-center"}>
-                                  {Array.from({length: 31}, (_, i) => <option key={i+1} value={i+1}>{i+1}日</option>)}
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 font-bold">▼</div>
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <label className="text-xs font-bold text-slate-600 mb-2 block">タスクの期限（毎月〜まで）</label>
-                              <div className="relative">
-                                <select value={scheduleForm.deadlineOffset} onChange={e => setScheduleForm({...scheduleForm, deadlineOffset: e.target.value})} className={brutalInput + " appearance-none text-center"}>
-                                  <option value="月末">月末</option>
-                                  {Array.from({length: 31}, (_, i) => <option key={i+1} value={`${i+1}日`}>{i+1}日</option>)}
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 font-bold">▼</div>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-4">登録日: {todayForMin} ／ 保存される配信時刻: {SCHEDULE_DELIVERY_TIME}</p>
 
-                          {!scheduleEditingId && (
-                            <label className={appScheduleOption}>
-                              <input
-                                type="checkbox"
-                                checked={scheduleSkipInitialMonth}
-                                onChange={(e) => setScheduleSkipInitialMonth(e.target.checked)}
-                                className="mt-0.5 w-5 h-5 shrink-0 rounded border border-slate-300 text-[var(--acc-600)] accent-[var(--acc-600)] focus:ring-[var(--acc-500)]"
-                              />
-                              <span className="min-w-0 leading-relaxed">
-                                <span className={`${appText.body} font-bold text-slate-900 block`}>今月の初回分は作成しない</span>
-                                <span className={`${appText.meta} block mt-1.5`}>
-                                  チェックすると、上の「毎月何日に配信するか」（現在：
-                                  <strong className="text-[var(--acc-700)]">{scheduleDate}日</strong>
-                                  ）の<strong className="text-[var(--acc-700)]">翌月{scheduleDate}日</strong>
-                                  から配信が始まります。
-                                </span>
-                              </span>
-                            </label>
-                          )}
-                        </div>
-
-                        <div className={appSection}>
-                          <label className={appLabel}>2. 依頼内容 <span className="text-rose-500">*</span></label>
-                          <textarea required value={scheduleForm.content} onChange={e => setScheduleForm({...scheduleForm, content: e.target.value})} rows="5" className={`${brutalInput} min-h-[160px]`} placeholder="例: 月末の棚卸し報告をお願いします"></textarea>
-                        </div>
-
-                        <div className={appSection}>
-                          <label className={appLabel}>3. URL (任意 / 最大3つ)</label>
-                          <div className="space-y-3">
-                            {scheduleForm.urls.map((url, i) => (
-                              <div key={i} className="flex gap-3">
-                                <input type="url" value={url} onChange={e => handleScheduleUrlChange(i, e.target.value)} className={brutalInput + " py-3"} placeholder="https://..." />
-                                {scheduleForm.urls.length > 1 && (
-                                  <button type="button" onClick={() => {
-                                    const newUrls = scheduleForm.urls.filter((_, index) => index !== i);
-                                    setScheduleForm({ ...scheduleForm, urls: newUrls });
-                                  }} className="w-14 bg-rose-500 text-white border-2 border-slate-300 shadow-sm rounded-xl flex items-center justify-center hover:opacity-90 transition-all"><Icon name="trash" /></button>
-                                )}
-                              </div>
-                            ))}
-                            {scheduleForm.urls.length < 3 && (
-                              <button type="button" onClick={() => setScheduleForm({ ...scheduleForm, urls: [...scheduleForm.urls, ''] })} className={brutalBtnSecondary + " w-full py-2 text-sm"}>
-                                <Icon name="plusCircle" /> URLを追加
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <AttachmentUploadPanel
-                          images={scheduleImages}
-                          formType="schedule"
-                          onImageChange={handleImageChange}
-                          onZipChange={handleZipChange}
-                          onRemove={removeImage}
-                          thumbSizeClass="w-28 h-28"
-                          removeBtnClass="absolute top-1 right-1 bg-rose-500 text-white border-2 border-slate-300 p-1.5 rounded-full hover:scale-110 transition-transform z-20"
-                          imageAreaClass="p-6"
-                          imagePromptClass="text-sm font-bold"
-                        />
-                      </div>
-
-                      {/* 右列：5〜6 */}
-                      <div className="w-full flex flex-col gap-5 xl:pl-8">
-                        {renderTargetSelector(
-                          scheduleSelectedStores,
-                          setScheduleSelectedStores,
-                          scheduleSelectedRoles,
-                          setScheduleSelectedRoles,
-                          scheduleSelectedTeams,
-                          setScheduleSelectedTeams,
-                          scheduleRecipientCandidates,
-                          scheduleRecipientExcluded,
-                          setScheduleRecipientExcluded,
-                          5,
-                          scheduleRequestKind
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`${appFormSubmitRow} flex flex-col gap-4`}>
-                      <button type="submit" disabled={isSubmitting} className={appBtnPrimary}>
-                        {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="repeat" />}
-                        <span className="ml-3">
-                          {isSubmitting ? '処理中...' : scheduleEditingId ? '変更を保存する' : 'スケジュールを登録する'}
-                        </span>
-                      </button>
-                    </div>
-                  </form>
-
-                  <div className="mt-10">
-                    <h3 className={`${appLabel} mb-6`}>稼働中の定期配信</h3>
-                    <div className="space-y-6 w-full">
-                      {scheduledTasks.length === 0 ? (
-                        <p className={`text-center text-slate-500 py-10 ${appText.body}`}>登録されている定期配信はありません</p>
-                      ) : scheduledTasks.map(task => (
-                        <div key={task.id} className={`${appCard} flex flex-col md:flex-row justify-between items-stretch md:items-center gap-5`}>
-                           <div className="flex-1 text-center md:text-left w-full">
-                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
-                               <span className={`${appTagOnAccent} bg-[var(--acc-500)] gap-1.5`}><Icon name="repeat"/> {task.cycle}</span>
-                               <span className={`${appTagPill} text-slate-700 bg-slate-50`}>期限: 毎月 {task.deadlineOffset}</span>
-                               {task.targetTags && <span className={`${appTagPill} text-slate-700 bg-slate-50`}>宛先: {task.targetTags}</span>}
-                             </div>
-                             <p className={`${appText.title} text-slate-800 leading-relaxed`}>{formatContent(task.content)}</p>
-                             <SavedAttachmentStrip urls={task.images} />
-                           </div>
-                           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
-                             <button type="button" onClick={() => handleEditScheduleClick(task)} className={`${appBtnSecondary} w-full md:w-auto px-5`}>
-                               <Icon name="calendar" /> 内容を編集
-                             </button>
-                             <button type="button" onClick={() => handleDeleteSchedule(task.id)} className={`${appBtnSecondary} w-full md:w-auto px-5 hover:bg-rose-500 hover:text-white hover:border-rose-300`}>
-                               <Icon name="trash" /> 停止
-                             </button>
-                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
               {/* === リストチェック画面 === */}
               {activeTab === 'checklist' && (
                 <div className="animate-fade-in w-full mt-4">

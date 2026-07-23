@@ -803,6 +803,7 @@ function computeDeadlineForScheduledOffset_(now, deadlineOffsetStr) {
 }
 
 function registerScheduledTask(taskData) {
+  return { status: 'error', message: '定期配信は終了しました。再投稿・リマインドをご利用ください。' };
   try {
     var driveResult = saveImagesToDrive(taskData.images, taskData.sender);
     var uploadedUrls = driveResult.urls;
@@ -884,6 +885,7 @@ function registerScheduledTask(taskData) {
 }
 
 function getScheduledTasks(userName) {
+  return [];
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('定期配信データ');
@@ -911,6 +913,7 @@ function getScheduledTasks(userName) {
  * 定期配信の内容を更新（次回の processScheduledTasksBatch から反映）。初回タスクは再作成しない。
  */
 function updateScheduledTask(id, taskData) {
+  return { status: 'error', message: '定期配信は終了しました。再投稿・リマインドをご利用ください。' };
   try {
     var driveResult = saveImagesToDrive(taskData.images, taskData.sender);
     var uploadedUrls = driveResult.urls;
@@ -950,6 +953,7 @@ function updateScheduledTask(id, taskData) {
 }
 
 function deleteScheduledTask(id) {
+  return { status: 'error', message: '定期配信は終了しました。' };
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('定期配信データ');
@@ -1193,6 +1197,9 @@ function createNewTask(taskData) {
 // 6. 定期配信の自動実行バッチ処理
 // ==============================================================
 function processScheduledTasksBatch() {
+  // 定期配信は廃止（申請ゼロ・再投稿/リマインドで代替）。既存トリガーが残っていても何もしない。
+  Logger.log('processScheduledTasksBatch: disabled (定期配信は終了)');
+  return;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('定期配信データ');
   if (!sheet) return;
@@ -2025,6 +2032,7 @@ function buildAdminTaskSummaryFromRow_(row, allStores, areasList, today) {
 }
 
 function getAdminScheduledRows_() {
+  return [];
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('定期配信データ');
   if (!sheet) return [];

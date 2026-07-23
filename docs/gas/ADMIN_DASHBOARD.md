@@ -62,7 +62,6 @@
 | **社員依頼** | 社員向け依頼の一覧・進捗 |
 | **店舗依頼** | 店舗向け依頼の一覧・進捗 |
 | **TF依頼** | TFチーム向け依頼の一覧・進捗 |
-| **定期配信** | 「定期配信データ」シートの登録一覧（参照のみ） |
 | **リマインド効果** | 自動リマインド送信前後の進捗％（会議用） |
 
 ### リマインド効果タブ
@@ -100,7 +99,7 @@
 
 | 関数 | 用途 |
 |------|------|
-| `getAdminDashboardData()` | 一覧・集計・`employeeTasks` / `storeTasks` / `tfTasks` / `scheduledTasks` / `reminderEffects` |
+| `getAdminDashboardData()` | 一覧・集計・`employeeTasks` / `storeTasks` / `tfTasks` / `reminderEffects`（`scheduledTasks` は空配列のまま互換維持） |
 | `sendAdminTaskReminder(taskId, keys, mode)` | 依頼1件・選択した未実施者／店舗担当へリマインドメール（`mode`: `'employee'` \| `'store'`） |
 
 （従来のユーザー別リマインド `sendAdminReminderEmail` が残っている場合は、新 UI では上記の依頼単位リマインドを主に使います。）

@@ -153,7 +153,7 @@
     .status-strip .sep { color: #cbd5e1; user-select: none; }
     .status-strip .warn strong { color: #e11d48; }
 
-    /* トップ画面の3メニュー相当（新規投稿・再投稿・定期配信と同サイズ） */
+    /* トップ画面のメニュー相当 */
     .mode-grid {
       display: flex;
       flex-direction: column;
@@ -677,14 +677,6 @@
             <span class="mode-nav-badge empty" id="badgeTf" data-badge="tf">0</span>
             <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
           </button>
-          <button type="button" class="mode-nav-tile" data-mode="scheduled" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            </div>
-            <h4 class="mode-nav-label">定期配信</h4>
-            <span class="mode-nav-badge empty" id="badgeScheduled" data-badge="scheduled">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
-          </button>
           <button type="button" class="mode-nav-tile" data-mode="reminderEffect" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -786,7 +778,7 @@
       }
 
       function ensureDefaultOpenTask() {
-        if (mode === 'scheduled' || mode === 'reminderEffect' || !pendingAutoOpen) return;
+        if (mode === 'reminderEffect' || !pendingAutoOpen) return;
         pendingAutoOpen = false;
         var list = filterTasks(getTasksForMode());
         openTaskId = list.length ? list[0].id : null;
@@ -1088,11 +1080,6 @@
 
       function renderStats() {
         var bar = document.getElementById('statsBar');
-        if (mode === 'scheduled') {
-          var n = (lastData.scheduledTasks || []).length;
-          bar.innerHTML = '定期配信 <strong>' + n + '</strong><span style="font-weight:700;color:#64748b"> 件</span> 登録中';
-          return;
-        }
         if (mode === 'reminderEffect') {
           var s = (lastData.reminderEffects && lastData.reminderEffects.summary) || {};
           bar.innerHTML =
@@ -1120,7 +1107,7 @@
       function renderFilters() {
         var panel = document.getElementById('filtersPanel');
         var bar = document.getElementById('filtersBar');
-        if (mode === 'scheduled' || mode === 'reminderEffect') {
+        if (mode === 'reminderEffect') {
           panel.style.display = 'none';
           return;
         }
@@ -1219,24 +1206,6 @@
           h += renderAttachBanner(t);
           h += '<div class="task-expand-wrap' + (isOpen ? ' open' : '') + '">' + (isOpen ? renderRecipients(t) : '') + '</div>';
           h += '</div>';
-        });
-        h += '</div>';
-        return h;
-      }
-
-      function renderScheduled() {
-        var list = lastData.scheduledTasks || [];
-        if (!list.length) return '<div class="empty">定期配信の登録はありません</div>';
-        var h = '<div class="task-list">';
-        list.forEach(function (s) {
-          h += '<div class="menu-tile" style="cursor:default">';
-          h += '<div class="menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>';
-          h += '<div class="menu-body">';
-          h += '<div class="badges"><span class="badge ' + (s.requestKind === 'store' ? 'badge-kind-s' : 'badge-kind-e') + '">' + esc(s.requestKindLabel) + '</span></div>';
-          h += '<p class="task-title">' + esc(s.contentFull || s.contentPreview || '') + '</p>';
-          h += '<div class="task-meta">周期 ' + esc(s.cycle) + ' · 期限 ' + esc(s.deadlineOffset) + ' · ' + esc(s.sender) + ' · 配信先 ' + s.targetCount + ' 名</div>';
-          if (s.targetTags) h += '<div class="task-meta" style="margin-top:.25rem">宛先: ' + esc(s.targetTags) + '</div>';
-          h += '</div></div>';
         });
         h += '</div>';
         return h;
@@ -1345,8 +1314,7 @@
 
       function renderRoot() {
         var root = document.getElementById('root');
-        if (mode === 'scheduled') root.innerHTML = renderScheduled();
-        else if (mode === 'reminderEffect') {
+        if (mode === 'reminderEffect') {
           root.innerHTML = renderReminderEffects();
           bindPersonFilterEvents();
         } else {
@@ -1364,7 +1332,6 @@
         var emp = openCount(lastData.employeeTasks);
         var store = openCount(lastData.storeTasks);
         var tf = openCount(lastData.tfTasks);
-        var sched = (lastData.scheduledTasks || []).length;
         var effectN = (lastData.reminderEffects && lastData.reminderEffects.tasks)
           ? lastData.reminderEffects.tasks.length
           : 0;
@@ -1372,7 +1339,6 @@
           { id: 'badgeEmployee', n: emp },
           { id: 'badgeStore', n: store },
           { id: 'badgeTf', n: tf },
-          { id: 'badgeScheduled', n: sched },
           { id: 'badgeReminderEffect', n: effectN }
         ].forEach(function (b) {
           var el = document.getElementById(b.id);
