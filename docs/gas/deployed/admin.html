@@ -252,12 +252,22 @@
     }
     .panel-inner { position: relative; padding: 1rem 1rem 1rem 1.35rem; }
     .chip-arena {
-      display: flex; flex-wrap: wrap; gap: .5rem;
+      display: flex; flex-direction: column; gap: .65rem;
       border-radius: .75rem;
       border: 1px solid color-mix(in oklch, var(--acc-200) 45%, transparent);
       background: linear-gradient(to bottom, rgba(15,23,42,.03), #fff, color-mix(in oklch, var(--acc-50) 25%, transparent));
       padding: .75rem;
       box-shadow: inset 0 1px 3px rgba(0,0,0,.05);
+    }
+    .chip-arena .filter-block {
+      margin: 0; padding: 0; border: none; background: transparent;
+    }
+    .chip-arena .filter-block + .filter-block {
+      margin-top: 0; padding-top: .55rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    .chip-row {
+      display: flex; flex-wrap: wrap; gap: .5rem;
     }
     .chip {
       display: inline-flex; align-items: center; justify-content: center;
@@ -273,6 +283,9 @@
       color: #fff; border-color: transparent;
       box-shadow: 0 4px 14px -4px var(--acc-500);
     }
+    .badge-type-new { background: #f1f5f9; color: #334155; }
+    .badge-type-repost { background: #e0f2fe; color: #0369a1; }
+    .badge-type-remind { background: #ffedd5; color: #c2410c; }
 
     /* 依頼カード（一覧・展開用） */
     .task-list { display: flex; flex-direction: column; gap: .625rem; }
@@ -719,6 +732,7 @@
 
       var mode = 'employee';
       var filter = 'all';
+      var typeFilter = 'all'; // all | new | repost | remind
       var lastData = null;
       var openTaskId = null;
       var selected = {};
@@ -1070,8 +1084,23 @@
         return [];
       }
 
+      function normalizePostType(type) {
+        var t = String(type || '').trim();
+        if (t.indexOf('リマインド') >= 0) return 'remind';
+        if (t.indexOf('再投稿') >= 0) return 'repost';
+        return 'new';
+      }
+
+      function postTypeBadgeClass(type) {
+        var pt = normalizePostType(type);
+        if (pt === 'remind') return 'badge-type-remind';
+        if (pt === 'repost') return 'badge-type-repost';
+        return 'badge-type-new';
+      }
+
       function filterTasks(list) {
         return list.filter(function (t) {
+          if (typeFilter !== 'all' && normalizePostType(t.type) !== typeFilter) return false;
           if (filter === 'open') return !t.complete;
           if (filter === 'late') return !t.complete && t.overdue;
           return true;
@@ -1090,7 +1119,9 @@
             '当日進捗 <strong>' + (s.at0d && s.at0d.available ? s.at0d.pct + '%' : '—') + '</strong>';
           return;
         }
-        var list = getTasksForMode();
+        var list = getTasksForMode().filter(function (t) {
+          return typeFilter === 'all' || normalizePostType(t.type) === typeFilter;
+        });
         var open = list.filter(function (t) { return !t.complete; }).length;
         var late = list.filter(function (t) { return !t.complete && t.overdue; }).length;
         var done = list.filter(function (t) { return t.complete; }).length;
@@ -1113,10 +1144,29 @@
         }
         panel.style.display = '';
         bar.innerHTML =
+          '<div class="filter-block">' +
+          '<span class="filter-label">投稿の種類</span>' +
+          '<div class="chip-row">' +
+          '<button type="button" class="chip' + (typeFilter === 'all' ? ' on' : '') + '" data-tf="all">すべて</button>' +
+          '<button type="button" class="chip' + (typeFilter === 'new' ? ' on' : '') + '" data-tf="new">新規投稿</button>' +
+          '<button type="button" class="chip' + (typeFilter === 'repost' ? ' on' : '') + '" data-tf="repost">再投稿</button>' +
+          '<button type="button" class="chip' + (typeFilter === 'remind' ? ' on' : '') + '" data-tf="remind">リマインド</button>' +
+          '</div></div>' +
+          '<div class="filter-block">' +
+          '<span class="filter-label">進捗</span>' +
+          '<div class="chip-row">' +
           '<button type="button" class="chip' + (filter === 'all' ? ' on' : '') + '" data-f="all">すべて</button>' +
           '<button type="button" class="chip' + (filter === 'open' ? ' on' : '') + '" data-f="open">未完了のみ</button>' +
-          '<button type="button" class="chip' + (filter === 'late' ? ' on' : '') + '" data-f="late">期限超過のみ</button>';
-        bar.querySelectorAll('.chip').forEach(function (el) {
+          '<button type="button" class="chip' + (filter === 'late' ? ' on' : '') + '" data-f="late">期限超過のみ</button>' +
+          '</div></div>';
+        bar.querySelectorAll('[data-tf]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            typeFilter = el.getAttribute('data-tf') || 'all';
+            pendingAutoOpen = true;
+            renderAll();
+          });
+        });
+        bar.querySelectorAll('[data-f]').forEach(function (el) {
           el.addEventListener('click', function () {
             filter = el.getAttribute('data-f') || 'all';
             pendingAutoOpen = true;
@@ -1195,7 +1245,8 @@
           var kindClass = t.requestKind === 'store' ? 'badge-kind-s' : (t.requestKind === 'tf' ? 'badge-run' : 'badge-kind-e');
           var kindLabel = t.requestKind === 'store' ? '店舗' : (t.requestKind === 'tf' ? 'TF' : '社員');
           h += '<span class="badge ' + kindClass + '">' + kindLabel + '</span>';
-          h += '<span class="badge badge-run">' + esc(t.type) + '</span>';
+          var typeLabel = String(t.type || '').trim() || '新規投稿';
+          h += '<span class="badge ' + postTypeBadgeClass(typeLabel) + '">' + esc(typeLabel) + '</span>';
           h += '</div>';
           h += '<p class="task-title">' + esc(t.contentFull || t.contentPreview || '') + '</p>';
           h += '<div class="task-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender) + ' · ' + esc(t.progressLabel) + '</div>';
@@ -1413,6 +1464,7 @@
           mode = tab.getAttribute('data-mode') || 'employee';
           pendingAutoOpen = true;
           filter = 'all';
+          typeFilter = 'all';
           renderAll();
         });
       });

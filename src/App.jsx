@@ -1888,8 +1888,10 @@ export default function App() {
     );
 
     try {
+      const postType =
+        repostIntent === 'remind' ? 'リマインド' : repostIntent === 'repost' ? '再投稿' : '新規投稿';
       const result = await api.createTask({
-        type: '新規投稿',
+        type: postType,
         content: requestForm.content,
         deadline: requestForm.deadline,
         urls: validUrls, 
@@ -2702,7 +2704,7 @@ export default function App() {
                    </button>
                    <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0">
                      {activeTab === 'request'
-                       ? 'タスク配信'
+                       ? (repostIntent === 'remind' ? 'リマインド配信' : repostIntent === 'repost' ? '再投稿配信' : 'タスク配信')
                        : activeTab === 'repost'
                          ? (repostEntryMode === 'remind' ? 'リマインド' : '再投稿')
                          : 'リストチェック'}
@@ -2839,7 +2841,14 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 w-full md:gap-4 xl:gap-5">
-                    <button type="button" onClick={() => navigateTab('request')} className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRepostIntent(null);
+                        navigateTab('request');
+                      }}
+                      className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}
+                    >
                       <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name="plus" /></div>
                       <h4 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 flex-1 leading-snug">新規投稿</h4>
                       <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block max-sm:hidden"><Icon name="chevronLeft" /></span>
