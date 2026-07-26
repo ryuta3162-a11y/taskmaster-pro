@@ -677,6 +677,9 @@ const HOME_HELP = {
   },
 };
 
+/** 使い方ガイド（Vercel） */
+const GUIDE_SITE_URL = 'https://todo-list-guide.vercel.app/';
+
 export default function App() {
   const [authStep, setAuthStep] = useState('loading'); 
   const [inputEmail, setInputEmail] = useState('');
@@ -2275,6 +2278,27 @@ export default function App() {
                         現在: <span className="text-[var(--acc-700)]">{ACCENT_THEMES.find((x) => x.id === accentId)?.label ?? '—'}</span>
                       </p>
                     </div>
+                    <div className="p-2.5 border-t border-slate-100 bg-white shrink-0 space-y-2">
+                      {teamProgressBanners.length > 0 ? teamProgressBanners.map((team) => (
+                        <button
+                          key={team.key}
+                          type="button"
+                          onClick={() => {
+                            setIsAccountMenuOpen(false);
+                            openProgressPage(team.key);
+                          }}
+                          className="w-full text-left px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-[var(--acc-50)] hover:border-[var(--acc-200)] transition-colors"
+                        >
+                          <p className="text-[9px] font-black text-[var(--acc-600)] uppercase tracking-widest mb-0.5">TFチーム進捗</p>
+                          <p className="text-xs font-bold text-slate-900 leading-snug">{team.label}</p>
+                        </button>
+                      )) : (
+                        <div className="px-3 py-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/80">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">TFチーム進捗</p>
+                          <p className="text-xs font-semibold text-slate-500">所属チーム未設定のため開けません</p>
+                        </div>
+                      )}
+                    </div>
                     <div className="p-2.5 border-t border-slate-100 bg-slate-50/80 shrink-0">
                       <button onClick={() => { setIsAccountMenuOpen(false); handleLogout(); }} className="w-full bg-rose-50 text-rose-600 font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-xs">
                         <Icon name="logout" /> ログアウト
@@ -2404,33 +2428,19 @@ export default function App() {
                   )}
 
                   <div className="flex flex-col gap-3 w-full">
-                    {teamProgressBanners.length > 0 ? teamProgressBanners.map((team) => (
-                      <button
-                        key={team.key}
-                        type="button"
-                        onClick={() => openProgressPage(team.key)}
-                        className={dashboardMenuTile}
-                      >
-                        <div className={dashboardMenuIcon}><Icon name="trend" /></div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-lg md:text-xl font-bold text-slate-900">{team.label}</h4>
-                        </div>
-                        <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
-                      </button>
-                    )) : (
-                      <button
-                        type="button"
-                        onClick={() => alert('所属チームが未設定のため、進捗を開けません。')}
-                        className={dashboardMenuTile}
-                      >
-                        <div className={dashboardMenuIcon}><Icon name="trend" /></div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-lg md:text-xl font-bold text-slate-900">TFチームタスク管理</h4>
-                          <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1">所属チーム未設定</p>
-                        </div>
-                        <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
-                      </button>
-                    )}
+                    <a
+                      href={GUIDE_SITE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={dashboardMenuTile}
+                    >
+                      <div className={dashboardMenuIcon}><Icon name="link" /></div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-lg md:text-xl font-bold text-slate-900">マニュアルはこちら</h4>
+                        <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1">使い方ガイド・理解度チェック</p>
+                      </div>
+                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block"><Icon name="chevronLeft" /></span>
+                    </a>
                     {isDxAdmin && (
                       <button type="button" onClick={openAdminPage} className={dashboardMenuTile}>
                         <div className={dashboardMenuIcon}><Icon name="calendar" /></div>
