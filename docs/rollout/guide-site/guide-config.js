@@ -28,7 +28,7 @@ window.GUIDE_CONFIG = {
   videos: {
     register: {
       title: 'ログイン・初回登録',
-      duration: '約2分',
+      duration: '約30秒',
       mp4: 'videos/register.mp4',
       poster: 'images/register-poster.png',
       vtt: 'videos/register.vtt',
@@ -37,7 +37,7 @@ window.GUIDE_CONFIG = {
     },
     request: {
       title: '新規投稿（To Do 申請）',
-      duration: '約4分',
+      duration: '約1分',
       mp4: 'videos/request.mp4',
       poster: 'images/request-poster.png',
       vtt: 'videos/request.vtt',
@@ -46,7 +46,7 @@ window.GUIDE_CONFIG = {
     },
     repost: {
       title: '再投稿・リマインド',
-      duration: '約2分',
+      duration: '約30秒',
       mp4: 'videos/repost.mp4',
       poster: 'images/repost-poster.png',
       vtt: 'videos/repost.vtt',
@@ -55,7 +55,7 @@ window.GUIDE_CONFIG = {
     },
     checklist: {
       title: 'リストチェック',
-      duration: '約4分',
+      duration: '約50秒',
       mp4: 'videos/checklist.mp4',
       poster: 'images/checklist-poster.png',
       vtt: 'videos/checklist.vtt',
