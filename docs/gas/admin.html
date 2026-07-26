@@ -151,55 +151,56 @@
     }
     .status-strip strong { color: #0f172a; font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
     .status-strip .sep { color: #cbd5e1; user-select: none; }
-    .status-strip .warn strong { color: #e11d48; }
+    .status-strip .accent strong { color: var(--acc-700); }
 
-    /* トップ画面のメニュー相当 */
+    /* モード切替：4つ1列 */
     .mode-grid {
-      display: flex;
-      flex-direction: column;
-      gap: .625rem;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .5rem;
       width: 100%;
     }
-    @media (min-width: 768px) {
-      .mode-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: .75rem;
-      }
-    }
-    @media (min-width: 1280px) {
-      .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 720px) {
+      .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
     }
     .mode-nav-tile {
       width: 100%;
-      text-align: left;
+      text-align: center;
       background: #fff;
-      border-radius: 1rem;
-      padding: 1rem 1.25rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
-      border: 1px solid rgba(0,0,0,.04);
+      border-radius: .9rem;
+      padding: .85rem .55rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      border: 1px solid rgba(0,0,0,.05);
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 1rem;
+      justify-content: center;
+      gap: .45rem;
       cursor: pointer;
-      transition: transform .15s, border-color .15s, box-shadow .15s;
+      transition: transform .15s, border-color .15s, box-shadow .15s, background .15s;
+      min-height: 4.75rem;
     }
-    @media (min-width: 768px) {
-      .mode-nav-tile { padding: 1.25rem; border-radius: 1rem; }
+    @media (min-width: 900px) {
+      .mode-nav-tile { padding: 1rem .75rem; min-height: 5.25rem; border-radius: 1rem; gap: .55rem; }
     }
-    .mode-nav-tile:active { transform: scale(.99); }
+    .mode-nav-tile:hover {
+      border-color: color-mix(in oklch, var(--acc-300) 55%, transparent);
+      box-shadow: 0 4px 16px -8px rgba(0,0,0,.12);
+    }
+    .mode-nav-tile:active { transform: scale(.985); }
     .mode-nav-tile.on {
-      border-color: color-mix(in oklch, var(--acc-500) 55%, transparent);
-      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 0 0 2px color-mix(in oklch, var(--acc-500) 18%, transparent);
+      background: linear-gradient(180deg, color-mix(in oklch, var(--acc-50) 80%, #fff), #fff);
+      border-color: color-mix(in oklch, var(--acc-500) 45%, transparent);
+      box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 0 0 2px color-mix(in oklch, var(--acc-500) 16%, transparent);
     }
     .mode-nav-tile.on .mode-nav-icon {
       background: linear-gradient(to bottom right, var(--acc-500), var(--acc-700));
       color: #fff;
     }
     .mode-nav-icon {
-      width: 3rem;
-      height: 3rem;
-      border-radius: .75rem;
+      width: 2.35rem;
+      height: 2.35rem;
+      border-radius: .7rem;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -207,34 +208,21 @@
       background: var(--acc-50);
       color: var(--acc-700);
     }
-    .mode-nav-icon svg { width: 1.25rem; height: 1.25rem; transform: scale(.85); }
+    @media (min-width: 900px) {
+      .mode-nav-icon { width: 2.65rem; height: 2.65rem; border-radius: .75rem; }
+    }
+    .mode-nav-icon svg { width: 1.15rem; height: 1.15rem; }
     .mode-nav-label {
       margin: 0;
-      flex: 1;
-      font-size: var(--tm-title);
-      font-weight: 600;
-      color: #0f172a;
-      line-height: 1.3;
-    }
-    .mode-nav-badge {
-      background: var(--acc-600);
-      color: #fff;
-      font-size: 10px;
+      font-size: .78rem;
       font-weight: 700;
-      padding: .15rem .5rem;
-      border-radius: 9999px;
-      flex-shrink: 0;
-      min-width: 1.25rem;
-      text-align: center;
+      color: #0f172a;
+      line-height: 1.25;
+      letter-spacing: .01em;
     }
-    .mode-nav-badge.empty { display: none; }
-    .mode-nav-chev {
-      color: #cbd5e1;
-      flex-shrink: 0;
-      display: inline-flex;
-      transform: scale(.75) rotate(180deg);
+    @media (min-width: 900px) {
+      .mode-nav-label { font-size: .88rem; }
     }
-    .mode-nav-chev svg { width: 1.25rem; height: 1.25rem; }
 
     /* PanelFrame + chip arena（フィルタ用） */
     .panel-frame {
@@ -283,57 +271,45 @@
       color: #fff; border-color: transparent;
       box-shadow: 0 4px 14px -4px var(--acc-500);
     }
-    .badge-type-new { background: #f1f5f9; color: #334155; }
-    .badge-type-repost { background: #e0f2fe; color: #0369a1; }
-    .badge-type-remind { background: #ffedd5; color: #c2410c; }
+    .badge-type-new { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+    .badge-type-repost { background: var(--acc-50); color: var(--acc-900); border: 1px solid var(--acc-200); }
+    .badge-type-remind { background: color-mix(in oklch, var(--acc-100) 70%, #fff); color: var(--acc-900); border: 1px solid var(--acc-200); }
 
-    /* 依頼カード（一覧・展開用） */
-    .task-list { display: flex; flex-direction: column; gap: .625rem; }
-    .menu-tile {
-      width: 100%; text-align: left; background: #fff;
-      border-radius: 1rem; padding: 1rem 1.25rem;
+    /* 依頼カード（常時ワンボックス表示） */
+    .task-list { display: flex; flex-direction: column; gap: .75rem; }
+    .task-card {
+      width: 100%; background: #fff;
+      border-radius: 1rem; padding: 1.1rem 1.25rem 1.2rem;
       box-shadow: 0 1px 3px rgba(0,0,0,.08);
       border: 1px solid rgba(0,0,0,.04);
-      display: flex; align-items: flex-start; gap: 1rem;
-      cursor: pointer; transition: transform .15s;
     }
-    @media (min-width: 768px) { .menu-tile { padding: 1.25rem; } }
-    .menu-tile:active { transform: scale(.99); }
-    .menu-tile.open { border-color: color-mix(in oklch, var(--acc-300) 50%, transparent); }
-    .menu-icon {
-      width: 3rem; height: 3rem; border-radius: .75rem; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--acc-50); color: var(--acc-700);
-    }
-    .menu-icon svg { width: 1.35rem; height: 1.35rem; }
-    .menu-body { flex: 1; min-width: 0; }
-    .badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .35rem; }
+    @media (min-width: 768px) { .task-card { padding: 1.25rem 1.4rem 1.35rem; } }
+    .badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .55rem; }
     .badge {
       font-size: .65rem; font-weight: 700; padding: .12rem .45rem; border-radius: .4rem;
     }
     .badge-run { background: var(--acc-50); color: var(--acc-900); border: 1px solid var(--acc-200); }
-    .badge-ok { background: #f1f5f9; color: #475569; }
-    .badge-late { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-ok { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .badge-late { background: var(--acc-50); color: var(--acc-900); border: 1px solid var(--acc-200); }
     .badge-kind-e { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
     .badge-kind-s { background: var(--acc-900); color: #fff; }
-    .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.55; margin: 0 0 .25rem; word-break: break-word; white-space: pre-wrap; color: #0f172a; }
-    .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; }
-    .prog-wrap { margin-top: .45rem; max-width: 9rem; }
-    .prog { height: 4px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
-    .prog > i { display: block; height: 100%; background: linear-gradient(90deg, var(--acc-500), var(--acc-700)); border-radius: 99px; }
-    .tile-chev {
-      color: #cbd5e1; flex-shrink: 0; margin-top: .35rem;
-      transform: rotate(180deg); transition: transform .2s, color .2s;
+    .task-metrics {
+      display: flex; flex-wrap: wrap; gap: .35rem .85rem;
+      margin: 0 0 .55rem; font-size: .92rem; font-weight: 700; color: #334155;
     }
-    .menu-tile.open .tile-chev { transform: rotate(270deg); color: var(--acc-600); }
+    .task-metrics strong {
+      color: var(--acc-700); font-weight: 800; font-variant-numeric: tabular-nums;
+    }
+    .task-metrics .unit { font-weight: 600; color: #64748b; }
+    .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; margin: 0 0 .75rem; }
+    .task-card .detail-body {
+      margin: 0 0 .85rem;
+      background: color-mix(in oklch, var(--acc-50) 35%, #fff);
+      border-color: color-mix(in oklch, var(--acc-200) 55%, transparent);
+    }
+    .task-card .detail-block { margin: 0 0 .85rem; }
+    .task-card .detail-block:last-child { margin-bottom: 0; }
 
-    .task-expand-wrap { display: none; margin-top: -.35rem; }
-    .task-expand-wrap.open { display: block; }
-    .expand-panel { margin-top: 0; }
-    .expand-toolbar {
-      display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; align-items: center;
-    }
-    .expand-toolbar .hint { font-size: var(--tm-meta); color: #64748b; font-weight: 600; flex: 1; min-width: 8rem; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
       padding: .55rem 1rem; font-size: .8rem; font-weight: 600; border-radius: 1rem;
@@ -348,50 +324,49 @@
     .btn:disabled { opacity: .45; cursor: not-allowed; }
     .btn-sm { padding: .4rem .75rem; font-size: .75rem; }
 
-    .recipient {
-      display: flex; align-items: flex-start; gap: .55rem; padding: .6rem .7rem;
-      border: 1px solid rgba(0,0,0,.05); border-radius: .75rem; margin-bottom: .4rem;
-      background: rgba(255,255,255,.85);
+    .detail-label {
+      display: block; font-size: .72rem; font-weight: 800; letter-spacing: .04em;
+      color: #64748b; margin-bottom: .45rem;
     }
-    .recipient.done {
-      opacity: .5; background: #f1f5f9; border-color: #e2e8f0;
-      cursor: not-allowed; pointer-events: none;
+    .detail-body {
+      font-size: .95rem; font-weight: 600; color: #0f172a; line-height: 1.65;
+      white-space: pre-wrap; word-break: break-word;
+      padding: .85rem 1rem; border-radius: .75rem;
+      background: #fff; border: 1px solid #e2e8f0;
     }
-    .recipient.done .recipient-name { color: #94a3b8; }
-    .assignee-row {
-      display: flex; align-items: flex-start; gap: .65rem;
-      padding: .65rem .75rem; border: 1px solid rgba(0,0,0,.05);
-      border-radius: .75rem; margin-bottom: .45rem; background: #fff;
+    .pending-name-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+      gap: .45rem .55rem;
     }
-    .assignee-row input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .2rem; accent-color: var(--acc-600); flex-shrink: 0; }
-    .assignee-name { flex-shrink: 0; min-width: 5.5rem; max-width: 8rem; }
-    .assignee-name .recipient-name { font-size: .82rem; font-weight: 700; color: #0f172a; line-height: 1.35; }
-    .assignee-name .recipient-sub { font-size: .65rem; color: #64748b; margin-top: .1rem; word-break: break-all; }
-    .assignee-stores {
-      flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
-      padding-top: .05rem;
+    @media (min-width: 900px) {
+      .pending-name-grid { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
     }
-    .store-chip {
-      font-size: .72rem; font-weight: 600; color: var(--acc-900);
-      background: var(--acc-50); border: 1px solid var(--acc-200);
-      border-radius: .5rem; padding: .2rem .55rem; line-height: 1.3;
+    .pending-name {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .55rem .7rem; border-radius: .65rem;
+      background: var(--acc-50); border: 1px solid color-mix(in oklch, var(--acc-200) 70%, transparent);
+      font-size: .88rem; font-weight: 700; color: #0f172a;
+      line-height: 1.35; word-break: break-word;
     }
-    .assignee-arrow { color: #cbd5e1; font-size: .75rem; font-weight: 700; flex-shrink: 0; padding-top: .15rem; }
-    .recipient input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--acc-600); flex-shrink: 0; }
-    .recipient-name { font-size: var(--tm-body); font-weight: 600; }
-    .recipient-sub { font-size: .68rem; color: #64748b; margin-top: .15rem; }
-    .recipient-label { flex: 1; min-width: 0; }
-    .status-pill { font-size: var(--tm-badge); font-weight: 700; padding: .15rem .45rem; border-radius: .35rem; flex-shrink: 0; }
-    .status-pill.ok { background: #ecfdf5; color: #047857; }
-    .status-pill.ng { background: #fff1f2; color: #be123c; }
+    .pending-name::before {
+      content: ''; width: .45rem; height: .45rem; border-radius: 50%;
+      background: var(--acc-500); flex-shrink: 0;
+    }
+    .pending-empty {
+      padding: .75rem .9rem; border-radius: .75rem;
+      background: color-mix(in oklch, var(--acc-50) 50%, #fff);
+      border: 1px solid color-mix(in oklch, var(--acc-200) 55%, transparent);
+      font-size: .88rem; font-weight: 700; color: var(--acc-800, var(--acc-700));
+    }
 
     .empty, .loading {
       text-align: center; padding: 3rem 1rem; font-weight: 600; font-size: .9rem; color: #94a3b8;
     }
     .loading { color: var(--acc-600); }
     .err {
-      padding: 1.5rem; text-align: center; font-weight: 600; color: #e11d48;
-      background: #fff; border-radius: 1rem; border: 1px solid #fecaca;
+      padding: 1.5rem; text-align: center; font-weight: 600; color: var(--acc-800, #334155);
+      background: #fff; border-radius: 1rem; border: 1px solid var(--acc-200);
     }
 
     .intro-block {
@@ -671,32 +646,24 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <h4 class="mode-nav-label">社員依頼</h4>
-            <span class="mode-nav-badge empty" id="badgeEmployee" data-badge="employee">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
           </button>
           <button type="button" class="mode-nav-tile" data-mode="store" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
             <h4 class="mode-nav-label">店舗依頼</h4>
-            <span class="mode-nav-badge empty" id="badgeStore" data-badge="store">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
           </button>
           <button type="button" class="mode-nav-tile" data-mode="tf" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 7 13 16 9 12 2 19"/><polyline points="16 7 22 7 22 13"/></svg>
             </div>
-            <h4 class="mode-nav-label">TF依頼</h4>
-            <span class="mode-nav-badge empty" id="badgeTf" data-badge="tf">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
+            <h4 class="mode-nav-label">タスクをTF依頼</h4>
           </button>
           <button type="button" class="mode-nav-tile" data-mode="reminderEffect" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             </div>
             <h4 class="mode-nav-label">リマインド効果</h4>
-            <span class="mode-nav-badge empty" id="badgeReminderEffect" data-badge="reminderEffect">0</span>
-            <span class="mode-nav-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></span>
           </button>
         </div>
 
@@ -733,6 +700,7 @@
       var mode = 'employee';
       var filter = 'all';
       var typeFilter = 'all'; // all | new | repost | remind
+      var sortOrder = 'desc'; // desc=新しい順(降順) | asc=古い順(昇順)
       var lastData = null;
       var openTaskId = null;
       var selected = {};
@@ -792,10 +760,7 @@
       }
 
       function ensureDefaultOpenTask() {
-        if (mode === 'reminderEffect' || !pendingAutoOpen) return;
-        pendingAutoOpen = false;
-        var list = filterTasks(getTasksForMode());
-        openTaskId = list.length ? list[0].id : null;
+        /* 展開UI廃止：常時ワンボックス表示 */
       }
 
       function formatLift(n) {
@@ -986,7 +951,6 @@
         h += '<span>当日送信 <strong>' + (wc['0d'] || 0) + '</strong></span>';
         h += '</div></div>';
 
-        h += renderOverduePeopleList(pack.overduePeople, '超過・未実施者（全体）');
         h += renderPersonStats(pack.personStats, pack.filterRoles, pack.filterTeams);
 
         tasks.forEach(function (t) {
@@ -1099,13 +1063,47 @@
         return 'badge-type-new';
       }
 
+      function taskCreatedSortKey(t) {
+        if (t && t.createdAt) {
+          var raw = String(t.createdAt).trim().replace(/\//g, '-');
+          var d = Date.parse(raw);
+          if (!isNaN(d)) return d;
+        }
+        var m = String((t && t.id) || '').match(/t_(\d+)/);
+        if (m) return Number(m[1]);
+        var dl = Date.parse(String((t && t.deadline) || ''));
+        return isNaN(dl) ? 0 : dl;
+      }
+
       function filterTasks(list) {
-        return list.filter(function (t) {
+        var filtered = (list || []).filter(function (t) {
           if (typeFilter !== 'all' && normalizePostType(t.type) !== typeFilter) return false;
           if (filter === 'open') return !t.complete;
           if (filter === 'late') return !t.complete && t.overdue;
           return true;
         });
+        filtered.sort(function (a, b) {
+          var ka = taskCreatedSortKey(a);
+          var kb = taskCreatedSortKey(b);
+          return sortOrder === 'asc' ? (ka - kb) : (kb - ka);
+        });
+        return filtered;
+      }
+
+      function getTaskPeopleStats(t) {
+        var recipients = t.recipients || [];
+        var total = recipients.length;
+        var pending = 0;
+        for (var i = 0; i < recipients.length; i++) {
+          if (!recipients[i].done) pending++;
+        }
+        var done = total - pending;
+        var rate = total ? Math.round((done / total) * 100) : (t.complete ? 100 : (typeof t.progressPct === 'number' ? t.progressPct : 0));
+        return { total: total, pending: pending, done: done, rate: rate };
+      }
+
+      function peopleUnitLabel() {
+        return mode === 'store' ? '店舗' : '名';
       }
 
       function renderStats() {
@@ -1115,25 +1113,30 @@
           bar.innerHTML =
             '対象依頼 <strong>' + (s.taskCount || 0) + '</strong><span style="font-weight:700;color:#64748b"> 件</span>' +
             '<span class="sep">/</span>' +
-            '<span class="warn">未実施 <strong>' + (s.overduePeopleCount || 0) + '</strong><span style="font-weight:700;color:#64748b"> 名</span></span>' +
+            '<span class="accent">未実施 <strong>' + (s.overduePeopleCount || 0) + '</strong><span style="font-weight:700;color:#64748b"> 名</span></span>' +
             '<span class="sep">/</span>' +
             '当日進捗 <strong>' + (s.at0d && s.at0d.available ? s.at0d.pct + '%' : '—') + '</strong>';
           return;
         }
-        var list = getTasksForMode().filter(function (t) {
-          return typeFilter === 'all' || normalizePostType(t.type) === typeFilter;
+        var list = filterTasks(getTasksForMode());
+        var unit = peopleUnitLabel();
+        var targetSum = 0;
+        var pendingSum = 0;
+        list.forEach(function (t) {
+          var st = getTaskPeopleStats(t);
+          targetSum += st.total;
+          pendingSum += st.pending;
         });
-        var open = list.filter(function (t) { return !t.complete; }).length;
-        var late = list.filter(function (t) { return !t.complete && t.overdue; }).length;
-        var done = list.filter(function (t) { return t.complete; }).length;
-        var total = list.length;
-        var rate = total ? Math.round((done / total) * 100) : 0;
+        var doneSum = targetSum - pendingSum;
+        var peopleRate = targetSum ? Math.round((doneSum / targetSum) * 100) : 0;
         bar.innerHTML =
-          '未完了 <strong>' + open + '</strong><span style="font-weight:700;color:#64748b"> 件</span>' +
+          '対象 <strong>' + targetSum + '</strong><span style="font-weight:700;color:#64748b"> ' + unit + '</span>' +
           '<span class="sep">/</span>' +
-          '<span class="warn">期限超過 <strong>' + late + '</strong><span style="font-weight:700;color:#64748b"> 件</span></span>' +
+          '<span class="accent">未実施 <strong>' + pendingSum + '</strong><span style="font-weight:700;color:#64748b"> ' + unit + '</span></span>' +
           '<span class="sep">/</span>' +
-          '完了率 <strong>' + rate + '</strong><span style="font-weight:700;color:#64748b"> %</span>';
+          '実施率 <strong>' + peopleRate + '</strong><span style="font-weight:700;color:#64748b"> %</span>' +
+          '<span class="sep">/</span>' +
+          '依頼 <strong>' + list.length + '</strong><span style="font-weight:700;color:#64748b"> 件</span>';
       }
 
       function renderFilters() {
@@ -1159,208 +1162,105 @@
           '<button type="button" class="chip' + (filter === 'all' ? ' on' : '') + '" data-f="all">すべて</button>' +
           '<button type="button" class="chip' + (filter === 'open' ? ' on' : '') + '" data-f="open">未完了のみ</button>' +
           '<button type="button" class="chip' + (filter === 'late' ? ' on' : '') + '" data-f="late">期限超過のみ</button>' +
+          '</div></div>' +
+          '<div class="filter-block">' +
+          '<span class="filter-label">投稿日</span>' +
+          '<div class="chip-row">' +
+          '<button type="button" class="chip' + (sortOrder === 'desc' ? ' on' : '') + '" data-sort="desc">降順（新しい順）</button>' +
+          '<button type="button" class="chip' + (sortOrder === 'asc' ? ' on' : '') + '" data-sort="asc">昇順（古い順）</button>' +
           '</div></div>';
         bar.querySelectorAll('[data-tf]').forEach(function (el) {
           el.addEventListener('click', function () {
             typeFilter = el.getAttribute('data-tf') || 'all';
-            pendingAutoOpen = true;
             renderAll();
           });
         });
         bar.querySelectorAll('[data-f]').forEach(function (el) {
           el.addEventListener('click', function () {
             filter = el.getAttribute('data-f') || 'all';
-            pendingAutoOpen = true;
+            renderAll();
+          });
+        });
+        bar.querySelectorAll('[data-sort]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            sortOrder = el.getAttribute('data-sort') || 'desc';
             renderAll();
           });
         });
       }
 
-      function renderRecipients(task) {
-        var h = '<div class="panel-frame expand-panel"><div class="panel-inner">';
-        h += '<p class="recipients-section-label">未実施者・リマインド</p>';
-        var recipients = task.recipients || [];
-
-        var introText = getIntroForTask(task.id);
-        h += '<div class="intro-block">';
-        h += '<label>';
-        h += '<span>挨拶文（編集できます）</span>';
-        h += '<span class="right">';
-        h += '<button type="button" class="btn-link" data-reset-intro="' + esc(task.id) + '">テンプレートに戻す</button>';
-        h += '</span>';
-        h += '</label>';
-        h += '<textarea data-intro-task="' + esc(task.id) + '" rows="5" spellcheck="false">' + esc(introText) + '</textarea>';
-        h += '</div>';
-
-        h += '<div class="expand-toolbar">';
-        h += '<span class="hint">' + (mode === 'store' ? '未完了の店舗を選んでリマインド（完了済み店舗は選択できません）' : '未実施の方を選んでリマインド') + '</span>';
-        h += '<button type="button" class="btn btn-sm" data-select-pending="' + esc(task.id) + '">未実施をすべて選択</button>';
-        h += '<button type="button" class="btn btn-primary btn-sm" data-remind="' + esc(task.id) + '">' + (mode === 'store' ? '選択した店舗にリマインド' : '選択した人にリマインド') + '</button>';
-        h += '</div>';
-
-        if (!recipients.length) {
-          h += '<p class="hint">対象データがありません</p>';
-        } else {
-          var rows = recipients.slice().sort(function (a, b) {
-            if (!!a.done !== !!b.done) return a.done ? 1 : -1;
-            return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
-          });
-          rows.forEach(function (r) {
-            var sk = selKey(task.id, r.key);
-            var checked = selected[sk] ? ' checked' : '';
-            var disabled = r.done ? ' disabled' : '';
-            var cls = 'recipient' + (r.done ? ' done' : '');
-            var statusLabel = mode === 'store' ? (r.done ? '完了' : '未完了') : (r.done ? '実施済' : '未実施');
-            h += '<label class="' + cls + '">';
-            h += '<input type="checkbox" data-sk="' + esc(sk) + '"' + checked + disabled + ' />';
-            h += '<div class="recipient-label"><div class="recipient-name">' + esc(r.label || r.name || r.storeName) + '</div></div>';
-            h += '<span class="status-pill ' + (r.done ? 'ok' : 'ng') + '">' + statusLabel + '</span></label>';
-          });
-          if (mode === 'store' && !recipients.some(function (r) { return !r.done; })) {
-            h += '<p class="hint" style="margin-top:.5rem">すべての店舗が完了済みです</p>';
-          }
-        }
-
-        var fromLabel = viewerNameLabel();
-        var teamSuffix = (lastData && lastData.viewerTeam) ? '（' + lastData.viewerTeam + ' チーム）' : '（管理者）';
-        var replyTo = (lastData && lastData.viewerEmail) || '—';
-        h += '<div class="send-note">送信時の表示名: <strong>' + esc(fromLabel + teamSuffix) + '</strong><br>返信先（Reply-To）: <strong>' + esc(replyTo) + '</strong><br>※ Gmail の仕様上、送信元アドレスはシステム共通になりますが、表示名と返信先があなたになるため、受信者にはあなたからのリマインドとして届きます。</div>';
-
-        h += '</div></div>';
-        return h;
-      }
-
       function renderTaskList() {
         var list = filterTasks(getTasksForMode());
         if (!list.length) return '<div class="empty">該当する依頼はありません</div>';
+        var unit = peopleUnitLabel();
+        var pendingLabel = mode === 'store' ? '未完了の店舗' : '未実施者';
         var h = '<div class="task-list">';
         list.forEach(function (t) {
-          var isOpen = openTaskId === t.id;
-          var st = t.complete ? 'badge-ok' : t.overdue ? 'badge-late' : 'badge-run';
-          h += '<div>';
-          h += '<button type="button" class="menu-tile' + (isOpen ? ' open' : '') + '" data-task-id="' + esc(t.id) + '" aria-expanded="' + isOpen + '">';
-          h += '<div class="menu-icon">' + ICON_CLIP + '</div>';
-          h += '<div class="menu-body">';
-          h += '<div class="badges">';
-          h += '<span class="badge ' + st + '">' + esc(t.statusLabel) + '</span>';
+          var stBadge = t.complete ? 'badge-ok' : t.overdue ? 'badge-late' : 'badge-run';
           var kindClass = t.requestKind === 'store' ? 'badge-kind-s' : (t.requestKind === 'tf' ? 'badge-run' : 'badge-kind-e');
           var kindLabel = t.requestKind === 'store' ? '店舗' : (t.requestKind === 'tf' ? 'TF' : '社員');
-          h += '<span class="badge ' + kindClass + '">' + kindLabel + '</span>';
           var typeLabel = String(t.type || '').trim() || '新規投稿';
+          var stats = getTaskPeopleStats(t);
+          var recipients = t.recipients || [];
+          var pending = recipients.filter(function (r) { return !r.done; });
+
+          h += '<article class="task-card">';
+          h += '<div class="badges">';
+          h += '<span class="badge ' + stBadge + '">' + esc(t.statusLabel) + '</span>';
+          h += '<span class="badge ' + kindClass + '">' + kindLabel + '</span>';
           h += '<span class="badge ' + postTypeBadgeClass(typeLabel) + '">' + esc(typeLabel) + '</span>';
           h += '</div>';
-          h += '<p class="task-title">' + esc(t.contentFull || t.contentPreview || '') + '</p>';
-          h += '<div class="task-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender) + ' · ' + esc(t.progressLabel) + '</div>';
-          h += '<div class="prog-wrap"><div class="prog"><i style="width:' + (t.progressPct || 0) + '%"></i></div></div>';
+
+          h += '<div class="task-metrics">';
+          h += '<span>対象 <strong>' + stats.total + '</strong><span class="unit"> ' + unit + '</span></span>';
+          h += '<span>未実施 <strong>' + stats.pending + '</strong><span class="unit"> ' + unit + '</span></span>';
+          h += '<span>実施率 <strong>' + stats.rate + '</strong><span class="unit"> %</span></span>';
           h += '</div>';
-          h += CHEV;
-          h += '</button>';
-          h += renderAttachBanner(t);
-          h += '<div class="task-expand-wrap' + (isOpen ? ' open' : '') + '">' + (isOpen ? renderRecipients(t) : '') + '</div>';
+
+          h += '<div class="task-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender || '—');
+          if (t.targetTags) h += ' · ' + esc(t.targetTags);
           h += '</div>';
+
+          h += '<div class="detail-block">';
+          h += '<span class="detail-label">依頼内容</span>';
+          h += '<div class="detail-body">' + esc(t.contentFull || t.contentPreview || '（内容なし）') + '</div>';
+          h += '</div>';
+
+          var attach = renderAttachBanner(t);
+          if (attach) {
+            h += '<div class="detail-block">';
+            h += '<span class="detail-label">リンク・添付</span>';
+            h += attach;
+            h += '</div>';
+          }
+
+          h += '<div class="detail-block">';
+          h += '<span class="detail-label">' + pendingLabel + '</span>';
+          if (!recipients.length) {
+            h += '<p class="hint">対象データがありません</p>';
+          } else if (!pending.length) {
+            h += '<div class="pending-empty">全員完了しています</div>';
+          } else {
+            pending.sort(function (a, b) {
+              return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
+            });
+            h += '<div class="pending-name-grid">';
+            pending.forEach(function (r) {
+              h += '<div class="pending-name">' + esc(r.label || r.name || r.storeName || '—') + '</div>';
+            });
+            h += '</div>';
+          }
+          h += '</div>';
+
+          h += '</article>';
         });
         h += '</div>';
         return h;
       }
 
       function bindTaskEvents() {
-        document.querySelectorAll('.menu-tile[data-task-id]').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var id = btn.getAttribute('data-task-id');
-            openTaskId = openTaskId === id ? null : id;
-            renderRoot();
-          });
-        });
-
-        document.querySelectorAll('.task-attach-row a').forEach(function (a) {
+        document.querySelectorAll('.task-card a').forEach(function (a) {
           a.addEventListener('click', function (e) { e.stopPropagation(); });
-        });
-
-        document.querySelectorAll('input[data-sk]').forEach(function (cb) {
-          cb.addEventListener('change', function (e) {
-            e.stopPropagation();
-            var sk = cb.getAttribute('data-sk');
-            if (cb.checked) selected[sk] = true;
-            else delete selected[sk];
-          });
-        });
-
-        document.querySelectorAll('textarea[data-intro-task]').forEach(function (ta) {
-          ta.addEventListener('click', function (e) { e.stopPropagation(); });
-          ta.addEventListener('input', function () {
-            var tid = ta.getAttribute('data-intro-task');
-            introOverrides[tid] = ta.value;
-          });
-        });
-
-        document.querySelectorAll('[data-reset-intro]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var tid = btn.getAttribute('data-reset-intro');
-            delete introOverrides[tid];
-            var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
-            if (ta) ta.value = defaultIntroText();
-          });
-        });
-
-        document.querySelectorAll('[data-select-pending]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var tid = btn.getAttribute('data-select-pending');
-            var task = getTasksForMode().find(function (t) { return t.id === tid; });
-            if (!task) return;
-            (task.recipients || []).forEach(function (r) {
-              if (!r.done) selected[selKey(tid, r.key)] = true;
-            });
-            renderRoot();
-          });
-        });
-
-        document.querySelectorAll('[data-remind]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var tid = btn.getAttribute('data-remind');
-            var keys = [];
-            Object.keys(selected).forEach(function (sk) {
-              if (sk.indexOf(tid + '::') === 0) keys.push(sk.split('::')[1]);
-            });
-            if (!keys.length) {
-              alert('リマインドする対象にチェックを入れてください。');
-              return;
-            }
-            var n = keys.length;
-            var confirmMsg = mode === 'store'
-              ? n + ' 店舗の担当者にリマインドを送信しますか？'
-              : n + ' 名にリマインドを送信しますか？';
-            if (!confirm(confirmMsg)) return;
-            var introText = '';
-            var ta = document.querySelector('textarea[data-intro-task="' + tid + '"]');
-            if (ta) introText = ta.value;
-            else introText = getIntroForTask(tid);
-
-            btn.disabled = true;
-            var origLabel = btn.textContent;
-            btn.textContent = '送信中…';
-            google.script.run
-              .withSuccessHandler(function (res) {
-                btn.disabled = false;
-                btn.textContent = origLabel;
-                alert((res && res.message) || '完了');
-                if (res && res.ok) {
-                  Object.keys(selected).forEach(function (sk) {
-                    if (sk.indexOf(tid + '::') === 0) delete selected[sk];
-                  });
-                  load();
-                }
-              })
-              .withFailureHandler(function (err) {
-                btn.disabled = false;
-                btn.textContent = origLabel;
-                alert(err && err.message ? err.message : String(err));
-              })
-              .sendAdminTaskReminder(tid, keys, mode, introText);
-          });
         });
       }
 
@@ -1380,24 +1280,7 @@
       }
 
       function renderModeBadges() {
-        if (!lastData) return;
-        var emp = openCount(lastData.employeeTasks);
-        var store = openCount(lastData.storeTasks);
-        var tf = openCount(lastData.tfTasks);
-        var effectN = (lastData.reminderEffects && lastData.reminderEffects.tasks)
-          ? lastData.reminderEffects.tasks.length
-          : 0;
-        [
-          { id: 'badgeEmployee', n: emp },
-          { id: 'badgeStore', n: store },
-          { id: 'badgeTf', n: tf },
-          { id: 'badgeReminderEffect', n: effectN }
-        ].forEach(function (b) {
-          var el = document.getElementById(b.id);
-          if (!el) return;
-          el.textContent = String(b.n);
-          el.classList.toggle('empty', b.n <= 0);
-        });
+        /* 件数バッジはトップ集計に集約したため非表示 */
       }
 
       function renderAll() {
@@ -1466,6 +1349,7 @@
           pendingAutoOpen = true;
           filter = 'all';
           typeFilter = 'all';
+          sortOrder = 'desc';
           renderAll();
         });
       });

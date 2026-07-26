@@ -644,6 +644,39 @@ function SelectionBlock({ num, title, hint, allLabel, items, selected, onChangeS
   );
 }
 
+const HOME_HELP = {
+  request: {
+    title: '新規投稿',
+    lines: [
+      '新しい依頼を作成して配信します。',
+      '依頼の種類・内容・期限・配信先を設定して送信してください。',
+      '送信後、対象者にメールが届き、リストチェックに表示されます。',
+    ],
+  },
+  repost: {
+    title: '再投稿',
+    lines: [
+      '過去の新規投稿（期限が過ぎたもの）を、同じ内容・宛先でもう一度送ります。',
+      '期限だけ選び直して送信します（文面や添付の変更も可能です）。',
+      '未実施者だけに送りたいときは「リマインド」を使います。',
+    ],
+  },
+  checklist: {
+    title: 'リストチェック',
+    lines: [
+      '自分に届いた To Do の確認と完了を行います。',
+    ],
+  },
+  remind: {
+    title: 'リマインド',
+    lines: [
+      '過去の依頼のうち、まだ未実施の人だけを宛先にして送ります。',
+      '期限だけ選び直して送信します（文面や添付の変更も可能です）。',
+      '同じ宛先でもう一度送りたいときは「再投稿」を使います。',
+    ],
+  },
+};
+
 export default function App() {
   const [authStep, setAuthStep] = useState('loading'); 
   const [inputEmail, setInputEmail] = useState('');
@@ -729,6 +762,8 @@ export default function App() {
   /** ホームから再投稿 / リマインドのどちらで入ったか（一覧の見出し・説明用） */
   const [repostEntryMode, setRepostEntryMode] = useState('repost'); // 'repost' | 'remind'
   const [repostHelpKey, setRepostHelpKey] = useState(null); // `${taskId}-repost` | `${taskId}-remind` | null
+  /** ホーム4メニューの使い方（?） */
+  const [homeHelpKey, setHomeHelpKey] = useState(null); // 'request' | 'repost' | 'checklist' | 'remind' | null
 
   const openRepostTab = (mode) => {
     setRepostEntryMode(mode === 'remind' ? 'remind' : 'repost');
@@ -2275,37 +2310,98 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 w-full md:gap-4 xl:gap-5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRepostIntent(null);
-                        navigateTab('request');
-                      }}
-                      className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}
-                    >
-                      <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name="plus" /></div>
-                      <h4 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 flex-1 leading-snug">新規投稿</h4>
-                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block max-sm:hidden"><Icon name="chevronLeft" /></span>
-                    </button>
-                    <button type="button" onClick={() => openRepostTab('repost')} className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}>
-                      <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name="history" /></div>
-                      <h4 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 flex-1 leading-snug">再投稿</h4>
-                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block max-sm:hidden"><Icon name="chevronLeft" /></span>
-                    </button>
-                    <button type="button" onClick={() => navigateTab('checklist')} className={dashboardMenuTile + ' relative max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}>
-                      <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name="list" /></div>
-                      <h4 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 flex-1 leading-snug">リストチェック</h4>
-                      {activeTasksCount > 0 && (
-                        <span className="bg-[var(--acc-600)] text-white text-xs font-bold px-2.5 py-1 rounded-full shrink-0">{activeTasksCount}</span>
-                      )}
-                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block max-sm:hidden"><Icon name="chevronLeft" /></span>
-                    </button>
-                    <button type="button" onClick={() => openRepostTab('remind')} className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}>
-                      <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name="bell" /></div>
-                      <h4 className="text-base sm:text-lg md:text-xl font-bold text-slate-900 flex-1 leading-snug">リマインド</h4>
-                      <span className="text-slate-300 shrink-0 scale-90 rotate-180 inline-block max-sm:hidden"><Icon name="chevronLeft" /></span>
-                    </button>
+                    {[
+                      {
+                        key: 'request',
+                        label: '新規投稿',
+                        icon: 'plus',
+                        onClick: () => {
+                          setRepostIntent(null);
+                          navigateTab('request');
+                        },
+                        badge: null,
+                      },
+                      {
+                        key: 'repost',
+                        label: '再投稿',
+                        icon: 'history',
+                        onClick: () => openRepostTab('repost'),
+                        badge: null,
+                      },
+                      {
+                        key: 'checklist',
+                        label: 'リストチェック',
+                        icon: 'list',
+                        onClick: () => navigateTab('checklist'),
+                        badge: activeTasksCount > 0 ? activeTasksCount : null,
+                      },
+                      {
+                        key: 'remind',
+                        label: 'リマインド',
+                        icon: 'bell',
+                        onClick: () => openRepostTab('remind'),
+                        badge: null,
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.key}
+                        className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}
+                      >
+                        <button
+                          type="button"
+                          onClick={item.onClick}
+                          className="shrink-0 bg-transparent border-0 p-0 cursor-pointer"
+                          aria-label={item.label}
+                        >
+                          <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name={item.icon} /></div>
+                        </button>
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <button
+                            type="button"
+                            onClick={item.onClick}
+                            className="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-snug text-left bg-transparent border-0 p-0 cursor-pointer truncate"
+                          >
+                            {item.label}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`${item.label}の使い方`}
+                            aria-expanded={homeHelpKey === item.key}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHomeHelpKey((k) => (k === item.key ? null : item.key));
+                            }}
+                            className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 rounded-full border border-slate-300 bg-slate-50 text-slate-500 font-black text-[11px] sm:text-xs leading-none hover:bg-slate-100 hover:border-slate-400 hover:text-slate-700 transition-colors"
+                          >
+                            ?
+                          </button>
+                        </div>
+                        {item.badge != null && (
+                          <span className="bg-[var(--acc-600)] text-white text-xs font-bold px-2.5 py-1 rounded-full shrink-0">{item.badge}</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={item.onClick}
+                          aria-hidden="true"
+                          tabIndex={-1}
+                          className="text-slate-300 shrink-0 scale-90 rotate-180 inline-flex max-sm:hidden bg-transparent border-0 p-0 cursor-pointer"
+                        >
+                          <Icon name="chevronLeft" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
+
+                  {homeHelpKey && HOME_HELP[homeHelpKey] && (
+                    <div className="rounded-2xl border border-[var(--acc-200)]/60 bg-white px-4 py-3.5 md:px-5 md:py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                      <p className="text-sm font-bold text-slate-900 mb-1.5">{HOME_HELP[homeHelpKey].title}の使い方</p>
+                      <ul className="space-y-1 text-sm font-medium text-slate-600 leading-relaxed">
+                        {HOME_HELP[homeHelpKey].lines.map((line) => (
+                          <li key={line}>・{line}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-3 w-full">
                     {teamProgressBanners.length > 0 ? teamProgressBanners.map((team) => (
@@ -2451,124 +2547,125 @@ export default function App() {
               {/* === 再投稿 / リマインド (履歴) === */}
               {!checklistOnlyMode && activeTab === 'repost' && (
                 <div className="animate-fade-in w-full mt-4">
-                  <p className="text-base font-bold text-slate-600 mb-8 text-center border-b-2 border-slate-300 pb-6 leading-relaxed">
-                    <strong className="text-slate-800">新規投稿</strong>で過去に配信した内容だけが一覧に出ます。
-                    <br />
-                    <span className="text-sm font-semibold text-slate-500 mt-2 block">
-                      {repostEntryMode === 'remind' ? (
-                        <>
-                          <strong className="text-slate-700">リマインドする</strong> … 過去の<strong>未実施者のみ</strong>を宛先にした状態で、新しい依頼を作れます。
-                          <br />
-                          同じ内容・宛先でもう一度送りたいときは、<strong className="text-slate-700">再投稿する</strong>を使ってください。
-                        </>
-                      ) : (
-                        <>
-                          <strong className="text-slate-700">再投稿する</strong> … 過去と同じ内容・宛先で、新しい依頼を作れます。
-                          <br />
-                          未実施者だけに送りたいときは、<strong className="text-slate-700">リマインドする</strong>を使ってください。
-                        </>
-                      )}
-                      <br />
-                      一覧には<strong>期限が過ぎた依頼だけ</strong>が出ます（期限当日までは表示しません）。
-                      <br />
-                      どちらも「2. 期限（DL）」は選び直してください。添付はサムネイルをタップすると開けます。
-                    </span>
-                  </p>
-                  
-                  <div className="space-y-6 w-full">
-                    {sentTasks.length === 0 ? (
-                      <p className="text-center text-slate-500 font-bold py-20 text-lg">送信履歴がありません</p>
-                    ) : sentTasks.map(task => {
-                      const remindFirst = repostEntryMode === 'remind';
-                      const repostBtn = (
-                        <div key="repost" className="flex flex-col gap-2">
-                          <div className="flex items-stretch gap-1.5">
-                            <button type="button" onClick={() => handleRepostClick(task, { mode: 'repost' })} className={brutalBtnSecondary + " flex-1 px-6"}>
-                              再投稿する
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="再投稿するの説明"
-                              aria-expanded={repostHelpKey === task.id + '-repost'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRepostHelpKey((k) => (k === task.id + '-repost' ? null : task.id + '-repost'));
-                              }}
-                              className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
-                            >
-                              ?
-                            </button>
-                          </div>
-                          {repostHelpKey === task.id + '-repost' ? (
-                            <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
-                              <strong className="text-slate-800">再投稿する</strong>
-                              <br />
-                              過去と同じ内容・宛先で、新しい依頼を作れます。
-                              <br />
-                              「2. 期限（DL）」だけ選び直します。
-                              <br />
-                              （文面・画像・URLの変更も可能です）
-                            </p>
-                          ) : null}
+                  {(() => {
+                    const isRemindMode = repostEntryMode === 'remind';
+                    const modeLabel = isRemindMode ? 'リマインド' : '再投稿';
+                    const helpKeySuffix = isRemindMode ? '-remind' : '-repost';
+                    return (
+                      <>
+                        <div className="mb-8 text-center border-b-2 border-slate-300 pb-6">
+                          <p className="inline-flex items-center gap-2 rounded-full bg-[var(--acc-600)] text-white text-xs font-bold px-3 py-1 mb-3 tracking-wide">
+                            {modeLabel}モード
+                          </p>
+                          <p className="text-base font-bold text-slate-700 leading-relaxed">
+                            {isRemindMode ? (
+                              <>
+                                過去の依頼から選び、<strong className="text-slate-900">未実施者のみ</strong>へ催促します。
+                              </>
+                            ) : (
+                              <>
+                                過去の依頼から選び、<strong className="text-slate-900">同じ内容・宛先</strong>でもう一度送ります。
+                              </>
+                            )}
+                          </p>
+                          <p className="text-sm font-semibold text-slate-500 mt-2 leading-relaxed">
+                            一覧は<strong>期限が過ぎた依頼だけ</strong>（期限当日までは非表示）。
+                            <br />
+                            送信前に「2. 期限（DL）」を選び直してください。添付はサムネをタップで開けます。
+                            <br />
+                            {isRemindMode
+                              ? '同じ宛先でもう一度送りたいときは、ホームの「再投稿」から入ってください。'
+                              : '未実施者だけに送りたいときは、ホームの「リマインド」から入ってください。'}
+                          </p>
                         </div>
-                      );
-                      const remindBtn = (
-                        <div key="remind" className="flex flex-col gap-2">
-                          <div className="flex items-stretch gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleRemindClick(task)}
-                              disabled={!!remindingTaskId}
-                              className={brutalBtnSecondary + " flex-1 px-6 disabled:opacity-50 disabled:cursor-not-allowed"}
-                            >
-                              {remindingTaskId === task.id ? '準備中…' : 'リマインドする'}
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="リマインドするの説明"
-                              aria-expanded={repostHelpKey === task.id + '-remind'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRepostHelpKey((k) => (k === task.id + '-remind' ? null : task.id + '-remind'));
-                              }}
-                              className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
-                            >
-                              ?
-                            </button>
-                          </div>
-                          {repostHelpKey === task.id + '-remind' ? (
-                            <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
-                              <strong className="text-slate-800">リマインドする</strong>
-                              <br />
-                              未実施の人だけを宛先に入れた状態で、再投稿できます。
-                              <br />
-                              「2. 期限（DL）」だけ選び直します。
-                              <br />
-                              （文面・画像・URLの変更も可能です）
-                              <br />
-                              ※期限を過ぎても未実施の方への催促に使ってください。
-                            </p>
-                          ) : null}
+
+                        <div className="space-y-6 w-full">
+                          {sentTasks.length === 0 ? (
+                            <p className="text-center text-slate-500 font-bold py-20 text-lg">送信履歴がありません</p>
+                          ) : sentTasks.map((task) => {
+                            const helpKey = task.id + helpKeySuffix;
+                            return (
+                              <div
+                                key={task.id}
+                                className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-[var(--acc-200)] hover:shadow-md transition-all shadow-sm w-full"
+                              >
+                                <div className="flex-1 text-center md:text-left w-full">
+                                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
+                                    <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">
+                                      {isRemindMode ? 'リマインド候補' : '再投稿候補'}
+                                    </span>
+                                    <span className="text-sm text-slate-600 font-bold">{task.createdAt}</span>
+                                    {task.targetTags && (
+                                      <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">
+                                        宛先: {task.targetTags}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
+                                  <SavedAttachmentStrip urls={task.images} />
+                                </div>
+                                <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0 md:min-w-[12.5rem]">
+                                  <div className="flex items-stretch gap-1.5">
+                                    {isRemindMode ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemindClick(task)}
+                                        disabled={!!remindingTaskId}
+                                        className={brutalBtnPrimary + ' flex-1 px-6 disabled:opacity-50 disabled:cursor-not-allowed'}
+                                      >
+                                        {remindingTaskId === task.id ? '準備中…' : 'この内容でリマインド'}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRepostClick(task, { mode: 'repost' })}
+                                        className={brutalBtnPrimary + ' flex-1 px-6'}
+                                      >
+                                        この内容で再投稿
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      aria-label={`${modeLabel}の説明`}
+                                      aria-expanded={repostHelpKey === helpKey}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRepostHelpKey((k) => (k === helpKey ? null : helpKey));
+                                      }}
+                                      className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                                    >
+                                      ?
+                                    </button>
+                                  </div>
+                                  {repostHelpKey === helpKey ? (
+                                    <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
+                                      {isRemindMode ? (
+                                        <>
+                                          <strong className="text-slate-800">リマインド</strong>
+                                          <br />
+                                          未実施の人だけを宛先に入れた状態で配信できます。
+                                          <br />
+                                          「2. 期限（DL）」だけ選び直します（文面・添付の変更も可）。
+                                        </>
+                                      ) : (
+                                        <>
+                                          <strong className="text-slate-800">再投稿</strong>
+                                          <br />
+                                          過去と同じ内容・宛先で、新しい依頼を作れます。
+                                          <br />
+                                          「2. 期限（DL）」だけ選び直します（文面・添付の変更も可）。
+                                        </>
+                                      )}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                      return (
-                      <div key={task.id} className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-[var(--acc-200)] hover:shadow-md transition-all shadow-sm w-full">
-                         <div className="flex-1 text-center md:text-left w-full">
-                           <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
-                             <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">過去の配信</span>
-                             <span className="text-sm text-slate-600 font-bold">{task.createdAt}</span>
-                             {task.targetTags && <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">宛先: {task.targetTags}</span>}
-                           </div>
-                           <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
-                           <SavedAttachmentStrip urls={task.images} />
-                         </div>
-                         <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0 md:min-w-[12.5rem]">
-                           {remindFirst ? <>{remindBtn}{repostBtn}</> : <>{repostBtn}{remindBtn}</>}
-                         </div>
-                      </div>
-                      );
-                    })}
-                  </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
               

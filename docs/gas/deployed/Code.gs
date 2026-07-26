@@ -2027,7 +2027,10 @@ function buildAdminTaskSummaryFromRow_(row, allStores, areasList, today) {
     progressPct: progress.progressPct,
     complete: progress.complete,
     overdue: overdue,
-    statusLabel: progress.complete ? '完了' : overdue ? '期限超過' : '進行中'
+    statusLabel: progress.complete ? '完了' : overdue ? '期限超過' : '進行中',
+    createdAt: row[1]
+      ? Utilities.formatDate(new Date(row[1]), 'JST', 'yyyy-MM-dd HH:mm:ss')
+      : ''
   };
 }
 
