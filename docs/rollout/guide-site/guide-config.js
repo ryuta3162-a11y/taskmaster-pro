@@ -49,7 +49,7 @@ window.GUIDE_CONFIG = {
       duration: '約1分',
       mp4: 'videos/repost.mp4',
       poster: 'images/repost-poster.png',
-      vtt: 'videos/repost.vtt',
+      vtt: 'videos/repost.vtt?v=20260726c',
       youtube: '',
       drive: '',
     },

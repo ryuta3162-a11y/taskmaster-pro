@@ -142,7 +142,7 @@
         /(\d{1,2}:\d{2}:\d{2}[.,]\d{3}|\d{1,2}:\d{2}[.,]\d{3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[.,]\d{3}|\d{1,2}:\d{2}[.,]\d{3})/
       );
       if (!timeLine) return;
-      const body = lines.slice(1).join('\n').trim().replace(/。/g, '\n').replace(/\n+/g, '\n').trim();
+      const body = lines.slice(1).join('\n').trim();
       if (!body) return;
       cues.push({
         start: parseVttTime(timeLine[1]),
@@ -156,7 +156,7 @@
   function loadVttCues(url) {
     const resolved = resolveAssetUrl(url);
     if (!resolved) return Promise.resolve([]);
-    return fetch(resolved, { credentials: 'same-origin' })
+    return fetch(resolved, { credentials: 'same-origin', cache: 'no-store' })
       .then(function (res) {
         if (!res.ok) throw new Error('vtt fetch failed: ' + res.status);
         return res.text();
