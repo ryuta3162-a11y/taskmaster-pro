@@ -46,7 +46,7 @@ window.GUIDE_CONFIG = {
     },
     repost: {
       title: '再投稿・リマインド',
-      duration: '約30秒',
+      duration: '約1分',
       mp4: 'videos/repost.mp4',
       poster: 'images/repost-poster.png',
       vtt: 'videos/repost.vtt',
