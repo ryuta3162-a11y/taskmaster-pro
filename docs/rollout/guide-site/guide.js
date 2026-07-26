@@ -105,20 +105,15 @@
       videoEl.controls = true;
       videoEl.muted = false;
       videoEl.volume = 1;
-      videoEl.play().catch(function (err) {
-        const message = String(err?.message || '');
-        const interrupted = err?.name === 'AbortError' || /interrupted/i.test(message);
-        if (videoEl.dataset.narrationMode === 'cue-audio' && interrupted) return;
+      videoEl.play().catch(function () {
         overlay.classList.remove('is-hidden');
         videoEl.controls = false;
       });
     });
 
     videoEl.addEventListener('play', function () {
+      videoEl.muted = false;
       videoEl.volume = 1;
-      if (videoEl.dataset.narrationMode !== 'cue-audio') {
-        videoEl.muted = false;
-      }
     });
 
     videoEl.addEventListener('ended', function () {
@@ -188,13 +183,24 @@
   function buildNarrationUrl(videoKey, index) {
     const key = String(videoKey || '').replace(/[^a-zA-Z0-9_-]/g, '');
     if (!key) return '';
-    return resolveAssetUrl('audio/' + key + '/' + padCueNumber(index) + '.wav');
+    return resolveAssetUrl('videos/audio/' + key + '/' + padCueNumber(index) + '.wav');
   }
 
+  function hasCueAudioAssets(videoKey) {
+    // 旧方式: videos/audio/{key}/001.wav …
+    // 現行の公開資産は「画面MP4に音声合成済み」なので、基本は使わない。
+    return false;
+  }
+
+  /**
+   * 字幕表示。MP4 に音声が入っている前提で、ネイティブ再生＋VTT字幕。
+   * （存在しない cue WAV を探すと、ミュート／一時停止ループで再生が壊れる）
+   */
   function bindCustomCaptions(wrap, videoEl, vttUrl, videoKey) {
     if (!vttUrl) return;
 
-    videoEl.dataset.narrationMode = 'cue-audio';
+    const useCueAudio = hasCueAudioAssets(videoKey);
+    videoEl.dataset.narrationMode = useCueAudio ? 'cue-audio' : 'native-audio';
 
     const cap = document.createElement('div');
     cap.className = 'video-caption';
@@ -203,33 +209,6 @@
 
     let cues = [];
     let currentCueId = '';
-    let spokenCueId = '';
-    let isNarrating = false;
-    let narrationAvailable = true;
-    const audioEl = document.createElement('audio');
-
-    audioEl.className = 'guide-narration-audio';
-    audioEl.preload = 'auto';
-    audioEl.volume = 1;
-    wrap.appendChild(audioEl);
-
-    function reloadCues() {
-      return loadVttCues(vttUrl).then(function (list) {
-        cues = list.map(function (cue, index) {
-          return Object.assign({}, cue, {
-            cueId: videoKey + '-' + index + '-' + cue.start,
-            narrationSrc: buildNarrationUrl(videoKey, index),
-          });
-        });
-        if (cues[0]?.narrationSrc) {
-          audioEl.src = cues[0].narrationSrc;
-        }
-        updateCaption();
-        return list;
-      });
-    }
-
-    reloadCues();
 
     function showCaption(cue) {
       if (!cue) {
@@ -252,104 +231,29 @@
       });
     }
 
-    function stopNarration() {
-      audioEl.pause();
-      audioEl.removeAttribute('src');
-      audioEl.load();
-      isNarrating = false;
-    }
-
-    function finishNarration(shouldResume) {
-      isNarrating = false;
-      if (shouldResume && !videoEl.ended) {
-        videoEl.play().catch(function () {});
-      }
-    }
-
-    function fallbackToNativeAudio() {
-      narrationAvailable = false;
-      videoEl.dataset.narrationMode = 'native-audio';
-      videoEl.muted = false;
-      videoEl.volume = 1;
-    }
-
-    function playCueNarration(cue, forceResume) {
-      if (!cue || !cue.narrationSrc || !narrationAvailable) return;
-      if (isNarrating || spokenCueId === cue.cueId) return;
-
-      const shouldResume = !!forceResume || (!videoEl.paused && !videoEl.ended);
-      spokenCueId = cue.cueId;
-      isNarrating = true;
-      showCaption(cue);
-      videoEl.volume = 1;
-
-      function pauseForNarration() {
-        if (!isNarrating || !narrationAvailable) return;
-        videoEl.muted = true;
-        if (!videoEl.paused) videoEl.pause();
-      }
-
-      audioEl.onended = function () {
-        finishNarration(shouldResume);
-      };
-      audioEl.onerror = function () {
-        fallbackToNativeAudio();
-        finishNarration(shouldResume);
-      };
-      audioEl.onplaying = pauseForNarration;
-      audioEl.src = cue.narrationSrc;
-      audioEl.currentTime = 0;
-      audioEl.play().then(pauseForNarration).catch(function (err) {
-        console.warn('[guide] Narration audio failed:', cue.narrationSrc, err);
-        fallbackToNativeAudio();
-        finishNarration(shouldResume);
-      });
-      window.setTimeout(function () {
-        if (isNarrating && audioEl.paused && audioEl.currentTime === 0) {
-          fallbackToNativeAudio();
-          finishNarration(shouldResume);
-        }
-      }, 1800);
-    }
-
     function updateCaption() {
       if (!cues.length) {
         showCaption(null);
         return;
       }
-
-      const active = getActiveCue();
-      if (active) {
-        showCaption(active);
-        if (!videoEl.paused && !videoEl.ended) {
-          playCueNarration(active);
-        }
-      } else {
-        showCaption(null);
-      }
+      showCaption(getActiveCue() || null);
     }
 
+    loadVttCues(vttUrl).then(function (list) {
+      cues = list.map(function (cue, index) {
+        return Object.assign({}, cue, {
+          cueId: videoKey + '-' + index + '-' + cue.start,
+          narrationSrc: useCueAudio ? buildNarrationUrl(videoKey, index) : '',
+        });
+      });
+      updateCaption();
+    });
+
     videoEl.addEventListener('timeupdate', updateCaption);
-    videoEl.addEventListener('seeked', function () {
-      stopNarration();
-      spokenCueId = '';
-      updateCaption();
-    });
-    videoEl.addEventListener('play', function () {
-      if (!cues.length) {
-        reloadCues().then(updateCaption);
-      } else {
-        updateCaption();
-      }
-    });
-    videoEl.addEventListener('pause', function () {
-      updateCaption();
-    });
+    videoEl.addEventListener('seeked', updateCaption);
+    videoEl.addEventListener('play', updateCaption);
     videoEl.addEventListener('ended', function () {
-      stopNarration();
       showCaption(null);
-      spokenCueId = '';
-      if (narrationAvailable) videoEl.muted = true;
     });
   }
 
