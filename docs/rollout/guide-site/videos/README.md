@@ -10,9 +10,10 @@
 | `register.mp4` | 初回登録 |
 | `checklist.mp4` | リストチェック |
 | `request.mp4` | 新規投稿 |
-| `repost.mp4` | 再投稿 |
-| `scheduled.mp4` | 定期配信 |
+| `repost.mp4` | 再投稿・リマインド |
 | `progress.mp4` | チーム進捗（付録・任意） |
+
+※ `scheduled.mp4`（定期配信）は機能廃止のため未使用。残っていてもガイドからは参照しません。
 
 ## 設定
 

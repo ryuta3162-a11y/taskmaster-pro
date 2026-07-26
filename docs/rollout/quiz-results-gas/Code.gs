@@ -3,11 +3,11 @@ var QUIZ_RESULT_CONFIG = {
   sheetName: 'テスト',
   questionCount: 6,
   correctAnswers: [
-    { target: 'store', method: 'scheduled' },
+    { target: 'store', method: 'new' },
     { target: 'employee', method: 'new' },
     { target: 'team', method: 'new' },
     { target: 'store', method: 'repost' },
-    { target: 'store', method: 'scheduled' },
+    { target: 'store', method: 'remind' },
     { target: 'employee', method: 'new' },
   ],
   headers: [

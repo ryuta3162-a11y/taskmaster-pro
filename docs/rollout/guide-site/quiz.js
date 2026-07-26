@@ -10,15 +10,15 @@
   ];
 
   const METHOD_CHOICES = [
-    { id: 'new', label: '新規投稿', hint: '今回だけ送る' },
-    { id: 'repost', label: '再投稿', hint: '過去の依頼を再利用' },
-    { id: 'scheduled', label: '定期配信', hint: '毎月・毎週など自動' },
+    { id: 'new', label: '新規投稿', hint: '新しい依頼を作って送る' },
+    { id: 'repost', label: '再投稿', hint: '同じ内容・宛先でもう一度' },
+    { id: 'remind', label: 'リマインド', hint: '未実施者だけにもう一度' },
   ];
 
   const QUESTIONS = [
     {
       id: 'q1',
-      text: '毎月初め、全店舗へ前月の売上・入会数・体験数の入力依頼（毎月繰り返し）',
+      text: '今月初め、全店舗へ前月の売上・入会数・体験数の入力依頼（今回だけ）',
     },
     {
       id: 'q2',
@@ -34,7 +34,7 @@
     },
     {
       id: 'q5',
-      text: '全店のイベント契約件数を、毎週月曜に入力してもらう（毎週繰り返し）',
+      text: '以前送った店舗依頼で、まだ未実施の店舗だけにもう一度催促する',
     },
     {
       id: 'q6',
@@ -278,7 +278,7 @@
     });
   }
 
-  function restoreSelectedChoices(container) {
+  function applyWrongQuestionMarks(marks) {
     if (!Array.isArray(marks)) return;
 
     marks.forEach(function (mark, index) {

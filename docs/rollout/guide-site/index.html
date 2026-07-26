@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <a class="skip-link" href="#register">本文へ移動</a>
+  <a class="skip-link" href="#overview">本文へ移動</a>
   <header class="site-header">
     <a class="site-brand" href="#overview">
       <span class="brand-mark">TD</span>
@@ -55,6 +55,43 @@
         </p>
       </aside>
 
+      <!-- はじめに -->
+      <article class="section" id="overview">
+        <header class="section-header">
+          <h2><span class="section-num">★</span> はじめに（全体の流れ）</h2>
+        </header>
+        <div class="section-body">
+          <div class="video-block video-block--rich" data-video="overview">
+            <div class="video-frame-wrap"></div>
+          </div>
+          <p class="callout-footnote">字幕・下の説明は最新です。動画音声が古い場合は、字幕と表を優先してください。</p>
+          <p>
+            ホームには次の<strong>4つ</strong>があります。各メニュー右の <strong>?</strong> でも短い使い方を確認できます。
+          </p>
+          <table class="info-table">
+            <tr>
+              <th>新規投稿</th>
+              <td>新しい依頼を作成して配信します。</td>
+            </tr>
+            <tr>
+              <th>再投稿</th>
+              <td>過去の依頼を、<strong>同じ内容・宛先</strong>でもう一度送ります（期限は選び直し）。</td>
+            </tr>
+            <tr>
+              <th>リストチェック</th>
+              <td>届いた To Do の確認と完了を行います。</td>
+            </tr>
+            <tr>
+              <th>リマインド</th>
+              <td>過去の依頼を、<strong>未実施者のみ</strong>を宛先にして送ります（期限は選び直し）。</td>
+            </tr>
+          </table>
+          <p class="callout-footnote">
+            詳細は各章へ。依頼を出す流れは <a href="#request">新規投稿</a>、受け取る側は <a href="#checklist">リストチェック</a> を見てください。
+          </p>
+        </div>
+      </article>
+
       <!-- 登録 -->
       <article class="section section--enhanced" id="register">
         <header class="section-header section-header--rich">
@@ -65,7 +102,7 @@
 
         <div class="identity-rule">
           <strong>店舗メールアドレスでは登録しないでください。</strong>
-          <span>店舗共用メールは複数人が見る可能性があります。完了者やリマインドの取り違えに加え、アルバイトスタッフへの情報漏洩の危険性もあるため、社員個人に発行されているメールアドレスを使います。</span>
+          <span>詳細はページ上部の注意事項を参照してください。</span>
         </div>
 
         <div class="register-main">
@@ -133,7 +170,7 @@
           <p>
             依頼を受け取った方は、ホームの<strong>リストチェック</strong>を開きます。
             配信が完了すると <a href="#mail-notify">通知メール</a> が届き、メール内のリンクからも同じ画面を開けます。
-            ホームのバッジ数字は<strong>未完了件数</strong>です。
+            リストチェック横の数字は<strong>未完了件数</strong>です。
           </p>
 
           <table class="info-table">
@@ -160,7 +197,7 @@
             <p>次のURLをブラウザの<strong>ブックマーク</strong>に登録してください。ホームを開かず、リストチェックだけ開けます。</p>
             <a id="link-checklist" class="code-chip code-chip-link" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
             <p class="callout-footnote">
-              Gmail では件名 <strong>【TODOリスト】新しいタスクが届きました</strong> でラベル振り分けすると便利です（<a href="#gmail-label">設定手順</a>）。
+              通知メールの整理は <a href="#gmail-label">Gmailラベル</a> を参照してください。
             </p>
           </div>
         </div>
@@ -195,7 +232,7 @@
             </tr>
           </table>
           <p>
-            依頼内容・期限を入力し、配信先を確認して <strong>送信</strong> します。
+            依頼内容・期限を入力し、配信先を確認して <strong>この内容で配信する</strong> を押します。
             配信が完了すると <strong>メールが届き</strong>、受信者の <strong>リストチェック</strong> に To Do が表示されます。
           </p>
           <p><a href="#mail-notify">届くメールの見本はこちら →</a></p>
@@ -239,7 +276,7 @@
             </div>
           </div>
 
-          <p>メール内のリンクを開くと <strong>リストチェック</strong> に移動できます。ブックマークしておくと便利です。</p>
+          <p>メール内のリンクを開くと <strong>リストチェック</strong> に移動できます。ラベル整理は <a href="#gmail-label">次の章</a> へ。</p>
         </div>
       </article>
 
@@ -276,39 +313,53 @@
         </div>
       </article>
 
-      <!-- 再投稿 -->
+      <!-- 再投稿・リマインド -->
       <article class="section" id="repost">
         <header class="section-header">
-          <h2><span class="section-num">6.</span> 再投稿</h2>
+          <h2><span class="section-num">6.</span> 再投稿・リマインド</h2>
         </header>
         <div class="section-body">
           <div class="video-block video-block--rich" data-video="repost">
             <div class="video-frame-wrap"></div>
           </div>
           <p>
-            ホームの <strong>再投稿</strong> または <strong>リマインド</strong> を開くと、過去に <strong>新規投稿</strong> で送った依頼だけが一覧に出ます（期限が過ぎた依頼のみ）。
+            ホームで <strong>再投稿</strong> と <strong>リマインド</strong> は入口が分かれています。
+            どちらも、過去に <strong>新規投稿</strong> で送った依頼のうち、<strong>期限が過ぎたものだけ</strong>が一覧に出ます。
           </p>
           <table class="info-table">
             <tr>
-              <th>一覧から選ぶ</th>
-              <td>送りたい依頼の <strong>再投稿する</strong>（同じ宛先）または <strong>リマインドする</strong>（未実施者のみ）を押します。</td>
+              <th>再投稿</th>
+              <td>
+                ホームの <strong>再投稿</strong> から開きます。一覧で <strong>この内容で再投稿</strong> を押すと、
+                <strong>同じ内容・宛先</strong>で新しい依頼を作れます。
+              </td>
+            </tr>
+            <tr>
+              <th>リマインド</th>
+              <td>
+                ホームの <strong>リマインド</strong> から開きます。一覧で <strong>この内容でリマインド</strong> を押すと、
+                <strong>未実施者のみ</strong>を宛先にした状態で新しい依頼を作れます。
+              </td>
             </tr>
             <tr>
               <th>引き継がれるもの</th>
-              <td>依頼内容・URL・添付ファイル・配信先（役職・店舗・チームなど）。</td>
+              <td>依頼内容・URL・添付ファイル・配信先（再投稿）または未実施者（リマインド）。</td>
             </tr>
             <tr>
               <th>選び直すもの</th>
-              <td><strong>期限</strong> は毎回選び直してください。</td>
+              <td><strong>期限</strong> は毎回選び直してください。文面や添付の変更も可能です。</td>
             </tr>
             <tr>
               <th>送信</th>
-              <td>内容を確認して <strong>送信</strong> すれば、新規投稿と同様に配信・通知メールが届きます。</td>
+              <td>内容を確認して <strong>この内容で配信する</strong> を押すと、新規投稿と同様に配信・通知メールが届きます。</td>
             </tr>
           </table>
           <div class="callout-box">
-            <p class="callout-title">こんなときに使う</p>
-            <p>「先月と同じ内容を、もう一度手動で送りたい」「未実施者だけにもう一度送りたい」「内容はほぼ同じで期限だけ変えたい」といったときに便利です。</p>
+            <p class="callout-title">使い分け</p>
+            <p>
+              <strong>再投稿</strong> … 同じ宛先にもう一度送りたいとき。<br />
+              <strong>リマインド</strong> … 未実施者だけに催促したいとき。
+            </p>
           </div>
         </div>
       </article>
@@ -409,7 +460,7 @@
         </header>
         <div class="section-body">
           <div class="quiz-entry">
-            <p>依頼内容を読んで、①依頼の種類と②配信方法を選ぶテストです。不合格の場合は結果を確認して再回答できます。</p>
+            <p>依頼内容を読んで、①依頼の種類と②配信方法（新規投稿／再投稿／リマインド）を選ぶテストです。不合格の場合は結果を確認して再回答できます。</p>
             <a class="btn btn-primary" href="quiz.html">理解度チェックを開始</a>
           </div>
         </div>
