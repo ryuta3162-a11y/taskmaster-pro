@@ -1,433 +1,83 @@
 import React, { useState, useEffect, Fragment, useMemo, useRef, useCallback } from 'react';
 import { ACCENT_THEMES, applyAccentTheme, readStoredAccentId } from './accentThemes.js';
-
-// --- デザイン用定数（スマホアプリ風・内容は従来どおり） ---
-const appCard = "bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.05] p-5 md:p-6 transition-all w-full";
-const appInput = "bg-slate-100/90 border-0 rounded-xl px-4 py-3.5 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--acc-500)]/35 transition-all w-full text-sm";
-/** タイポグラフィ階層（index 全画面・admin.css と同じ 16/14/12/11px 想定） */
-const appText = {
-  title: 'text-base font-bold text-slate-900 leading-snug',
-  section: 'text-sm font-semibold text-[var(--acc-600)]',
-  body: 'text-sm font-medium text-slate-700',
-  meta: 'text-xs font-medium text-slate-500',
-  caption: 'text-xs font-semibold text-slate-500',
-  badge: 'text-xs font-bold',
-  badgeNum: 'text-[11px] font-bold tabular-nums leading-none',
-  tab: 'text-sm font-bold',
-  btn: 'text-sm font-bold',
-  /** 配信人数など、強調したい数字のみ */
-  stat: 'text-2xl font-bold text-[var(--acc-600)] tabular-nums tracking-tight',
-};
-const appLabel = `${appText.section} mb-3 block tracking-wide border-b border-slate-200/80 pb-2`;
-/** リストチェック等のタスクカード（appCard と同じ枠・角丸） */
-const appTaskCard = `${appCard} flex flex-col xl:flex-row gap-4 xl:gap-5 w-full animate-fade-in`;
-const appTagPill = `${appText.badge} inline-flex items-center px-2.5 py-1 rounded-lg border border-black/[0.06]`;
-const appTagOnAccent = `${appText.badge} inline-flex items-center px-2.5 py-1 rounded-lg text-white shadow-sm`;
-const appSurfaceInset = 'rounded-xl border border-slate-200/80 bg-slate-50/90';
-const appDivider = 'border-t border-slate-200/80';
-const appFormSubmitRow = `${appDivider} pt-6 w-full mt-2`;
-const appBtnPrimary = `bg-[var(--acc-500)] text-white rounded-2xl shadow-lg shadow-[var(--acc-500)]/25 transition-all hover:bg-[var(--acc-600)] active:scale-[0.98] flex items-center justify-center gap-3 py-3.5 w-full ${appText.btn}`;
-const appBtnSecondary = `bg-white text-slate-700 rounded-2xl border border-black/[0.06] shadow-sm transition-all hover:bg-slate-50 active:scale-[0.98] flex items-center justify-center gap-2 py-3 ${appText.btn}`;
-const appLinkBtn = `${appBtnSecondary} w-full max-w-md py-3 gap-2`;
-const appLabelKind = `${appText.section} mb-4 block tracking-wide border-b border-slate-200/80 pb-2`;
-const appKindRadio = (on) =>
-  `flex items-center gap-3 flex-1 p-4 rounded-xl border cursor-pointer transition-colors ${
-    on ? 'border-[var(--acc-500)] bg-[var(--acc-50)] ring-1 ring-[var(--acc-200)]/40' : 'border-slate-200 bg-white hover:border-slate-300'
-  }`;
-const appMenuTile = "w-full text-left bg-white rounded-2xl p-4 md:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04] active:scale-[0.99] transition-all flex items-center gap-4";
-/** ダッシュボード（ホーム）の4メニュー用・やや大きめ */
-const dashboardMenuTile = "w-full text-left bg-white rounded-2xl p-5 md:p-7 min-h-[5.25rem] md:min-h-[6.25rem] shadow-[0_2px_12px_rgba(0,0,0,0.08)] border border-black/[0.05] active:scale-[0.99] transition-all flex items-center gap-4 md:gap-5";
-const dashboardMenuIcon = "w-14 h-14 md:w-16 md:h-16 rounded-2xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-100";
-const appSection = "relative rounded-2xl w-full overflow-hidden border border-[var(--acc-200)]/45 bg-white/95 shadow-[0_4px_24px_-10px_rgba(0,0,0,0.08)] ring-1 ring-[var(--acc-100)]/40 p-5 md:p-6";
-const appMenuIcon = "w-12 h-12 rounded-xl shrink-0 flex items-center justify-center bg-[var(--acc-50)] text-[var(--acc-700)] [&>svg]:scale-[0.85]";
-const appChipBase = "inline-flex items-center justify-center min-h-[2.5rem] px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer select-none text-center leading-snug";
-const appChipOn = "bg-gradient-to-br from-[var(--acc-500)] to-[var(--acc-700)] text-white shadow-md shadow-[var(--acc-500)]/30 ring-1 ring-white/25";
-const appChipOff = "bg-white/90 text-slate-700 border border-[var(--acc-200)]/60 hover:border-[var(--acc-400)] hover:bg-[var(--acc-50)]/60";
-const appChipArena = "rounded-xl border border-[var(--acc-200)]/45 bg-gradient-to-b from-slate-900/[0.03] via-white to-[var(--acc-50)]/25 p-3 shadow-[inset_0_1px_3px_rgba(0,0,0,0.05)]";
-
-/** 新規登録は社内メールのみ（従業員データに既にある人はドメイン不問でログイン可） */
-const CORP_EMAIL_DOMAIN = '@okamoto-group.co.jp';
-function normalizeEmail(email) {
-  return String(email || '').trim().toLowerCase();
-}
-function isCorpEmail(email) {
-  return normalizeEmail(email).endsWith(CORP_EMAIL_DOMAIN);
-}
-
-/** クエリ文字列から起動モードを解釈（GAS iframe 用に複数経路で呼ぶ） */
-function parseAppEntryFromQueryString(queryString) {
-  if (!queryString) return null;
-  const raw = String(queryString).replace(/^\?/, '').replace(/^#/, '');
-  if (!raw) return null;
-  const params = new URLSearchParams(raw);
-  const page = String(params.get('page') || '').toLowerCase();
-  if (page === 'checklist') {
-    return { checklistOnlyMode: true, initialTab: 'checklist' };
-  }
-  const tab = params.get('tab');
-  const allowed = ['home', 'request', 'repost', 'checklist'];
-  if (tab && allowed.includes(tab)) {
-    return { checklistOnlyMode: false, initialTab: tab };
-  }
-  return null;
-}
-
-/** URL から起動モード（?page=checklist = リストチェック専用） */
-function readAppEntryFromUrl() {
-  if (typeof window !== 'undefined' && window.__TM_ENTRY_PAGE__ === 'checklist') {
-    return { checklistOnlyMode: true, initialTab: 'checklist' };
-  }
-
-  const candidates = [];
-  if (typeof window !== 'undefined') {
-    if (window.location.search) candidates.push(window.location.search);
-    const hash = window.location.hash || '';
-    if (hash) {
-      candidates.push(hash);
-      const qInHash = hash.indexOf('?');
-      if (qInHash >= 0) candidates.push(hash.slice(qInHash));
-    }
-    try {
-      if (window.top && window.top !== window && window.top.location.search) {
-        candidates.push(window.top.location.search);
-      }
-    } catch {
-      /* GAS サンドボックスは親 URL を読めないことがある */
-    }
-    try {
-      if (window.parent && window.parent !== window && window.parent.location.search) {
-        candidates.push(window.parent.location.search);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  for (const q of candidates) {
-    const entry = parseAppEntryFromQueryString(q);
-    if (entry) return entry;
-  }
-  return { checklistOnlyMode: false, initialTab: 'home' };
-}
-
-function applyAppEntry(entry, setChecklistOnlyMode, setActiveTab) {
-  if (!entry) return;
-  if (entry.checklistOnlyMode) {
-    setChecklistOnlyMode(true);
-    setActiveTab('checklist');
-    document.title = 'リストチェック - ToDo List';
-  } else if (entry.initialTab) {
-    setActiveTab(entry.initialTab);
-  }
-}
-
-/** GAS HtmlService: doGet で渡した page パラメータをサーバーから取得 */
-function fetchAppEntryFromGas(callback) {
-  if (typeof google === 'undefined' || !google.script || !google.script.url || typeof google.script.url.getLocation !== 'function') {
-    return;
-  }
-  try {
-    google.script.url.getLocation((loc) => {
-      const page = loc && loc.parameter && String(loc.parameter.page || '').toLowerCase();
-      if (page === 'checklist') {
-        callback({ checklistOnlyMode: true, initialTab: 'checklist' });
-        return;
-      }
-      const tab = loc && loc.parameter && loc.parameter.tab;
-      const allowed = ['home', 'request', 'repost', 'checklist'];
-      if (tab && allowed.includes(tab)) {
-        callback({ checklistOnlyMode: false, initialTab: tab });
-      }
-    });
-  } catch {
-    /* ignore */
-  }
-}
-// 既存クラス名との互換（置換漏れ防止）
-const brutalCard = appCard;
-const brutalInput = appInput;
-const brutalBtnPrimary = appBtnPrimary;
-const brutalBtnSecondary = appBtnSecondary;
-
-// --- アイコン部品 ---
-const Icon = ({ name }) => {
-  const icons = {
-    home: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-    plus: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
-    calendar: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-    list: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>,
-    loader: <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>,
-    user: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    x: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-    chevronLeft: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
-    chevronDown: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
-    link: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
-    send: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
-    check: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-    logout: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>,
-    alertTriangle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>,
-    history: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
-    bell: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>,
-    repeat: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>,
-    trend: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13 16 9 12 2 19"/><polyline points="16 7 22 7 22 13"/></svg>,
-    plusCircle: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
-    trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
-    image: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
-    filePdf: <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/><path d="M9 11h6"/></svg>,
-    fileZip: <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 12v6"/><path d="M9.5 14.5 12 12l2.5 2.5"/></svg>
-  };
-  return icons[name] || null;
-};
-
-// --- 入力規則データ（★ 役職を追加） ---
-const ROLES = ['GMG', 'A-SMG', 'SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
-const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ヨガ＆ピラティスチーム'];
-/** 従業員データに旧名称が残っている場合の照合用 */
-const TEAM_LEGACY_ALIASES = { ニュービジネス: 'ヨガ＆ピラティスチーム' };
-const AREAS = ['第1エリア', '第2エリア', '第3エリア', '第4エリア', '第5エリア', '第6エリア', '第7エリア'];
-/** 店舗エリア外の本部所属（店舗依頼の配信対象外・社員/TF依頼は対象） */
-const HQ_AREA = 'EAST本部';
-const HQ_STORE = 'EAST本部';
-
-function isHqStoreName(name) {
-  return String(name || '').trim() === HQ_STORE;
-}
-function isHqAreaName(name) {
-  return String(name || '').trim() === HQ_AREA;
-}
-/** 第1〜7エリアの店舗のみ（本部行を除く） */
-function getFieldStores(allStores) {
-  return (allStores || []).filter((s) => !isHqStoreName(s.storeName) && !isHqAreaName(s.area));
-}
-function getFieldStoreNames(allStores) {
-  return getFieldStores(allStores).map((s) => s.storeName);
-}
-
-/** 従業員シートの管轄店舗上限（H列〜、GAS の EMPLOYEE_STORE_COL_MAX と一致） */
-const MAX_EMPLOYEE_STORES = 50;
-
-/** 従業員データのチーム列（カンマ区切り可）を配列に */
-function parseEmployeeTeams(teamStr) {
-  return String(teamStr || '')
-    .split(/[,，]/)
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .map((t) => TEAM_LEGACY_ALIASES[t] || t);
-}
-
-/** 未選択または全チーム選択時は true。それ以外は所属チームとの交差 */
-function employeeMatchesTeams(emp, selectedTeams, teamsList) {
-  if (!selectedTeams?.length || selectedTeams.length === teamsList.length) return true;
-  const empTeams = parseEmployeeTeams(emp.team);
-  if (empTeams.length === 0) return true;
-  return empTeams.some((t) => selectedTeams.includes(t));
-}
-
-/**
- * スプレッドシートに保存された targetTags 文字列から、配信先の店舗・役職・チームを復元（再投稿用）
- * チームは 〈DX, 販促〉 形式（無ければ全チーム）
- */
-function parseTargetTagsToSelection(tagStr, allStores, areasList, rolesList, teamsList) {
-  const fieldStores = getFieldStores(allStores);
-  const allStoreNames = fieldStores.map((s) => s.storeName);
-  const fieldAreasList = areasList.filter((a) => !isHqAreaName(a));
-  if (!tagStr || String(tagStr).trim() === '' || tagStr === '指定なし') {
-    return { stores: [...allStoreNames], roles: [...rolesList], teams: [...teamsList] };
-  }
-  let s = String(tagStr).trim();
-  let roles = [...rolesList];
-  let teams = [...teamsList];
-
-  const teamBracket = s.match(/\s*〈([^〉]+)〉\s*/);
-  if (teamBracket) {
-    const teamNames = teamBracket[1].split(/,\s*/).map((t) => TEAM_LEGACY_ALIASES[t.trim()] || t.trim()).filter(Boolean);
-    const matched = teamsList.filter((t) => teamNames.includes(t));
-    if (matched.length > 0) teams = matched;
-    s = s.replace(teamBracket[0], '').trim();
-  }
-
-  let storePart = s;
-  const roleBracket = s.match(/\s*\[([^\]]+)\]\s*$/);
-  if (roleBracket) {
-    const roleNames = roleBracket[1].split(/,\s*/).map((r) => r.trim()).filter(Boolean);
-    const matched = rolesList.filter((r) => roleNames.includes(r));
-    if (matched.length > 0) roles = matched;
-    storePart = s.slice(0, s.lastIndexOf('[')).trim();
-  }
-  if (!storePart || storePart === '全店') {
-    return { stores: [...allStoreNames], roles, teams };
-  }
-  const parts = storePart.split(/,\s*/).map((x) => x.trim()).filter(Boolean);
-  const selected = new Set();
-  parts.forEach((p) => {
-    if (isHqAreaName(p) || isHqStoreName(p)) return;
-    if (fieldAreasList.includes(p)) {
-      fieldStores.filter((st) => st.area === p).forEach((st) => selected.add(st.storeName));
-    } else if (allStoreNames.includes(p)) {
-      selected.add(p);
-    }
-  });
-  const stores = Array.from(selected);
-  if (stores.length === 0) {
-    return { stores: [...allStoreNames], roles, teams };
-  }
-  return { stores, roles, teams };
-}
-
-/** 配信先メール一覧から店舗・役職・チームを復元（定期編集用・targetTags より正確な場合がある） */
-function deriveStoresAndRolesFromTargets(targetEmails, allEmployees, allStoreNamesList, rolesList, teamsList) {
-  const emails = new Set((targetEmails || []).map((e) => String(e).trim()).filter(Boolean));
-  if (emails.size === 0) return null;
-  const storeSet = new Set();
-  const roleSet = new Set();
-  const teamSet = new Set();
-  allEmployees.forEach((emp) => {
-    if (emails.has(emp.email)) {
-      (emp.stores || []).forEach((s) => storeSet.add(s));
-      if (emp.role) roleSet.add(emp.role);
-      parseEmployeeTeams(emp.team).forEach((t) => teamSet.add(t));
-    }
-  });
-  const stores = allStoreNamesList.filter((s) => storeSet.has(s));
-  const roles = rolesList.filter((r) => roleSet.has(r));
-  const teams = teamsList.filter((t) => teamSet.has(t));
-  if (stores.length === 0 && roleSet.size === 0 && teamSet.size === 0) return null;
-  return {
-    stores: stores.length ? stores : allStoreNamesList,
-    roles: roles.length ? roles : rolesList,
-    teams: teams.length ? teams : teamsList,
-  };
-}
-
-function normalizeRecipientEmail(email) {
-  return String(email || '').trim().toLowerCase();
-}
-
-/** 配信先候補の一致判定（社員=役職 / 店舗=管轄店舗 / TF=所属チーム） */
-function employeeMatchesTargetFilters(
-  emp,
-  { requestKind, selectedStores, selectedRoles, selectedTeams, rolesList, teamsList }
-) {
-  const kind = normalizeRequestKind(requestKind);
-  if (!emp.email) return false;
-  if (kind === REQUEST_KIND.employee) {
-    return (
-      (!emp.role && selectedRoles.length === rolesList.length) || selectedRoles.includes(emp.role)
-    );
-  }
-  if (kind === REQUEST_KIND.store) {
-    const empStores = (emp.stores || []).filter((s) => !isHqStoreName(s));
-    const fieldSelected = selectedStores.filter((s) => !isHqStoreName(s));
-    if (fieldSelected.length === 0) return false;
-    return empStores.some((s) => fieldSelected.includes(s));
-  }
-  return employeeMatchesTeams(emp, selectedTeams, teamsList);
-}
-
-/** 配信先候補一覧（名前・役職など付き） */
-function computeTargetRecipientsList({
-  requestKind,
-  selectedStores,
-  selectedRoles,
-  selectedTeams,
-  allEmployees,
-  rolesList,
-  teamsList,
-}) {
-  const params = {
-    requestKind,
-    selectedStores,
-    selectedRoles,
-    selectedTeams,
-    rolesList,
-    teamsList,
-  };
-  return allEmployees
-    .filter((emp) => employeeMatchesTargetFilters(emp, params))
-    .map((emp) => {
-      const email = String(emp.email).trim();
-      const stores =
-        requestKind === REQUEST_KIND.store
-          ? (emp.stores || []).filter((s) => selectedStores.includes(s))
-          : emp.stores || [];
-      return {
-        email,
-        name: emp.name || email,
-        role: emp.role || '—',
-        team: emp.team || '—',
-        storesLabel: stores.length ? stores.join('、') : '—',
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-}
-
-/** 依頼・定期の配信先メール集合（役職・チーム・店舗条件） */
-function computeTargetRecipientEmails(params) {
-  return new Set(computeTargetRecipientsList(params).map((r) => r.email));
-}
-
-function filterRecipientsByExclusions(recipients, excludedEmails) {
-  const excluded = new Set((excludedEmails || []).map(normalizeRecipientEmail));
-  return recipients.filter((r) => !excluded.has(normalizeRecipientEmail(r.email)));
-}
-
-/** 保存済み targets（メール配列）から、候補一覧に対する除外リストを作る */
-function excludedEmailsFromSavedTargets(candidates, savedTargetEmails) {
-  if (!Array.isArray(savedTargetEmails) || savedTargetEmails.length === 0) return [];
-  const saved = new Set(savedTargetEmails.map(normalizeRecipientEmail));
-  return candidates
-    .filter((r) => !saved.has(normalizeRecipientEmail(r.email)))
-    .map((r) => normalizeRecipientEmail(r.email));
-}
-
-/**
- * チェックリストの店舗タブ・件数バッジ用。
- * targetTags が「全店 [CL]」のように店名を列挙しない場合でも一致させる（従来は includes(店名) のみで 0 件になっていた）。
- * requestKind が employee のとき「全店」系タグは個別店舗フィルタに一致しない（社員依頼は全店チップのみで絞る）。
- */
-function taskMatchesStoreFilter(targetTagsStr, filterKey, allStores, requestKind, targetStoreNames) {
-  if (filterKey === 'ALL') return true;
-  const tg = String(targetTagsStr || '').trim();
-  if (requestKind === 'store' && Array.isArray(targetStoreNames) && targetStoreNames.length) {
-    if (targetStoreNames.indexOf(filterKey) >= 0) return true;
-  }
-  if (!tg || tg === '指定なし') return true;
-  const rk = normalizeRequestKind(requestKind);
-  if (rk !== REQUEST_KIND.store && (tg === '全店' || /^\s*全店(\s|\[)/.test(tg))) return false;
-  if (tg === '全店' || /^\s*全店(\s|\[)/.test(tg)) return true;
-  if (tg.includes(filterKey)) return true;
-  const storeRow = allStores.find((st) => st.storeName === filterKey);
-  if (storeRow && tg.indexOf(storeRow.area) >= 0) return true;
-  return false;
-}
-
-function resolveEmployeeName(email, allEmployees) {
-  if (email == null || email === '') return '—';
-  const norm = String(email).trim().toLowerCase();
-  const found = allEmployees.find((emp) => String(emp.email || '').trim().toLowerCase() === norm);
-  return found?.name || String(email);
-}
-
-function emailsMatch(a, b) {
-  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-}
-
-/** 店舗データからエリア別テリトリー一覧（スプレッドシート「店舗データ」と同期） */
-function getTerritoriesForArea(area, allStores) {
-  const fromData = [...new Set(
-    (allStores || [])
-      .filter((s) => s.area === area && String(s.territory || '').trim())
-      .map((s) => String(s.territory).trim())
-      .filter(Boolean),
-  )].sort((a, b) => {
-    const na = parseInt(String(a).replace(/\D/g, ''), 10) || 0;
-    const nb = parseInt(String(b).replace(/\D/g, ''), 10) || 0;
-    return na - nb || a.localeCompare(b, 'ja');
-  });
-  if (fromData.length) return fromData;
-  if (area === '第1エリア') return ['テリトリー1', 'テリトリー2'];
-  return ['テリトリー1', 'テリトリー2', 'テリトリー3'];
-}
+import {
+  CORP_EMAIL_DOMAIN,
+  normalizeEmail,
+  isCorpEmail,
+  ROLES,
+  TEAMS,
+  AREAS,
+  HQ_AREA,
+  HQ_STORE,
+  MAX_EMPLOYEE_STORES,
+  MAX_ATTACHMENTS,
+  MAX_BINARY_ATTACHMENT_BYTES,
+  MAX_PDF_BYTES,
+  ACCEPT_IMAGES_AND_PDF,
+  ACCEPT_ZIP,
+  REQUEST_KIND,
+  REQUEST_KIND_LABEL,
+} from './lib/orgConstants.js';
+import {
+  readAppEntryFromUrl,
+  applyAppEntry,
+  fetchAppEntryFromGas,
+} from './lib/appEntry.js';
+import {
+  getFieldStores,
+  getFieldStoreNames,
+  parseEmployeeTeams,
+  parseTargetTagsToSelection,
+  deriveStoresAndRolesFromTargets,
+  normalizeRecipientEmail,
+  computeTargetRecipientsList,
+  filterRecipientsByExclusions,
+  excludedEmailsFromSavedTargets,
+  resolveEmployeeName,
+  emailsMatch,
+  getTerritoriesForArea,
+  normalizeRequestKind,
+  isStoreRequestKind,
+  asUserStoreList,
+  isHqEmployee,
+  parseEmployeeToRegData,
+  emptyRegData,
+  getTaskTargetStoreNames,
+  taskMatchesChecklistStoreSelection,
+  getMyRelevantStoreNamesForTask,
+  isUserDoneWithTask,
+  getMyPendingStoreNamesForChecklist,
+  shouldIncludeTaskInChecklistTab,
+  countChecklistTasksForStoreChip,
+  applyStoreCompletionToTask,
+} from './lib/storesAndTargets.js';
+import {
+  appCard,
+  appText,
+  appLabel,
+  appTaskCard,
+  appTagPill,
+  appTagOnAccent,
+  appSurfaceInset,
+  appDivider,
+  appFormSubmitRow,
+  appBtnPrimary,
+  appBtnSecondary,
+  appLinkBtn,
+  appLabelKind,
+  appKindRadio,
+  dashboardMenuTile,
+  dashboardMenuIcon,
+  appSection,
+  appChipBase,
+  appChipOn,
+  appChipOff,
+  appChipArena,
+  brutalInput,
+  brutalBtnPrimary,
+  brutalBtnSecondary,
+} from './ui/appStyles.js';
+import { Icon } from './ui/Icon.jsx';
 
 // --- API層 ---
 const isGAS = typeof google !== 'undefined' && google.script && google.script.run;
@@ -517,222 +167,6 @@ const formatContent = (text) => {
     </React.Fragment>
   ));
 };
-
-/** 添付の合計件数（JPEG / PNG / PDF / ZIP を混在しても 1 件として数える） */
-const MAX_ATTACHMENTS = 3;
-
-/**
- * PDF・ZIP 1 ファイルあたりの上限（バイト）。
- * 大きくするとブラウザ→GAS の転送失敗・タイムアウトのリスクは上がる（目安は 25MB 前後まで）。
- */
-const MAX_BINARY_ATTACHMENT_BYTES = 25 * 1024 * 1024;
-const MAX_PDF_BYTES = MAX_BINARY_ATTACHMENT_BYTES;
-const ACCEPT_IMAGES_AND_PDF = 'image/*,.pdf,application/pdf';
-const ACCEPT_ZIP = '.zip,application/zip,application/x-zip-compressed';
-
-/** GAS・列「依頼単位」と一致: employee=社員 / store=店舗単位 / tf=TFチーム（個人完了） */
-const REQUEST_KIND = { employee: 'employee', store: 'store', tf: 'tf' };
-
-const REQUEST_KIND_LABEL = {
-  [REQUEST_KIND.employee]: '社員依頼',
-  [REQUEST_KIND.store]: '店舗依頼',
-  [REQUEST_KIND.tf]: 'TFチーム依頼',
-};
-
-function normalizeRequestKind(raw) {
-  const k = String(raw || '').trim().toLowerCase();
-  if (k === REQUEST_KIND.store) return REQUEST_KIND.store;
-  if (k === REQUEST_KIND.tf) return REQUEST_KIND.tf;
-  return REQUEST_KIND.employee;
-}
-
-function isStoreRequestKind(kind) {
-  return normalizeRequestKind(kind) === REQUEST_KIND.store;
-}
-
-/** 管轄店舗リストを常に配列に正規化（スプレッドシート由来の不正値で落ちないように） */
-function asUserStoreList(stores) {
-  if (Array.isArray(stores)) return stores.map((s) => String(s || '').trim()).filter(Boolean);
-  if (stores != null && typeof stores === 'string') {
-    return stores.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-  }
-  return [];
-}
-
-function isHqEmployee(emp) {
-  if (isHqAreaName(emp?.area)) return true;
-  return asUserStoreList(emp?.stores).some(isHqStoreName);
-}
-
-/** スプレッドシートの従業員行 → 登録フォーム用 regData */
-function parseEmployeeToRegData(emp, allStores = []) {
-  const teams = parseEmployeeTeams(emp?.team);
-  const rawAreas = String(emp?.area || '')
-    .split(/[,，]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (isHqEmployee(emp) || rawAreas.some(isHqAreaName)) {
-    return {
-      name: emp?.name || '',
-      role: emp?.role || '',
-      team: teams,
-      area: [],
-      territory: {},
-      stores: [HQ_STORE],
-      hqAffiliation: true,
-    };
-  }
-  const areas = rawAreas.filter((a) => AREAS.includes(a));
-  const territory = {};
-  String(emp?.territory || '')
-    .split(' / ')
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .forEach((part) => {
-      const idx = part.indexOf(':');
-      if (idx < 0) return;
-      const areaName = part.slice(0, idx).trim();
-      const terrPart = part.slice(idx + 1).trim();
-      if (!areaName) return;
-      territory[areaName] = terrPart
-        .split(/,\s*/)
-        .map((t) => t.trim())
-        .filter(Boolean);
-    });
-  areas.forEach((areaName) => {
-    if (!territory[areaName]?.length) territory[areaName] = [...getTerritoriesForArea(areaName, allStores)];
-  });
-  return {
-    name: emp?.name || '',
-    role: emp?.role || '',
-    team: teams,
-    area: areas,
-    territory,
-    stores: asUserStoreList(emp?.stores),
-    hqAffiliation: false,
-  };
-}
-
-const emptyRegData = () => ({ name: '', role: '', team: [], area: [], territory: {}, stores: [], hqAffiliation: false });
-
-function getTaskTargetStoreNames(task) {
-  if (Array.isArray(task?.targetStoreNames) && task.targetStoreNames.length) {
-    return task.targetStoreNames.map((s) => String(s || '').trim()).filter(Boolean);
-  }
-  return Object.keys(task?.storeCompletions || {});
-}
-
-function taskMatchesChecklistStoreSelection(task, selectedStores, allStores, myStores) {
-  if (!selectedStores || !selectedStores.length) return true;
-  const rk = normalizeRequestKind(task?.requestKind);
-  const safeMyStores = asUserStoreList(myStores);
-  return selectedStores.some((filterKey) => {
-    if (!taskMatchesStoreFilter(task?.targetTags, filterKey, allStores, rk, task?.targetStoreNames)) return false;
-    if (rk === 'store') {
-      const targets = getTaskTargetStoreNames(task);
-      return safeMyStores.indexOf(filterKey) >= 0 && targets.indexOf(filterKey) >= 0;
-    }
-    return true;
-  });
-}
-
-/** 店舗依頼: 自分の管轄店舗のうち、この依頼に含まれる店舗名 */
-function getMyRelevantStoreNamesForTask(task, myStores) {
-  const safeMyStores = asUserStoreList(myStores);
-  const targets = getTaskTargetStoreNames(task);
-  return targets.filter((s) => safeMyStores.indexOf(s) >= 0);
-}
-
-/** 店舗依頼: 自分の担当分がすべて完了済みか（リストの未実施/実施済み判定用） */
-function isUserDoneWithStoreTask(task, myStores) {
-  const relevant = getMyRelevantStoreNamesForTask(task, myStores);
-  if (relevant.length === 0) return false;
-  const sc = task?.storeCompletions || {};
-  return relevant.every((s) => !!sc[s]);
-}
-
-/** チェックリスト上で「実施済み」タブに出すか */
-function isUserDoneWithTask(task, myStores) {
-  if (isStoreRequestKind(task?.requestKind)) return isUserDoneWithStoreTask(task, myStores);
-  return !!task?.completed;
-}
-
-/** 店舗依頼: 未実施タブに表示する担当店舗（店舗チップ絞り込み後） */
-function getMyPendingStoreNamesForChecklist(task, myStores, selectedStores) {
-  if (!isStoreRequestKind(task?.requestKind)) return [];
-  let names = getMyRelevantStoreNamesForTask(task, myStores);
-  if (!names.length) return [];
-  const sel = asUserStoreList(selectedStores);
-  if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
-  const sc = task?.storeCompletions || {};
-  return names.filter((s) => !sc[s]);
-}
-
-/** 店舗依頼: 実施済みタブに表示する担当店舗（店舗チップ絞り込み後） */
-function getMyCompletedStoreNamesForChecklist(task, myStores, selectedStores) {
-  if (!isStoreRequestKind(task?.requestKind)) return [];
-  let names = getMyRelevantStoreNamesForTask(task, myStores);
-  if (!names.length) return [];
-  const sel = asUserStoreList(selectedStores);
-  if (sel.length) names = names.filter((s) => sel.indexOf(s) >= 0);
-  const sc = task?.storeCompletions || {};
-  return names.filter((s) => !!sc[s]);
-}
-
-/** 店舗チップで絞っているか */
-function hasChecklistStoreFilter(selectedStores) {
-  return asUserStoreList(selectedStores).length > 0;
-}
-
-/**
- * チェックリストの未実施/実施済みタブに載せるか（空カードを出さない）
- * 店舗チップ選択時: その店舗が自分の担当に含まれる依頼は、完了済み行も表示（取り消し可）
- */
-function shouldIncludeTaskInChecklistTab(task, taskTab, myStores, selectedStores) {
-  if (isStoreRequestKind(task?.requestKind)) {
-    const relevant = getMyRelevantStoreNamesForTask(task, myStores);
-    if (relevant.length === 0) return false;
-    const sel = asUserStoreList(selectedStores);
-    if (sel.length) {
-      return relevant.some((s) => sel.indexOf(s) >= 0);
-    }
-    if (taskTab === 'active') {
-      return getMyPendingStoreNamesForChecklist(task, myStores, []).length > 0;
-    }
-    if (!isUserDoneWithStoreTask(task, myStores)) return false;
-    return getMyCompletedStoreNamesForChecklist(task, myStores, []).length > 0;
-  }
-  return taskTab === 'active' ? !isUserDoneWithTask(task, myStores) : isUserDoneWithTask(task, myStores);
-}
-
-/** 店舗チップの件数バッジ（未実施＝その店舗にやることが残っている依頼のみ） */
-function taskHasPendingWorkForStoreChip(task, storeName, myStores) {
-  if (!isStoreRequestKind(task?.requestKind)) return false;
-  return getMyPendingStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
-}
-
-/** 店舗チップの件数（実施済みタブ＝その店舗で完了済みの担当がある依頼） */
-function taskHasCompletedWorkForStoreChip(task, storeName, myStores) {
-  if (!isStoreRequestKind(task?.requestKind)) return false;
-  return getMyCompletedStoreNamesForChecklist(task, myStores, [storeName]).length > 0;
-}
-
-/** 店舗チップに表示する件数（現在の未実施/実施済みタブに合わせる） */
-function countChecklistTasksForStoreChip(tasks, storeName, taskTab, myStores) {
-  const list = Array.isArray(tasks) ? tasks : [];
-  if (taskTab === 'completed') {
-    return list.filter((t) => taskHasCompletedWorkForStoreChip(t, storeName, myStores)).length;
-  }
-  return list.filter((t) => taskHasPendingWorkForStoreChip(t, storeName, myStores)).length;
-}
-
-function applyStoreCompletionToTask(task, storeCompletions, myStores) {
-  const next = { ...task, storeCompletions };
-  if (isStoreRequestKind(task?.requestKind)) {
-    next.completed = isUserDoneWithStoreTask(next, myStores);
-  }
-  return next;
-}
 
 function isPdfFile(file) {
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);

@@ -72,3 +72,7 @@
 
 GAS エディタで index だけ手直ししていると、リポジトリの `deployed/index.html` が古くなる。  
 → GAS から index をダウンロードして `deployed/index.html` に上書き保存するか、Actions でビルドし直して上書きする。
+
+## 関連
+
+- 反映後の動作確認（新規 / 再投稿 / リマインド）: [`SMOKE_CHECKLIST.md`](./SMOKE_CHECKLIST.md)
