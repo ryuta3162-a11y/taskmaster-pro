@@ -416,6 +416,21 @@ function PanelFrame({ children, className = '' }) {
   );
 }
 
+/** 依頼到着日時のソート用（createdSort が無い旧データ向け） */
+function parseTaskCreatedSort_(task) {
+  if (!task) return 0;
+  if (Number(task.createdSort) > 0) return Number(task.createdSort);
+  const raw = String(task.createdAt || '').trim();
+  if (raw) {
+    const d = new Date(raw.replace(/\//g, '-'));
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  const id = String(task.id || '');
+  const m = id.match(/^t_(\d+)$/);
+  if (m) return Number(m[1]) || 0;
+  return 0;
+}
+
 /** タスク完了などの短いフィードバック（画面下部・数秒で消える） */
 function ActionToast({ toast }) {
   if (!toast) return null;
@@ -727,6 +742,8 @@ export default function App() {
   const [taskTab, setTaskTab] = useState('active');
   /** リストチェック: すべて / 社員依頼 / 店舗依頼 / TFチーム依頼 */
   const [checklistKindFilter, setChecklistKindFilter] = useState('all');
+  /** 実施済みタブ専用のテキスト検索 */
+  const [completedSearchQuery, setCompletedSearchQuery] = useState('');
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm' });
   /** 店舗依頼: 担当店舗をまとめて完了する確認 */
@@ -914,14 +931,39 @@ export default function App() {
   };
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter((t) => {
+    const q = taskTab === 'completed' ? String(completedSearchQuery || '').trim().toLowerCase() : '';
+    const list = tasks.filter((t) => {
       const rk = normalizeRequestKind(t.requestKind);
       const storeMatch = taskMatchesChecklistStoreSelection(t, selectedChecklistStores, allStores, checklistUserStores);
       const tabMatch = shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores);
       const kindMatch = checklistKindFilter === 'all' || checklistKindFilter === rk;
-      return storeMatch && tabMatch && kindMatch;
+      if (!(storeMatch && tabMatch && kindMatch)) return false;
+      if (!q) return true;
+      const hay = [
+        t.content,
+        t.type,
+        t.sender,
+        t.targetTags,
+        t.deadline,
+        t.createdAt,
+        REQUEST_KIND_LABEL[rk] || '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
     });
-  }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, checklistUserStores]);
+
+    if (taskTab !== 'completed') return list;
+
+    /** 実施済み: 依頼が届いた日時が新しい順（同日は id / createdSort で安定） */
+    return [...list].sort((a, b) => {
+      const ta = Number(a.createdSort) || parseTaskCreatedSort_(a);
+      const tb = Number(b.createdSort) || parseTaskCreatedSort_(b);
+      if (tb !== ta) return tb - ta;
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
+  }, [tasks, selectedChecklistStores, taskTab, allStores, checklistKindFilter, checklistUserStores, completedSearchQuery]);
 
   const checklistTabTasks = useMemo(() => {
     return tasks.filter((t) => shouldIncludeTaskInChecklistTab(t, taskTab, checklistUserStores, selectedChecklistStores));
@@ -2369,24 +2411,28 @@ export default function App() {
                     ].map((item) => (
                       <div
                         key={item.key}
-                        className={dashboardMenuTile + ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5'}
+                        role="button"
+                        tabIndex={0}
+                        onClick={item.onClick}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            item.onClick();
+                          }
+                        }}
+                        aria-label={item.label}
+                        className={
+                          dashboardMenuTile +
+                          ' max-sm:p-3.5 max-sm:min-h-[4.75rem] max-sm:gap-2.5 cursor-pointer hover:bg-slate-50/80'
+                        }
                       >
-                        <button
-                          type="button"
-                          onClick={item.onClick}
-                          className="shrink-0 bg-transparent border-0 p-0 cursor-pointer"
-                          aria-label={item.label}
-                        >
-                          <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl'}><Icon name={item.icon} /></div>
-                        </button>
+                        <div className={dashboardMenuIcon + ' max-sm:w-11 max-sm:h-11 max-sm:rounded-xl pointer-events-none'}>
+                          <Icon name={item.icon} />
+                        </div>
                         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          <button
-                            type="button"
-                            onClick={item.onClick}
-                            className="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-snug text-left bg-transparent border-0 p-0 cursor-pointer truncate"
-                          >
+                          <span className="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-snug text-left truncate">
                             {item.label}
-                          </button>
+                          </span>
                           <button
                             type="button"
                             aria-label={`${item.label}の使い方`}
@@ -2401,17 +2447,16 @@ export default function App() {
                           </button>
                         </div>
                         {item.badge != null && (
-                          <span className="bg-[var(--acc-600)] text-white text-xs font-bold px-2.5 py-1 rounded-full shrink-0">{item.badge}</span>
+                          <span className="bg-[var(--acc-600)] text-white text-xs font-bold px-2.5 py-1 rounded-full shrink-0 pointer-events-none">
+                            {item.badge}
+                          </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={item.onClick}
+                        <span
+                          className="text-slate-300 shrink-0 scale-90 rotate-180 inline-flex max-sm:hidden pointer-events-none"
                           aria-hidden="true"
-                          tabIndex={-1}
-                          className="text-slate-300 shrink-0 scale-90 rotate-180 inline-flex max-sm:hidden bg-transparent border-0 p-0 cursor-pointer"
                         >
                           <Icon name="chevronLeft" />
-                        </button>
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -2685,13 +2730,50 @@ export default function App() {
                 <div className="animate-fade-in w-full mt-4">
                   
                   <div className="flex flex-col sm:flex-row gap-4 mb-6 w-full max-w-2xl">
-                    <button onClick={() => setTaskTab('active')} className={`flex-1 py-3 px-4 ${appText.tab} rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>
+                    <button
+                      onClick={() => {
+                        setTaskTab('active');
+                        setCompletedSearchQuery('');
+                      }}
+                      className={`flex-1 py-3 px-4 ${appText.tab} rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${taskTab === 'active' ? 'bg-[var(--acc-600)] text-white border-[var(--acc-600)]' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
+                    >
                       未実施 <span className={`px-2 py-0.5 rounded-full ${appText.badgeNum} ${taskTab === 'active' ? 'bg-white text-[var(--acc-600)]' : 'bg-slate-600 text-white'}`}>{activeTasksCount}</span>
                     </button>
-                    <button onClick={() => setTaskTab('completed')} className={`flex-1 py-3 px-4 ${appText.tab} rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${taskTab === 'completed' ? 'bg-white text-slate-800 border-slate-400' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}>
+                    <button
+                      onClick={() => setTaskTab('completed')}
+                      className={`flex-1 py-3 px-4 ${appText.tab} rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${taskTab === 'completed' ? 'bg-white text-slate-800 border-slate-400' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'}`}
+                    >
                       実施済み <span className={`px-2 py-0.5 rounded-full ${appText.badgeNum} ${taskTab === 'completed' ? 'bg-slate-600 text-white' : 'bg-slate-400 text-white'}`}>{completedTasksCount}</span>
                     </button>
                   </div>
+
+                  {taskTab === 'completed' && (
+                    <div className="mb-5 w-full max-w-2xl">
+                      <label className="sr-only" htmlFor="completed-task-search">
+                        実施済みタスクを検索
+                      </label>
+                      <div className="relative flex items-center rounded-xl border-2 border-slate-400 bg-white shadow-sm focus-within:border-slate-700 focus-within:ring-2 focus-within:ring-slate-300/60">
+                        <span className="absolute left-3.5 text-slate-500 pointer-events-none [&>svg]:w-[1.15rem] [&>svg]:h-[1.15rem]" aria-hidden="true">
+                          <Icon name="search" />
+                        </span>
+                        <input
+                          id="completed-task-search"
+                          type="search"
+                          value={completedSearchQuery}
+                          onChange={(e) => setCompletedSearchQuery(e.target.value)}
+                          placeholder="キーワードで検索"
+                          className="w-full bg-transparent border-0 rounded-xl pl-11 pr-3 py-3 text-sm font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-bold outline-none"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <p className={`${appText.caption} mt-1.5 text-slate-500`}>
+                        新しい依頼が上に表示されます
+                        {completedSearchQuery.trim()
+                          ? ` ／ 表示 ${filteredTasks.length} 件`
+                          : ''}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2 mb-6 w-full max-w-2xl">
                     <button
@@ -2803,7 +2885,9 @@ export default function App() {
                       <div className="py-24 text-center flex flex-col items-center gap-6 text-gray-400 font-black uppercase tracking-[0.2em] w-full">
                         <div className="w-24 h-24 border-4 border-gray-300 rounded-full flex items-center justify-center [&>svg]:scale-125"><Icon name="check" /></div>
                         <p className={`${appText.body} normal-case tracking-normal`}>
-                          {selectedChecklistStores.length > 0
+                          {taskTab === 'completed' && completedSearchQuery.trim()
+                            ? '検索に一致する実施済みタスクはありません'
+                            : selectedChecklistStores.length > 0
                             ? taskTab === 'active'
                               ? '選択した店舗の未実施タスクはありません（他店舗が未完了の依頼は「全店」で確認できます）'
                               : '選択した店舗の実施済みタスクはありません'
@@ -2828,6 +2912,11 @@ export default function App() {
                             {task.targetTags && <span className={`${appTagOnAccent} bg-[var(--acc-500)]`}>{task.targetTags}</span>}
                             <span className={`${appTagPill} bg-slate-100 text-slate-700`}>{task.type}</span>
                             <span className={`${appText.meta} ml-1`}>from {task.sender}</span>
+                            {taskTab === 'completed' && (task.createdAt || parseTaskCreatedSort_(task) > 0) && (
+                              <span className={`${appTagPill} bg-slate-50 text-slate-600 border border-slate-200`}>
+                                依頼日 {task.createdAt || new Date(parseTaskCreatedSort_(task)).toLocaleDateString('ja-JP')}
+                              </span>
+                            )}
                           </div>
                           
                           <h3 className={`${appText.title} mb-4 break-words ${userDone ? 'line-through opacity-40' : ''}`}>

@@ -1526,6 +1526,31 @@ svg {
   background: #fff;
 }
 
+.quiz-mini {
+  margin: 2rem 0 0.5rem;
+  padding: 0.65rem 0.25rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+.quiz-mini a {
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.quiz-mini a:hover {
+  color: var(--accent-600);
+}
+
+.quiz-mini-sep {
+  margin: 0 0.35rem;
+  opacity: 0.55;
+}
+
 .quiz-entry p {
   margin: 0;
   color: #334155;

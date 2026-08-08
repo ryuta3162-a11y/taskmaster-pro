@@ -470,8 +470,21 @@ function getTasksForUser(userEmail) {
           sortValue = deadlineDate.getTime();
         }
 
+        var createdRaw = row[1];
+        var createdSort = 0;
+        var createdAt = '';
+        if (createdRaw) {
+          var createdDate = new Date(createdRaw);
+          if (!isNaN(createdDate.getTime())) {
+            createdSort = createdDate.getTime();
+            createdAt = Utilities.formatDate(createdDate, 'JST', 'yyyy/MM/dd');
+          }
+        }
+
         var taskRow = {
           id: String(row[0] || ''),
+          createdAt: createdAt,
+          createdSort: createdSort,
           type: String(row[2] || 'タスク'),
           deadline: deadlineVal ? Utilities.formatDate(new Date(deadlineVal), 'JST', 'yyyy-MM-dd') : '',
           daysRemaining: daysRemaining,

@@ -1,3 +1,6 @@
+# GAS clasp local pull (本番HTML等・コミットしない)
+docs/rollout/gas-rollout-email/.clasp-workdir/
+
 # Logs
 logs
 *.log

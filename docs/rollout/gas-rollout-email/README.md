@@ -8,7 +8,7 @@
 |----------|------|
 | `TodoListRolloutMail.gs` | 本番運用案内メール（下書き作成） |
 | `TodoListRegistrationReminderMail.gs` | 未登録者向け登録依頼（初回・12名用の旧リスト） |
-| `TodoListRegistrationReminder4Mail.gs` | **未登録者リマインド（残り4名）** |
+| `TodoListRegistrationReminder4Mail.gs` | 未登録者リマインド（残り4名） |
 
 ## 使い方（最短）
 
