@@ -11,7 +11,7 @@
 
   const METHOD_CHOICES = [
     { id: 'new', label: '新規投稿', hint: '新しい依頼を作って送る' },
-    { id: 'repost', label: '再投稿', hint: '同じ内容・宛先でもう一度' },
+    { id: 'repost', label: '修正・再投稿', hint: '期限内は修正／超過は再投稿' },
     { id: 'remind', label: 'リマインド', hint: '未実施者だけにもう一度' },
   ];
 
@@ -30,7 +30,7 @@
     },
     {
       id: 'q4',
-      text: '先月送ったPOP掲示の内容を差し替えて、各店舗へもう一度送る',
+      text: '先月送った（期限超過の）POP掲示を、各店舗へもう一度送る',
     },
     {
       id: 'q5',

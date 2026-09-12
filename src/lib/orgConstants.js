@@ -7,6 +7,15 @@ export function isCorpEmail(email) {
   return normalizeEmail(email).endsWith(CORP_EMAIL_DOMAIN);
 }
 
+/** 店舗共用メール（例: jf-minamikasai@…）— ログイン・登録不可 */
+export function isStoreMailboxEmail(email) {
+  const local = normalizeEmail(email).split('@')[0] || '';
+  return local.startsWith('jf-');
+}
+
+export const STORE_MAILBOX_BLOCK_MESSAGE =
+  '店舗アドレスでのログイン・登録はできません。社員個人の社内メールをご利用ください。';
+
 // --- 入力規則データ（★ 役職を追加） ---
 export const ROLES = ['GMG', 'A-SMG', 'SMG', 'TMG', 'CMG', 'CL', 'CF', 'IR'];
 export const TEAMS = ['QSC＆監査', '原価低減 JOYFIT', '原価低減 FIT365', '販促', 'DX', 'PT', 'オプション', 'CS・ES', '競合対策', 'スタジオPG', 'リテンション', 'オープン・リニューアル', 'リスクアセスメント', 'ヨガ＆ピラティスチーム'];

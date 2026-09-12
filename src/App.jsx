@@ -4,6 +4,8 @@ import {
   CORP_EMAIL_DOMAIN,
   normalizeEmail,
   isCorpEmail,
+  isStoreMailboxEmail,
+  STORE_MAILBOX_BLOCK_MESSAGE,
   ROLES,
   TEAMS,
   AREAS,
@@ -118,6 +120,10 @@ const api = {
     if (!isGAS) return setTimeout(() => res({ status: 'success', id: 'mock', driveErrors: [] }), 1000);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).createNewTask(data);
   }),
+  correctTask: (data) => new Promise((res, rej) => {
+    if (!isGAS) return setTimeout(() => res({ status: 'success', id: data?.taskId || 'mock', driveErrors: [] }), 1000);
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).correctExistingTask(data);
+  }),
   completeTask: (id, email, storeName) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({ success: true }), 1500);
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTask(id, email, storeName);
@@ -129,6 +135,21 @@ const api = {
       return setTimeout(() => res({ success: true, completed: storeNames.length, updated }), 400);
     }
     google.script.run.withSuccessHandler(res).withFailureHandler(rej).completeTaskStoresBulk(id, email, storeNames);
+  }),
+  shareTaskToStoreEmails: (payload) => new Promise((res, rej) => {
+    if (!isGAS) {
+      return setTimeout(
+        () =>
+          res({
+            success: true,
+            sentTo: (payload?.storeNames || []).length,
+            stores: (payload?.storeNames || []).length,
+            message: '（デモ）共有メールを送信しました',
+          }),
+        600
+      );
+    }
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej).shareTaskToStoreEmails(payload);
   }),
   uncompleteTask: (id, email, storeName) => new Promise((res, rej) => {
     if (!isGAS) return setTimeout(() => res({ success: true }), 400);
@@ -669,10 +690,10 @@ const HOME_HELP = {
     ],
   },
   repost: {
-    title: '再投稿',
+    title: '修正・再投稿',
     lines: [
-      '過去の新規投稿（期限が過ぎたもの）を、同じ内容・宛先でもう一度送ります。',
-      '期限だけ選び直して送信します（文面や添付の変更も可能です）。',
+      '自分が送った依頼が一覧に出ます（上が修正、下が再投稿）。',
+      '期限前（当日含む）は「修正」（同じ依頼を上書き＋訂正メール）。期限超過は「再投稿」（新しい依頼）。',
       '未実施者だけに送りたいときは「リマインド」を使います。',
     ],
   },
@@ -687,7 +708,7 @@ const HOME_HELP = {
     lines: [
       '過去の依頼のうち、まだ未実施の人だけを宛先にして送ります。',
       '期限だけ選び直して送信します（文面や添付の変更も可能です）。',
-      '同じ宛先でもう一度送りたいときは「再投稿」を使います。',
+      '同じ宛先でもう一度送りたいときは「修正・再投稿」を使います。',
     ],
   },
 };
@@ -748,6 +769,13 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, task: null, step: 'confirm' });
   /** 店舗依頼: 担当店舗をまとめて完了する確認 */
   const [storeBulkModal, setStoreBulkModal] = useState({ isOpen: false, task: null, step: 'confirm', bulkCount: 0 });
+  /** 未実施タスク → 管轄店舗へメール共有 */
+  const [storeShareModal, setStoreShareModal] = useState({
+    isOpen: false,
+    task: null,
+    selected: [],
+    sending: false,
+  });
   const [completingStoreKey, setCompletingStoreKey] = useState(null);
   const [actionToast, setActionToast] = useState(null);
   const actionToastTimerRef = useRef(null);
@@ -778,7 +806,9 @@ export default function App() {
 
   const [sentTasks, setSentTasks] = useState([]);
   const [remindingTaskId, setRemindingTaskId] = useState(null);
-  const [repostIntent, setRepostIntent] = useState(null); // 'repost' | 'remind' | null
+  const [repostIntent, setRepostIntent] = useState(null); // 'repost' | 'remind' | 'correct' | null
+  /** 訂正時に上書きする申請データのタスクID */
+  const [editingTaskId, setEditingTaskId] = useState(null);
   /** ホームから再投稿 / リマインドのどちらで入ったか（一覧の見出し・説明用） */
   const [repostEntryMode, setRepostEntryMode] = useState('repost'); // 'repost' | 'remind'
   const [repostHelpKey, setRepostHelpKey] = useState(null); // `${taskId}-repost` | `${taskId}-remind` | null
@@ -837,6 +867,11 @@ export default function App() {
       setRequestSelectedStores(allStoreNames);
 
       const savedEmail = localStorage.getItem('taskmaster_user_email');
+      if (savedEmail && isStoreMailboxEmail(savedEmail)) {
+        localStorage.removeItem('taskmaster_user_email');
+        setAuthStep('login');
+        return;
+      }
       const user = emps.find(e => e.email === savedEmail);
       if (user) { setCurrentUser(user); setAuthStep('ready'); } else { setAuthStep('login'); }
     }).catch(() => setAuthStep('login'));
@@ -892,6 +927,22 @@ export default function App() {
   }, [checklistKindFilter]);
 
   const checklistUserStores = useMemo(() => asUserStoreList(currentUser?.stores), [currentUser?.stores]);
+
+  /** メール共有できる管轄店舗（店舗データD列にメアドあり） */
+  const shareableManagedStores = useMemo(() => {
+    const mine = new Set(checklistUserStores);
+    return (allStores || [])
+      .filter((s) => {
+        const name = String(s?.storeName || '').trim();
+        const email = String(s?.email || '').trim();
+        return name && mine.has(name) && email.includes('@');
+      })
+      .map((s) => ({
+        storeName: String(s.storeName).trim(),
+        email: String(s.email).trim().toLowerCase(),
+      }))
+      .sort((a, b) => a.storeName.localeCompare(b.storeName, 'ja'));
+  }, [allStores, checklistUserStores]);
 
   const activeTasksCount = tasks.filter((t) =>
     shouldIncludeTaskInChecklistTab(t, 'active', checklistUserStores, [])
@@ -1005,6 +1056,10 @@ export default function App() {
       setLoginError('メールアドレスを入力してください。');
       return;
     }
+    if (isStoreMailboxEmail(email)) {
+      setLoginError(STORE_MAILBOX_BLOCK_MESSAGE);
+      return;
+    }
     const user = allEmployees.find((emp) => normalizeEmail(emp.email) === email);
     if (user) {
       setTempUser(user);
@@ -1026,6 +1081,10 @@ export default function App() {
     const email = normalizeEmail(inputEmail);
     if (!email) {
       setLoginError('メールアドレスを入力してください。');
+      return;
+    }
+    if (isStoreMailboxEmail(email)) {
+      setLoginError(STORE_MAILBOX_BLOCK_MESSAGE);
       return;
     }
     const user = allEmployees.find((emp) => normalizeEmail(emp.email) === email);
@@ -1119,6 +1178,10 @@ export default function App() {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     const newEmail = normalizeEmail(tempUser?.email || inputEmail);
+    if (isStoreMailboxEmail(newEmail)) {
+      alert(STORE_MAILBOX_BLOCK_MESSAGE);
+      return;
+    }
     if (!isCorpEmail(newEmail)) {
       alert(`新規登録は社内メール（${CORP_EMAIL_DOMAIN}）のみご利用いただけます。`);
       return;
@@ -1402,14 +1465,21 @@ export default function App() {
     );
 
     try {
+      const isCorrect = repostIntent === 'correct';
       const postType =
-        repostIntent === 'remind' ? 'リマインド' : repostIntent === 'repost' ? '再投稿' : '新規投稿';
-      const result = await api.createTask({
+        repostIntent === 'remind'
+          ? 'リマインド'
+          : repostIntent === 'repost'
+            ? '再投稿'
+            : isCorrect
+              ? '訂正'
+              : '新規投稿';
+      const payload = {
         type: postType,
         content: requestForm.content,
         deadline: requestForm.deadline,
-        urls: validUrls, 
-        sender: currentUser ? currentUser.name : "管理者",
+        urls: validUrls,
+        sender: currentUser ? currentUser.name : '管理者',
         targets: targetEmails,
         targetTags: finalTagsStr,
         requestKind,
@@ -1417,9 +1487,18 @@ export default function App() {
           img.reuseUrl
             ? { name: img.name, type: img.type || 'image/jpeg', reuseUrl: img.reuseUrl }
             : { name: img.name, type: img.type, base64: img.base64 }
-        )
-      });
-      let okMsg = 'タスクを配信しました！対象者に通知されます。';
+        ),
+      };
+      const result = isCorrect
+        ? await api.correctTask({ ...payload, taskId: editingTaskId })
+        : await api.createTask(payload);
+      if (result && result.status === 'error') {
+        alert(result.message || '送信に失敗しました。');
+        return;
+      }
+      let okMsg = isCorrect
+        ? '依頼内容を訂正し、対象者へお知らせしました。'
+        : 'タスクを配信しました！対象者に通知されます。';
       if (result.driveErrors && result.driveErrors.length) {
         okMsg += '\n\n【添付ファイルの保存に失敗したものがあります】\n' + result.driveErrors.join('\n');
       }
@@ -1431,6 +1510,7 @@ export default function App() {
       setRequestSelectedRoles(ROLES);
       setRequestRecipientExcluded([]);
       setRepostIntent(null);
+      setEditingTaskId(null);
       setActiveTab('home');
       refreshChecklistTasks({ silent: true });
       refreshSentTasks();
@@ -1442,7 +1522,7 @@ export default function App() {
       Array.isArray(options.targetsOverride) && options.targetsOverride.length > 0
         ? options.targetsOverride
         : task.targets;
-    const isRemind = options.mode === 'remind';
+    const mode = options.mode === 'remind' ? 'remind' : options.mode === 'correct' ? 'correct' : 'repost';
 
     let storedUrls = [''];
     if (Array.isArray(task.urls) && task.urls.length > 0) {
@@ -1488,7 +1568,8 @@ export default function App() {
       teamsList: TEAMS,
     });
     setRequestRecipientExcluded(excludedEmailsFromSavedTargets(candidates, targetEmails));
-    setRepostIntent(isRemind ? 'remind' : 'repost');
+    setRepostIntent(mode);
+    setEditingTaskId(mode === 'correct' ? task.id : null);
     setActiveTab('request');
   };
 
@@ -1665,6 +1746,56 @@ export default function App() {
       alert(formatGasError(e));
     } finally {
       setCompletingStoreKey((k) => (k === key ? null : k));
+    }
+  };
+
+  const openStoreShareModal = (task) => {
+    if (!task || shareableManagedStores.length === 0) {
+      alert('共有できる店舗がありません。\n管轄店舗の「店舗メール」が店舗データに登録されているか確認してください。');
+      return;
+    }
+    setStoreShareModal({
+      isOpen: true,
+      task,
+      selected: shareableManagedStores.map((s) => s.storeName),
+      sending: false,
+    });
+  };
+
+  const toggleStoreShareSelected = (storeName) => {
+    setStoreShareModal((prev) => {
+      const on = prev.selected.includes(storeName);
+      return {
+        ...prev,
+        selected: on ? prev.selected.filter((n) => n !== storeName) : [...prev.selected, storeName],
+      };
+    });
+  };
+
+  const executeStoreShareEmail = async () => {
+    const task = storeShareModal.task;
+    if (!task?.id || !currentUser?.email) return;
+    if (!storeShareModal.selected.length) {
+      alert('送信先の店舗を選んでください。');
+      return;
+    }
+    setStoreShareModal((prev) => ({ ...prev, sending: true }));
+    try {
+      const res = await api.shareTaskToStoreEmails({
+        taskId: task.id,
+        userEmail: currentUser.email,
+        storeNames: storeShareModal.selected,
+      });
+      if (!res || res.success === false) {
+        alert(res?.message || '送信に失敗しました');
+        setStoreShareModal((prev) => ({ ...prev, sending: false }));
+        return;
+      }
+      setStoreShareModal({ isOpen: false, task: null, selected: [], sending: false });
+      showActionToast(res.message || '店舗アドレスへ共有しました');
+    } catch (e) {
+      alert(formatGasError(e));
+      setStoreShareModal((prev) => ({ ...prev, sending: false }));
     }
   };
 
@@ -1933,6 +2064,95 @@ export default function App() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {storeShareModal.isOpen && storeShareModal.task && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() =>
+              !storeShareModal.sending &&
+              setStoreShareModal({ isOpen: false, task: null, selected: [], sending: false })
+            }
+          />
+          <div className="bg-white rounded-2xl border-2 border-slate-300 p-5 sm:p-6 max-w-md w-full max-h-[min(92dvh,36rem)] relative z-10 shadow-xl animate-fade-in overflow-hidden flex flex-col">
+            <div className="bg-slate-50 border-2 border-slate-300 rounded-xl p-3 mb-4 flex flex-col min-h-0 flex-1">
+              <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+                <p className="text-xs font-bold text-slate-500">
+                  送信先店舗{' '}
+                  <span className="tabular-nums">（{storeShareModal.selected.length}/{shareableManagedStores.length}）</span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="text-[11px] font-bold text-[var(--acc-700)]"
+                    disabled={storeShareModal.sending}
+                    onClick={() =>
+                      setStoreShareModal((prev) => ({
+                        ...prev,
+                        selected: shareableManagedStores.map((s) => s.storeName),
+                      }))
+                    }
+                  >
+                    すべて選択
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[11px] font-bold text-slate-500"
+                    disabled={storeShareModal.sending}
+                    onClick={() => setStoreShareModal((prev) => ({ ...prev, selected: [] }))}
+                  >
+                    すべて解除
+                  </button>
+                </div>
+              </div>
+              <ul className="space-y-2 overflow-y-auto overscroll-contain max-h-[min(42vh,16rem)] pr-1">
+                {shareableManagedStores.map((s) => {
+                  const on = storeShareModal.selected.includes(s.storeName);
+                  return (
+                    <li key={s.storeName}>
+                      <label
+                        className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                          on ? 'border-[var(--acc-400)] bg-[var(--acc-50)]' : 'border-slate-200 bg-white'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1 accent-[var(--acc-600)]"
+                          checked={on}
+                          disabled={storeShareModal.sending}
+                          onChange={() => toggleStoreShareSelected(s.storeName)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-slate-900">{s.storeName}</span>
+                          <span className="block text-[11px] font-medium text-slate-500 break-all">{s.email}</span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div className="flex gap-3 shrink-0">
+              <button
+                type="button"
+                disabled={storeShareModal.sending}
+                onClick={() => setStoreShareModal({ isOpen: false, task: null, selected: [], sending: false })}
+                className={brutalBtnSecondary + ' flex-1'}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                disabled={storeShareModal.sending || storeShareModal.selected.length === 0}
+                onClick={executeStoreShareEmail}
+                className={brutalBtnPrimary + ' flex-[2]'}
+              >
+                {storeShareModal.sending ? '送信中…' : '送信する'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2218,9 +2438,15 @@ export default function App() {
                    </button>
                    <h2 className="font-bold text-slate-900 tracking-tight text-sm md:text-base ml-1 truncate min-w-0">
                      {activeTab === 'request'
-                       ? (repostIntent === 'remind' ? 'リマインド配信' : repostIntent === 'repost' ? '再投稿配信' : 'タスク配信')
+                       ? (repostIntent === 'remind'
+                         ? 'リマインド配信'
+                         : repostIntent === 'repost'
+                           ? '再投稿配信'
+                           : repostIntent === 'correct'
+                             ? '訂正配信'
+                             : 'タスク配信')
                        : activeTab === 'repost'
-                         ? (repostEntryMode === 'remind' ? 'リマインド' : '再投稿')
+                         ? (repostEntryMode === 'remind' ? 'リマインド' : '修正・再投稿')
                          : 'リストチェック'}
                    </h2>
                  </>
@@ -2383,13 +2609,14 @@ export default function App() {
                         icon: 'plus',
                         onClick: () => {
                           setRepostIntent(null);
+                          setEditingTaskId(null);
                           navigateTab('request');
                         },
                         badge: null,
                       },
                       {
                         key: 'repost',
-                        label: '再投稿',
+                        label: '修正・再投稿',
                         icon: 'history',
                         onClick: () => openRepostTab('repost'),
                         badge: null,
@@ -2430,7 +2657,7 @@ export default function App() {
                           <Icon name={item.icon} />
                         </div>
                         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          <span className="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-snug text-left truncate">
+                          <span className="text-base sm:text-lg md:text-xl font-bold text-slate-900 leading-snug text-left">
                             {item.label}
                           </span>
                           <button
@@ -2584,7 +2811,9 @@ export default function App() {
                             ? 'リマインド：過去の未実施者のみを宛先にしています。'
                             : repostIntent === 'repost'
                               ? '再投稿：過去と同じ宛先を引き継いでいます。'
-                              : null
+                              : repostIntent === 'correct'
+                                ? '訂正：同じ依頼を上書きします（実施済みの記録は残ります）。'
+                                : null
                         )}
                       </div>
                     </div>
@@ -2592,20 +2821,152 @@ export default function App() {
                     <div className={appFormSubmitRow}>
                       <button type="submit" disabled={isSubmitting} className={appBtnPrimary}>
                         {isSubmitting ? <span className="animate-spin scale-150"><Icon name="loader" /></span> : <Icon name="send" />}
-                        <span className="ml-3">{isSubmitting ? '処理中...' : 'この内容で配信する'}</span>
+                        <span className="ml-3">
+                          {isSubmitting
+                            ? '処理中...'
+                            : repostIntent === 'correct'
+                              ? 'この内容で訂正する'
+                              : 'この内容で配信する'}
+                        </span>
                       </button>
                     </div>
                   </form>
                 </div>
               )}
               
-              {/* === 再投稿 / リマインド (履歴) === */}
+              {/* === 修正・再投稿 / リマインド (履歴) === */}
               {!checklistOnlyMode && activeTab === 'repost' && (
                 <div className="animate-fade-in w-full mt-4">
                   {(() => {
                     const isRemindMode = repostEntryMode === 'remind';
-                    const modeLabel = isRemindMode ? 'リマインド' : '再投稿';
+                    const modeLabel = isRemindMode ? 'リマインド' : '修正・再投稿';
                     const helpKeySuffix = isRemindMode ? '-remind' : '-repost';
+                    const filtered = isRemindMode
+                      ? sentTasks.filter((t) => t.deadlinePassed || t.canRepost)
+                      : sentTasks;
+                    const correctTasks = isRemindMode ? [] : filtered.filter((t) => t.canCorrect);
+                    const repostTasks = isRemindMode
+                      ? filtered
+                      : filtered.filter((t) => t.canRepost);
+                    const otherTasks = isRemindMode
+                      ? []
+                      : filtered.filter((t) => !t.canCorrect && !t.canRepost);
+                    const hasAny =
+                      correctTasks.length + repostTasks.length + otherTasks.length > 0;
+
+                    const renderTaskCard = (task) => {
+                      const helpKey = task.id + helpKeySuffix;
+                      const canCorrect = !!task.canCorrect;
+                      const canRepost = !!task.canRepost;
+                      const badgeLabel = isRemindMode
+                        ? 'リマインド候補'
+                        : canRepost
+                          ? '再投稿（期限超過）'
+                          : '修正可（期限内）';
+                      return (
+                        <div
+                          key={task.id}
+                          className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-[var(--acc-200)] hover:shadow-md transition-all shadow-sm w-full"
+                        >
+                          <div className="flex-1 text-center md:text-left w-full">
+                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
+                              <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">
+                                {badgeLabel}
+                              </span>
+                              <span className="text-sm text-slate-600 font-bold">{task.createdAt}</span>
+                              {task.deadline ? (
+                                <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">
+                                  期限: {task.deadline}
+                                </span>
+                              ) : null}
+                              {task.targetTags && (
+                                <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">
+                                  宛先: {task.targetTags}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
+                            <SavedAttachmentStrip urls={task.images} />
+                          </div>
+                          <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0 md:min-w-[12.5rem]">
+                            <div className="flex items-stretch gap-1.5">
+                              {isRemindMode ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemindClick(task)}
+                                  disabled={!!remindingTaskId}
+                                  className={brutalBtnPrimary + ' flex-1 px-6 disabled:opacity-50 disabled:cursor-not-allowed'}
+                                >
+                                  {remindingTaskId === task.id ? '準備中…' : 'この内容でリマインド'}
+                                </button>
+                              ) : canRepost ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRepostClick(task, { mode: 'repost' })}
+                                  className={brutalBtnPrimary + ' flex-1 px-6'}
+                                >
+                                  この内容で再投稿
+                                </button>
+                              ) : canCorrect ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRepostClick(task, { mode: 'correct' })}
+                                  className={brutalBtnPrimary + ' flex-1 px-6'}
+                                >
+                                  この内容を修正する
+                                </button>
+                              ) : (
+                                <span className="flex-1 text-xs font-bold text-slate-500 self-center text-center px-2">
+                                  操作できません
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                aria-label={`${modeLabel}の説明`}
+                                aria-expanded={repostHelpKey === helpKey}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRepostHelpKey((k) => (k === helpKey ? null : helpKey));
+                                }}
+                                className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                              >
+                                ?
+                              </button>
+                            </div>
+                            {repostHelpKey === helpKey ? (
+                              <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
+                                {isRemindMode ? (
+                                  <>
+                                    <strong className="text-slate-800">リマインド</strong>
+                                    <br />
+                                    未実施の人だけを宛先に入れた状態で配信できます。
+                                    <br />
+                                    「2. 期限（DL）」だけ選び直します（文面・添付の変更も可）。
+                                  </>
+                                ) : canRepost ? (
+                                  <>
+                                    <strong className="text-slate-800">再投稿</strong>
+                                    <br />
+                                    期限超過のため、新しい依頼として送り直します（修正はできません）。
+                                    <br />
+                                    「2. 期限（DL）」を選び直します（文面・添付の変更も可）。
+                                  </>
+                                ) : (
+                                  <>
+                                    <strong className="text-slate-800">修正（訂正）</strong>
+                                    <br />
+                                    同じ依頼を上書きし、訂正メールを送ります。実施済みの記録は残ります。
+                                    <br />
+                                    内容・宛先・期限を直して送信してください。
+                                  </>
+                                )}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    };
+
                     return (
                       <>
                         <div className="mb-8 text-center border-b-2 border-slate-300 pb-6">
@@ -2619,104 +2980,66 @@ export default function App() {
                               </>
                             ) : (
                               <>
-                                過去の依頼から選び、<strong className="text-slate-900">同じ内容・宛先</strong>でもう一度送ります。
+                                自分が送った依頼から選びます。
+                                <strong className="text-slate-900">上段は修正</strong>、
+                                <strong className="text-slate-900">下段は再投稿</strong>です。
                               </>
                             )}
                           </p>
                           <p className="text-sm font-semibold text-slate-500 mt-2 leading-relaxed">
-                            一覧は<strong>期限が過ぎた依頼だけ</strong>（期限当日までは非表示）。
-                            <br />
-                            送信前に「2. 期限（DL）」を選び直してください。添付はサムネをタップで開けます。
-                            <br />
-                            {isRemindMode
-                              ? '同じ宛先でもう一度送りたいときは、ホームの「再投稿」から入ってください。'
-                              : '未実施者だけに送りたいときは、ホームの「リマインド」から入ってください。'}
+                            {isRemindMode ? (
+                              <>
+                                一覧は<strong>期限が過ぎた依頼</strong>が中心です。
+                                <br />
+                                送信前に「2. 期限（DL）」を選び直してください。添付はサムネをタップで開けます。
+                                <br />
+                                同じ宛先でもう一度送りたいときは、ホームの「修正・再投稿」から入ってください。
+                              </>
+                            ) : (
+                              <>
+                                <strong>期限当日まで</strong>は「この内容を修正する」（同じ行を上書き＋訂正メール）。
+                                <br />
+                                <strong>期限超過</strong>は「この内容で再投稿」（新しい依頼）。修正はできません。
+                                <br />
+                                未実施者だけに送りたいときは、ホームの「リマインド」から入ってください。
+                              </>
+                            )}
                           </p>
                         </div>
 
-                        <div className="space-y-6 w-full">
-                          {sentTasks.length === 0 ? (
+                        <div className="space-y-8 w-full">
+                          {!hasAny ? (
                             <p className="text-center text-slate-500 font-bold py-20 text-lg">送信履歴がありません</p>
-                          ) : sentTasks.map((task) => {
-                            const helpKey = task.id + helpKeySuffix;
-                            return (
-                              <div
-                                key={task.id}
-                                className="bg-white p-6 rounded-2xl border-2 border-slate-300 flex flex-col md:flex-row justify-between items-center gap-6 hover:border-[var(--acc-200)] hover:shadow-md transition-all shadow-sm w-full"
-                              >
-                                <div className="flex-1 text-center md:text-left w-full">
-                                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
-                                    <span className="bg-[var(--acc-500)] text-white text-xs font-bold px-3 py-1.5 rounded-lg tracking-widest">
-                                      {isRemindMode ? 'リマインド候補' : '再投稿候補'}
-                                    </span>
-                                    <span className="text-sm text-slate-600 font-bold">{task.createdAt}</span>
-                                    {task.targetTags && (
-                                      <span className="text-xs font-bold text-slate-700 bg-slate-50 border-2 border-slate-300 px-3 py-1 rounded-lg">
-                                        宛先: {task.targetTags}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-slate-800 text-lg font-bold leading-relaxed">{formatContent(task.content)}</p>
-                                  <SavedAttachmentStrip urls={task.images} />
-                                </div>
-                                <div className="flex flex-col gap-2 w-full md:w-auto flex-shrink-0 md:min-w-[12.5rem]">
-                                  <div className="flex items-stretch gap-1.5">
-                                    {isRemindMode ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemindClick(task)}
-                                        disabled={!!remindingTaskId}
-                                        className={brutalBtnPrimary + ' flex-1 px-6 disabled:opacity-50 disabled:cursor-not-allowed'}
-                                      >
-                                        {remindingTaskId === task.id ? '準備中…' : 'この内容でリマインド'}
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRepostClick(task, { mode: 'repost' })}
-                                        className={brutalBtnPrimary + ' flex-1 px-6'}
-                                      >
-                                        この内容で再投稿
-                                      </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      aria-label={`${modeLabel}の説明`}
-                                      aria-expanded={repostHelpKey === helpKey}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setRepostHelpKey((k) => (k === helpKey ? null : helpKey));
-                                      }}
-                                      className="w-9 shrink-0 rounded-xl border-2 border-slate-300 bg-white text-slate-600 font-black text-sm hover:bg-slate-50 hover:border-slate-400 transition-colors"
-                                    >
-                                      ?
-                                    </button>
-                                  </div>
-                                  {repostHelpKey === helpKey ? (
-                                    <p className="text-xs font-bold text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left">
-                                      {isRemindMode ? (
-                                        <>
-                                          <strong className="text-slate-800">リマインド</strong>
-                                          <br />
-                                          未実施の人だけを宛先に入れた状態で配信できます。
-                                          <br />
-                                          「2. 期限（DL）」だけ選び直します（文面・添付の変更も可）。
-                                        </>
-                                      ) : (
-                                        <>
-                                          <strong className="text-slate-800">再投稿</strong>
-                                          <br />
-                                          過去と同じ内容・宛先で、新しい依頼を作れます。
-                                          <br />
-                                          「2. 期限（DL）」だけ選び直します（文面・添付の変更も可）。
-                                        </>
-                                      )}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-                            );
-                          })}
+                          ) : isRemindMode ? (
+                            <div className="space-y-6">{repostTasks.map(renderTaskCard)}</div>
+                          ) : (
+                            <>
+                              {correctTasks.length > 0 ? (
+                                <section className="space-y-4">
+                                  <h3 className="text-sm font-black text-slate-800 tracking-wide border-b-2 border-slate-200 pb-2">
+                                    修正（期限内）
+                                  </h3>
+                                  <div className="space-y-6">{correctTasks.map(renderTaskCard)}</div>
+                                </section>
+                              ) : null}
+                              {repostTasks.length > 0 ? (
+                                <section className="space-y-4">
+                                  <h3 className="text-sm font-black text-slate-800 tracking-wide border-b-2 border-slate-200 pb-2">
+                                    再投稿（期限超過）
+                                  </h3>
+                                  <div className="space-y-6">{repostTasks.map(renderTaskCard)}</div>
+                                </section>
+                              ) : null}
+                              {otherTasks.length > 0 ? (
+                                <section className="space-y-4">
+                                  <h3 className="text-sm font-black text-slate-500 tracking-wide border-b-2 border-slate-200 pb-2">
+                                    その他
+                                  </h3>
+                                  <div className="space-y-6">{otherTasks.map(renderTaskCard)}</div>
+                                </section>
+                              ) : null}
+                            </>
+                          )}
                         </div>
                       </>
                     );
@@ -2919,7 +3242,7 @@ export default function App() {
                             )}
                           </div>
                           
-                          <h3 className={`${appText.title} mb-4 break-words ${userDone ? 'line-through opacity-40' : ''}`}>
+                          <h3 className={`${appText.title} mb-4 break-words ${userDone ? 'text-slate-500 opacity-80' : ''}`}>
                             {formatContent(task.content)}
                           </h3>
 
@@ -2957,7 +3280,7 @@ export default function App() {
                                           <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                             <span
                                               className={`font-bold min-w-0 break-words ${
-                                                doneOnActiveTab ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-900'
+                                                doneOnActiveTab ? 'text-slate-500' : 'text-slate-900'
                                               }`}
                                             >
                                               {storeName}
@@ -3011,22 +3334,21 @@ export default function App() {
                           {userDone &&
                             !isStoreRequestKind(task.requestKind) &&
                             task.employeeCompletions &&
-                            task.employeeCompletions.length > 0 && (
+                            task.employeeCompletions.length > 0 && (() => {
+                              const mine = task.employeeCompletions.find((p) =>
+                                emailsMatch(p.email, currentUser?.email)
+                              );
+                              if (!mine) return null;
+                              return (
                               <div className={`mb-4 ${appText.meta} text-slate-700 ${appSurfaceInset} px-3 py-2`}>
-                                <span className="font-bold text-slate-800">実施済み: </span>
-                                {task.employeeCompletions.map((p, i) => (
-                                  <span key={`${p.email}-${i}`}>
-                                    {resolveEmployeeName(p.email, allEmployees)}
-                                    {p.time && <span className="text-slate-500">（{p.time}）</span>}
-                                    {i < task.employeeCompletions.length - 1 ? '、' : ''}
-                                  </span>
-                                ))}
+                                <span className="font-bold text-slate-800">実施済み</span>
+                                {mine.time && <span className="text-slate-500">（{mine.time}）</span>}
                               </div>
-                            )}
+                              );
+                            })()}
                           
                           {!userDone && (
                             <div className={`flex flex-col gap-4 ${appDivider} pt-4`}>
-                              
                               <div className="flex flex-wrap gap-3 items-center">
                                 <div className={`flex items-center gap-3 ${appSurfaceInset} px-4 py-2`}>
                                   <span className={`${appText.caption} text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200`}>提出期限</span>
@@ -3050,25 +3372,47 @@ export default function App() {
                                   </>
                                 )}
                               </div>
+                            </div>
+                          )}
 
-                              <div className="flex flex-col gap-4 w-full mt-4">
-                                {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
-                                  <a key={i} href={u} target="_blank" rel="noreferrer" className={appLinkBtn}>
-                                    <Icon name="link" /> リンクを開く
-                                  </a>
-                                ))}
-                                {task.images && task.images.map((imgUrl, i) => {
-                                  if (!imgUrl || typeof imgUrl !== 'string' || !imgUrl.trim()) return null;
-                                  const kind = attachmentKindFromUrl(imgUrl);
-                                  const attachLabel = kind === 'zip' ? 'ZIPを開く' : kind === 'pdf' ? 'PDFを開く' : '添付を開く';
-                                  const attachIcon = kind === 'zip' ? 'fileZip' : kind === 'pdf' ? 'filePdf' : 'image';
-                                  return (
-                                    <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className={`${appLinkBtn} bg-amber-50 hover:bg-amber-100 border-amber-200/60`}>
-                                      <Icon name={attachIcon} /> {attachLabel}
-                                    </a>
-                                  );
-                                })}
+                          {userDone && task.deadline && (
+                            <div className={`${appDivider} pt-4`}>
+                              <div className={`inline-flex items-center gap-3 ${appSurfaceInset} px-4 py-2 opacity-80`}>
+                                <span className={`${appText.caption} text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200`}>提出期限</span>
+                                <span className={`${appText.body} font-bold text-slate-600`}>{task.deadline.replace(/-/g, '/')} まで</span>
                               </div>
+                            </div>
+                          )}
+
+                          {((task.urls && task.urls.some((u) => u && String(u).trim())) ||
+                            (task.images && task.images.some((u) => u && String(u).trim())) ||
+                            shareableManagedStores.length > 0) && (
+                            <div className={`flex flex-wrap gap-3 w-full ${userDone || task.deadline ? 'mt-4' : `${appDivider} pt-4 mt-2`}`}>
+                              {task.urls && task.urls.map((u, i) => u && typeof u === 'string' && u.trim() !== '' && (
+                                <a key={i} href={u} target="_blank" rel="noreferrer" className={`${appLinkBtn} !w-auto flex-1 min-w-[10rem]`}>
+                                  <Icon name="link" /> リンクを開く
+                                </a>
+                              ))}
+                              {task.images && task.images.map((imgUrl, i) => {
+                                if (!imgUrl || typeof imgUrl !== 'string' || !imgUrl.trim()) return null;
+                                const kind = attachmentKindFromUrl(imgUrl);
+                                const attachLabel = kind === 'zip' ? 'ZIPを開く' : kind === 'pdf' ? 'PDFを開く' : '添付を開く';
+                                const attachIcon = kind === 'zip' ? 'fileZip' : kind === 'pdf' ? 'filePdf' : 'image';
+                                return (
+                                  <a key={`img-${i}`} href={imgUrl} target="_blank" rel="noreferrer" className={`${appLinkBtn} !w-auto flex-1 min-w-[10rem] bg-amber-50 hover:bg-amber-100 border-amber-200/60`}>
+                                    <Icon name={attachIcon} /> {attachLabel}
+                                  </a>
+                                );
+                              })}
+                              {shareableManagedStores.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => openStoreShareModal(task)}
+                                  className={`${appLinkBtn} !w-auto flex-1 min-w-[10rem] bg-sky-50 hover:bg-sky-100 border-sky-200/70 text-sky-900`}
+                                >
+                                  <Icon name="send" /> 店舗アドレスへ共有
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>

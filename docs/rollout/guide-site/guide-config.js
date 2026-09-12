@@ -45,11 +45,11 @@ window.GUIDE_CONFIG = {
       drive: '',
     },
     repost: {
-      title: '再投稿・リマインド',
+      title: '修正・再投稿／リマインド',
       duration: '約1分',
       mp4: 'videos/repost.mp4',
       poster: 'images/repost-poster.png',
-      vtt: 'videos/repost.vtt?v=20260726c',
+      vtt: 'videos/repost.vtt?v=20260811a',
       youtube: '',
       drive: '',
     },

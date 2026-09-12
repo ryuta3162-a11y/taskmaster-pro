@@ -35,7 +35,7 @@
         <li><a href="#request"><span class="nav-num">3</span>新規投稿</a></li>
         <li><a href="#mail-notify"><span class="nav-num">4</span>通知メール</a></li>
         <li><a href="#gmail-label"><span class="nav-num">5</span>Gmailラベル</a></li>
-        <li><a href="#repost"><span class="nav-num">6</span>再投稿・リマインド</a></li>
+        <li><a href="#repost"><span class="nav-num">6</span>修正・再投稿／リマインド</a></li>
         <li><a href="#progress"><span class="nav-num">7</span>TFチーム進捗</a></li>
         <li><a href="#logout"><span class="nav-num">8</span>ログアウト</a></li>
       </ul>
@@ -269,29 +269,37 @@
         </div>
       </article>
 
-      <!-- 再投稿・リマインド -->
+      <!-- 修正・再投稿／リマインド -->
       <article class="section" id="repost">
         <header class="section-header">
-          <h2><span class="section-num">6.</span> 再投稿・リマインド</h2>
+          <h2><span class="section-num">6.</span> 修正・再投稿／リマインド</h2>
         </header>
         <div class="section-body">
           <div class="video-block video-block--rich" data-video="repost">
             <div class="video-frame-wrap"></div>
           </div>
           <p>
-            この動画では、まず<strong>再投稿</strong>の流れを見てから、後半で<strong>リマインド</strong>に進みます。
-            どちらも、過去に<strong>新規投稿</strong>で送った依頼のうち、<strong>期限が過ぎたものだけ</strong>が一覧に出ます。
+            ホームの <strong>修正・再投稿</strong> では、自分が送った依頼が一覧に出ます。
+            <strong>上段が修正（期限内）</strong>、<strong>下段が再投稿（期限超過）</strong>です。
+            動画の前半は再投稿、後半は<strong>リマインド</strong>の流れです（画面名が古い場合は上記の名称に読み替えてください）。
           </p>
           <table class="info-table">
             <tr>
-              <th>再投稿（前半）</th>
+              <th>修正（期限内）</th>
               <td>
-                ホームの <strong>再投稿</strong> → <strong>この内容で再投稿</strong>。
-                依頼内容を整え、<strong>期限を選び直し</strong>、配信先を確認します（同じ宛先を引き継ぎ）。
+                期限当日まで。<strong>この内容を修正する</strong> → 同じ依頼を上書きし、<strong>訂正メール</strong>を送ります。
+                実施済みの記録は残ります。
               </td>
             </tr>
             <tr>
-              <th>リマインド（後半）</th>
+              <th>再投稿（期限超過）</th>
+              <td>
+                期限が過ぎた依頼のみ。<strong>この内容で再投稿</strong> → <strong>新しい依頼</strong>として送り直します（修正はできません）。
+                期限を選び直し、配信先を確認して送信します。
+              </td>
+            </tr>
+            <tr>
+              <th>リマインド</th>
               <td>
                 ホームの <strong>リマインド</strong> → <strong>この内容でリマインド</strong>。
                 <strong>未実施者のみ</strong>が宛先になります。
@@ -299,13 +307,16 @@
             </tr>
             <tr>
               <th>送信</th>
-              <td>内容を確認して <strong>この内容で配信する</strong> を押します。</td>
+              <td>
+                修正は <strong>この内容で訂正する</strong>、再投稿・リマインドは <strong>この内容で配信する</strong> を押します。
+              </td>
             </tr>
           </table>
           <div class="callout-box">
-            <p class="callout-title">使い分け</p>
+            <p class="callout-title">使い分け（ここだけ覚えればOK）</p>
             <p>
-              <strong>再投稿</strong> … 同じ宛先にもう一度送りたいとき。<br />
+              <strong>修正</strong> … 期限前に内容・宛先・期限を直したいとき。<br />
+              <strong>再投稿</strong> … 期限超過後に、同じ宛先へもう一度送りたいとき。<br />
               <strong>リマインド</strong> … 未実施者だけに催促したいとき。
             </p>
           </div>
