@@ -115,10 +115,128 @@ function applyNewOrgMigration_(execute) {
 
     props.setProperty(NEW_ORG_DONE_PROP_, Utilities.formatDate(new Date(), 'JST', 'yyyy/MM/dd HH:mm'));
     result.executed = true;
-    return result;
   } finally {
     lock.releaseLock();
   }
+  try {
+    formatAdminSheets_();
+    result.formatted = true;
+  } catch (fmtErr) {
+    result.formatError = String(fmtErr);
+  }
+  return result;
+}
+
+/**
+ * 管理者が見るシートの見た目を整える（値は変えない・セルの背景色は残す・何度実行しても同じ結果）
+ */
+var SHEET_HEADER_BG_ = '#1f4e78';
+
+function styleHeaderAndFreeze_(sh, lastCol, freezeCols) {
+  var header = sh.getRange(1, 1, 1, lastCol);
+  header.setBackground(SHEET_HEADER_BG_).setFontColor('#ffffff').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+  sh.setRowHeight(1, 34);
+  sh.setFrozenRows(1);
+  sh.setFrozenColumns(freezeCols || 0);
+}
+
+function resetFilter_(sh, lastCol) {
+  var f = sh.getFilter();
+  if (f) f.remove();
+  var lastRow = Math.max(sh.getLastRow(), 2);
+  sh.getRange(1, 1, lastRow, lastCol).createFilter();
+}
+
+function setWidths_(sh, widths) {
+  widths.forEach(function (w, i) {
+    if (w) sh.setColumnWidth(i + 1, w);
+  });
+}
+
+function formatStoreSheet_(sh) {
+  if (!sh) return;
+  sh.getRange(1, 1, 1, 4).setValues([['エリア', 'テリトリー', '店舗名', '店舗メール']]);
+  styleHeaderAndFreeze_(sh, 4, 0);
+  setWidths_(sh, [110, 110, 220, 330]);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    var body = sh.getRange(2, 1, lastRow - 1, 4);
+    body.setFontSize(10).setVerticalAlignment('middle').setBorder(false, false, false, false, false, false);
+    var vals = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 1; i < vals.length; i++) {
+      if (String(vals[i][0]) !== String(vals[i - 1][0])) {
+        sh.getRange(i + 2, 1, 1, 4).setBorder(true, null, null, null, null, null, '#1f4e78', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      }
+    }
+  }
+  sh.getBandings().forEach(function (b) { b.remove(); });
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, 4).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+  }
+  resetFilter_(sh, 4);
+}
+
+function formatEmployeeSheet_(sh) {
+  if (!sh) return;
+  var lastCol = Math.max(sh.getLastColumn(), 7 + EMPLOYEE_STORE_COL_MAX);
+  var heads = [['名前', 'メールアドレス', 'チーム名', 'ブランド', 'エリア', 'テリトリー', '役職']];
+  sh.getRange(1, 1, 1, 7).setValues(heads);
+  var storeHeads = [];
+  for (var k = 1; k <= lastCol - 7; k++) storeHeads.push('管轄店舗' + k);
+  sh.getRange(1, 8, 1, lastCol - 7).setValues([storeHeads]);
+  styleHeaderAndFreeze_(sh, lastCol, 2);
+  setWidths_(sh, [120, 250, 90, 80, 150, 230, 70]);
+  sh.setColumnWidths(8, lastCol - 7, 115);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, lastCol).setFontSize(10).setVerticalAlignment('middle').setWrap(false);
+    sh.getRange(2, 1, lastRow - 1, 1).setFontWeight('bold');
+    sh.getRange(2, 7, lastRow - 1, 1).setHorizontalAlignment('center');
+  }
+  resetFilter_(sh, lastCol);
+}
+
+function formatRequestSheet_(sh) {
+  if (!sh) return;
+  var lastCol = Math.max(TASK_STORE_SNAPSHOT_COL_, 16);
+  styleHeaderAndFreeze_(sh, lastCol, 1);
+  setWidths_(sh, [130, 140, 90, 95, 110, 360, 120, 120, 120, 100, 100, 100, 220, 180, 180, 80, 180]);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, lastCol).setFontSize(10).setVerticalAlignment('top')
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  }
+  resetFilter_(sh, lastCol);
+}
+
+function formatAdminSheets_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  formatEmployeeSheet_(ss.getSheetByName('従業員データ'));
+  formatStoreSheet_(ss.getSheetByName('店舗データ'));
+  formatStoreSheet_(ss.getSheetByName('新店舗データ（新組織）'));
+  formatRequestSheet_(ss.getSheetByName('申請データ'));
+
+  ['リマインド送信履歴', '店舗共有ログ', '訂正履歴', '新組織移行ログ'].forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastColumn() < 1) return;
+    styleHeaderAndFreeze_(sh, sh.getLastColumn(), 0);
+  });
+
+  var order = ['申請データ', '従業員データ', '店舗データ', '新店舗データ（新組織）', '新組織移行ログ', '訂正履歴', '店舗共有ログ', 'リマインド送信履歴'];
+  var pos = 1;
+  order.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) return;
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(pos++);
+  });
+  var first = ss.getSheetByName('申請データ') || ss.getSheets()[0];
+  ss.setActiveSheet(first);
+  ss.getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    if (name === 'リマインド送信履歴' || name.indexOf('_旧_') >= 0) sh.hideSheet();
+  });
 }
 
 function renderNewOrgMigrationPage_(e) {
@@ -133,19 +251,28 @@ function renderNewOrgMigrationPage_(e) {
     body = '<p>このページを開く権限がありません。</p>';
   } else {
     var run = e && e.parameter && e.parameter.run === '1';
+    var formatOnly = e && e.parameter && e.parameter.format === '1';
     var res;
     try {
-      res = applyNewOrgMigration_(run);
+      if (formatOnly) {
+        formatAdminSheets_();
+        res = { formatOnlyDone: true };
+      } else {
+        res = applyNewOrgMigration_(run);
+      }
     } catch (err) {
       res = { error: String(err && err.message ? err.message : err) };
     }
-    if (res.error) {
+    if (res.formatOnlyDone) {
+      body = '<h2 style="color:#137333">シートの見た目を整えました</h2>';
+    } else if (res.error) {
       body = '<p style="color:#b00020;font-weight:bold">' + esc(res.error) + '</p>';
     } else {
       var counts = { changed: 0, reorder: 0, same: 0, review: 0 };
       res.changes.forEach(function (c) { counts[c.kind]++; });
       var head = res.executed
-        ? '<h2 style="color:#137333">移行を実行しました</h2><p>バックアップ: ' + esc(res.backups.join(' / ')) + '<br>変更内容はシート「新組織移行ログ」にも保存しました。</p>'
+        ? '<h2 style="color:#137333">移行を実行しました</h2><p>バックアップ: ' + esc(res.backups.join(' / ')) + '（非表示）<br>変更内容はシート「新組織移行ログ」にも保存しました。<br>' +
+          (res.formatted ? 'シートの見た目も整えました。' : '見た目の調整でエラー: ' + esc(res.formatError)) + '</p>'
         : '<h2>新組織への移行（確認画面・まだ何も変更していません）</h2>' +
           '<p><a target="_top" style="display:inline-block;background:#1a73e8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold" href="' +
           esc(ScriptApp.getService().getUrl() + '?page=neworg&run=1') + '">この内容で移行を実行する</a></p>';
