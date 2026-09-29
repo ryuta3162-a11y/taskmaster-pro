@@ -1,579 +1,249 @@
 (function () {
-  const cfg = window.GUIDE_CONFIG || {};
-  const endpoint = String(cfg.quizResultEndpoint || '').trim();
-  const STORAGE_KEY = 'todoGuideQuizEmail';
+  'use strict';
 
-  const TARGET_CHOICES = [
-    { id: 'store', label: '店舗への依頼', hint: '店舗単位で完了' },
-    { id: 'employee', label: '社員への依頼', hint: '個人が完了' },
-    { id: 'team', label: 'TFチームの依頼', hint: 'チームメンバーが完了' },
+  var cfg = window.GUIDE_CONFIG || {};
+  var endpoint = String(cfg.quizResultEndpoint || '').trim();
+  var STORAGE_KEY = 'todoGuideQuizEmail';
+
+  var KIND = { store: '店舗への依頼', employee: '社員への依頼', team: 'TFチームの依頼' };
+  var METHOD = { new: '新規投稿', repost: '再投稿', remind: 'リマインド' };
+
+  /**
+   * 採点は集計GAS（correctAnswers）で行う。選択肢は target / method の組み合わせを1つの答えとして見せる。
+   * explain は不正解のときに表示するヒント（答えそのものは出さない）。
+   */
+  var QUESTIONS = [
+    {
+      text: '全店舗に、前月の売上・入会数・体験数の入力を依頼したい（今回だけ）',
+      options: [['employee', 'new'], ['store', 'new'], ['store', 'remind']],
+      explain: '店舗ごとの数値は、店舗単位で完了してもらう依頼です。はじめて送る依頼は新規投稿です。',
+      link: 'index.html#q-kinds',
+    },
+    {
+      text: '担当トレーナー本人に、今月分のPT売上実績を入力してもらいたい（今回だけ）',
+      options: [['store', 'new'], ['team', 'new'], ['employee', 'new']],
+      explain: '本人に入力してもらう依頼は、一人ひとりが完了する依頼です。',
+      link: 'index.html#q-kinds',
+    },
+    {
+      text: 'PTチームのメンバーだけに、Googleフォームへの回答を依頼したい',
+      options: [['team', 'new'], ['employee', 'new'], ['store', 'new']],
+      explain: '特定のTFチームのメンバーだけに送るときは、チームで配信先を選ぶ依頼です。',
+      link: 'index.html#q-kinds',
+    },
+    {
+      text: '先月送ったPOP掲示の依頼（期限切れ）を、各店舗にもう一度送りたい',
+      options: [['store', 'remind'], ['store', 'new'], ['store', 'repost']],
+      explain: '期限が過ぎた依頼を、前回と同じ宛先にもう一度送る方法を選びます。',
+      link: 'index.html#q-which',
+    },
+    {
+      text: '以前送った店舗依頼で、まだ完了していない店舗だけに催促したい',
+      options: [['store', 'repost'], ['store', 'remind'], ['employee', 'remind']],
+      explain: '未実施の人だけを宛先にして送り直す方法を選びます。',
+      link: 'index.html#q-remind',
+    },
+    {
+      text: '研修資料（ZIP）の確認・提出を、該当する社員だけに依頼したい（今回だけ）',
+      options: [['team', 'new'], ['employee', 'new'], ['store', 'new']],
+      explain: '役職で対象の社員を選び、一人ひとりに完了してもらう依頼です。ZIPは添付できます。',
+      link: 'index.html#q-attach',
+    },
   ];
 
-  const METHOD_CHOICES = [
-    { id: 'new', label: '新規投稿', hint: '新しい依頼を作って送る' },
-    { id: 'repost', label: '修正・再投稿', hint: '期限内は修正／超過は再投稿' },
-    { id: 'remind', label: 'リマインド', hint: '未実施者だけにもう一度' },
-  ];
+  var answers = QUESTIONS.map(function () { return null; });
 
-  const QUESTIONS = [
-    {
-      id: 'q1',
-      text: '今月初め、全店舗へ前月の売上・入会数・体験数の入力依頼（今回だけ）',
-    },
-    {
-      id: 'q2',
-      text: '担当トレーナー本人に、今月分のPT売上実績を入力してもらう（今回だけ）',
-    },
-    {
-      id: 'q3',
-      text: 'PTチームのメンバーだけに、Googleフォームの回答依頼（全店舗ではない）',
-    },
-    {
-      id: 'q4',
-      text: '先月送った（期限超過の）POP掲示を、各店舗へもう一度送る',
-    },
-    {
-      id: 'q5',
-      text: '以前送った店舗依頼で、まだ未実施の店舗だけにもう一度催促する',
-    },
-    {
-      id: 'q6',
-      text: '研修資料（ZIP）の確認・提出を、該当社員だけに今回だけ依頼',
-    },
-  ];
-
-  const state = {
-    email: '',
-    name: '',
-    answers: {},
-    lastMarks: null,
-  };
-
-  function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  function $(sel) { return document.querySelector(sel); }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
   }
 
-  function setMessage(el, text, status) {
-    if (!el) return;
-    el.textContent = text;
-    el.classList.toggle('is-ok', status === 'ok');
+  function setMsg(el, text, status) {
+    el.textContent = text || '';
     el.classList.toggle('is-error', status === 'error');
+    el.classList.toggle('is-ok', status === 'ok');
   }
 
-  function buildEndpointUrl(params, callbackName) {
-    const query = new URLSearchParams();
-    Object.keys(params).forEach(function (key) {
-      if (params[key] !== undefined && params[key] !== null) {
-        query.set(key, String(params[key]));
-      }
+  function render() {
+    var html = QUESTIONS.map(function (q, qi) {
+      var opts = q.options.map(function (o, oi) {
+        var id = 'q' + qi + '_' + oi;
+        return '<label class="opt" for="' + id + '">' +
+          '<input type="radio" id="' + id + '" name="q' + qi + '" value="' + oi + '">' +
+          '<span>' + esc(KIND[o[0]]) + ' を ' + esc(METHOD[o[1]]) + '</span></label>';
+      }).join('');
+      return '<div class="q" id="q' + qi + '"><fieldset>' +
+        '<legend><span class="q-num">' + (qi + 1) + '</span><span>' + esc(q.text) + '</span></legend>' +
+        '<div class="opts">' + opts + '</div></fieldset>' +
+        '<p class="explain" hidden></p></div>';
+    }).join('');
+    $('#questions').innerHTML = html;
+
+    $('#questions').addEventListener('change', function (e) {
+      var input = e.target;
+      if (!input || input.type !== 'radio') return;
+      var qi = Number(input.name.slice(1));
+      answers[qi] = Number(input.value);
+      var box = document.getElementById('q' + qi);
+      box.classList.remove('is-wrong', 'is-right');
+      box.querySelector('.explain').hidden = true;
+      updateProgress();
     });
+  }
+
+  function answeredCount() {
+    return answers.filter(function (a) { return a !== null; }).length;
+  }
+
+  function updateProgress() {
+    $('#progress').textContent = answeredCount() + ' / ' + QUESTIONS.length + ' 問回答';
+  }
+
+  // ---------- 送信（GAS は JSONP を優先） ----------
+  function buildUrl(params, callbackName) {
+    var query = new URLSearchParams();
+    Object.keys(params).forEach(function (k) { query.set(k, String(params[k])); });
     if (callbackName) query.set('callback', callbackName);
     query.set('source', 'todo-list-guide');
     return endpoint + (endpoint.indexOf('?') >= 0 ? '&' : '?') + query.toString();
   }
 
-  function callQuizEndpointWithJson(params) {
-    if (!window.fetch) return Promise.reject(new Error('fetch unavailable'));
-
-    return fetch(buildEndpointUrl(params), {
-      method: 'GET',
-      cache: 'no-store',
-      redirect: 'follow',
-    }).then(function (response) {
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      return response.json();
-    });
-  }
-
-  function callQuizEndpointWithJsonp(params) {
+  function jsonp(params) {
     return new Promise(function (resolve, reject) {
-      const callbackName = '__todoQuiz_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-      const script = document.createElement('script');
-      let timer = null;
-
+      var name = '__todoQuiz_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      var script = document.createElement('script');
+      var timer = setTimeout(function () { cleanup(); reject(new Error('送信がタイムアウトしました。通信状況を確認して、もう一度お試しください。')); }, 30000);
       function cleanup() {
-        if (timer) window.clearTimeout(timer);
-        delete window[callbackName];
+        clearTimeout(timer);
+        delete window[name];
         if (script.parentNode) script.parentNode.removeChild(script);
       }
-
-      window[callbackName] = function (response) {
-        cleanup();
-        resolve(response || {});
-      };
-
+      window[name] = function (res) { cleanup(); resolve(res || {}); };
       script.async = true;
-      script.src = buildEndpointUrl(params, callbackName);
-      script.onerror = function () {
-        cleanup();
-        reject(new Error('送信できませんでした。'));
-      };
-      timer = window.setTimeout(function () {
-        cleanup();
-        reject(new Error('送信がタイムアウトしました。'));
-      }, 30000);
-
+      script.src = buildUrl(params, name);
+      script.onerror = function () { cleanup(); reject(new Error('送信できませんでした。通信状況を確認して、もう一度お試しください。')); };
       document.head.appendChild(script);
     });
   }
 
-  function callQuizEndpoint(params) {
-    if (!endpoint) return Promise.reject(new Error('集計URLが未設定です。'));
-    if (endpoint.indexOf('script.google.com/') >= 0) {
-      return callQuizEndpointWithJsonp(params).catch(function () {
-        return callQuizEndpointWithJson(params);
-      });
-    }
-    return callQuizEndpointWithJson(params).catch(function () {
-      return callQuizEndpointWithJsonp(params);
+  function viaFetch(params) {
+    return fetch(buildUrl(params), { method: 'GET', cache: 'no-store', redirect: 'follow' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
     });
   }
 
-  function renderChoiceButton(question, kind, choice) {
-    const hint = choice.hint
-      ? '<span class="test-choice-hint">' + escapeHtml(choice.hint) + '</span>'
-      : '';
-    return (
-      '<button type="button" class="test-choice" data-question-id="' +
-      question.id +
-      '" data-choice-kind="' +
-      kind +
-      '" data-answer-id="' +
-      choice.id +
-      '">' +
-      '<span class="test-choice-label">' +
-      escapeHtml(choice.label) +
-      '</span>' +
-      hint +
-      '</button>'
-    );
-  }
-
-  function renderChoiceGroup(question, kind, label, choices) {
-    const buttons = choices.map(function (choice) {
-      return renderChoiceButton(question, kind, choice);
-    }).join('');
-
-    return (
-      '<div class="test-choice-group" data-choice-group="' +
-      kind +
-      '">' +
-      '<p>' +
-      escapeHtml(label) +
-      '</p>' +
-      '<div class="test-choice-grid">' +
-      buttons +
-      '</div>' +
-      '</div>'
-    );
-  }
-
-  function renderQuestions(container) {
-    container.innerHTML = QUESTIONS.map(function (question, index) {
-      return (
-        '<section class="test-question" data-question-id="' +
-        question.id +
-        '">' +
-        '<h3><span>' +
-        String(index + 1).padStart(2, '0') +
-        '</span>' +
-        escapeHtml(question.text) +
-        '</h3>' +
-        '<div class="test-choice-pair">' +
-        renderChoiceGroup(question, 'target', '① 依頼の種類', TARGET_CHOICES) +
-        renderChoiceGroup(question, 'method', '② 配信方法', METHOD_CHOICES) +
-        '</div>' +
-        '<p class="test-question-feedback" data-question-feedback hidden aria-live="polite"></p>' +
-        '</section>'
-      );
-    }).join('');
-  }
-
-  function isQuestionAnswered(question) {
-    return !!(state.answers[question.id]?.target && state.answers[question.id]?.method);
-  }
-
-  function getAnsweredCount() {
-    return QUESTIONS.filter(isQuestionAnswered).length;
-  }
-
-  function getUnansweredQuestions() {
-    return QUESTIONS.filter(function (question) {
-      return !isQuestionAnswered(question);
+  function send(params) {
+    if (!endpoint) return Promise.reject(new Error('集計先が設定されていません。'));
+    return jsonp(params).catch(function (err) {
+      return viaFetch(params).catch(function () { throw err; });
     });
   }
 
-  function updateProgress() {
-    const progress = document.querySelector('[data-test-progress]');
-    const submit = document.querySelector('[data-test-submit]');
-    const message = document.querySelector('[data-test-submit-message]');
-    const answered = getAnsweredCount();
-    const unanswered = getUnansweredQuestions();
+  // ---------- 結果 ----------
+  function showResult(res) {
+    var box = $('#result');
+    var marks = Array.isArray(res.marks) ? res.marks : [];
+    var score = typeof res.score === 'number' ? res.score : marks.filter(function (m) { return m === '○'; }).length;
 
-    if (progress) progress.textContent = answered + ' / ' + QUESTIONS.length;
-    if (submit) submit.disabled = answered !== QUESTIONS.length;
-
-    QUESTIONS.forEach(function (question, index) {
-      const section = document.querySelector(
-        '.test-question[data-question-id="' + question.id + '"]'
-      );
-      const feedback = section?.querySelector('[data-question-feedback]');
-      if (!feedback) return;
-
-      const missingTarget = !state.answers[question.id]?.target;
-      const missingMethod = !state.answers[question.id]?.method;
-      if (missingTarget || missingMethod) {
-        const parts = [];
-        if (missingTarget) parts.push('① 依頼の種類');
-        if (missingMethod) parts.push('② 配信方法');
-        feedback.hidden = false;
-        feedback.textContent = parts.join('と') + 'を選んでください';
-        feedback.classList.add('is-missing');
+    marks.forEach(function (m, qi) {
+      var q = document.getElementById('q' + qi);
+      if (!q) return;
+      var ex = q.querySelector('.explain');
+      if (m === '○') {
+        q.classList.add('is-right');
+        q.classList.remove('is-wrong');
+        ex.className = 'explain ok';
+        ex.textContent = '正解です。';
       } else {
-        feedback.hidden = true;
-        feedback.textContent = '';
-        feedback.classList.remove('is-missing');
+        q.classList.add('is-wrong');
+        q.classList.remove('is-right');
+        ex.className = 'explain ng';
+        ex.innerHTML = '不正解です。' + esc(QUESTIONS[qi].explain) +
+          ' <a href="' + QUESTIONS[qi].link + '" target="_blank" rel="noopener">解説を見る</a>';
       }
+      ex.hidden = false;
     });
 
-    if (answered === QUESTIONS.length) {
-      setMessage(message, '送信できます。', 'ok');
-      return;
-    }
-
-    if (unanswered.length === 1) {
-      const index = QUESTIONS.indexOf(unanswered[0]) + 1;
-      setMessage(message, index + '問目で①②の両方を選んでください。', 'error');
-      return;
-    }
-
-    setMessage(
-      message,
-      '各問題で①依頼の種類と②配信方法の両方を選ぶと送信できます。',
-      ''
-    );
-  }
-
-  function restoreSelectedChoices(container) {
-    QUESTIONS.forEach(function (question) {
-      const selected = state.answers[question.id] || {};
-      ['target', 'method'].forEach(function (kind) {
-        const answerId = selected[kind];
-        if (!answerId) return;
-        const button = container.querySelector(
-          '.test-choice[data-question-id="' +
-            question.id +
-            '"][data-choice-kind="' +
-            kind +
-            '"][data-answer-id="' +
-            answerId +
-            '"]'
-        );
-        if (button) button.classList.add('is-selected');
-      });
-    });
-  }
-
-  function applyWrongQuestionMarks(marks) {
-    if (!Array.isArray(marks)) return;
-
-    marks.forEach(function (mark, index) {
-      const question = QUESTIONS[index];
-      if (!question || mark === '○') return;
-
-      const section = document.querySelector(
-        '.test-question[data-question-id="' + question.id + '"]'
-      );
-      if (!section) return;
-
-      section.classList.add('is-wrong');
-      const feedback = section.querySelector('[data-question-feedback]');
-      if (feedback) {
-        feedback.hidden = false;
-        feedback.textContent = '不正解です。①②を見直してください';
-        feedback.classList.add('is-wrong');
-        feedback.classList.remove('is-missing');
-      }
-    });
-  }
-
-  function bindChoices(container) {
-    container.addEventListener('click', function (event) {
-      const button = event.target.closest('.test-choice');
-      if (!button) return;
-
-      const questionId = button.dataset.questionId;
-      const kind = button.dataset.choiceKind;
-      const answerId = button.dataset.answerId;
-
-      if (!state.answers[questionId]) state.answers[questionId] = {};
-      state.answers[questionId][kind] = answerId;
-
-      container.querySelectorAll(
-        '.test-choice[data-question-id="' +
-          questionId +
-          '"][data-choice-kind="' +
-          kind +
-          '"]'
-      ).forEach(function (choice) {
-        choice.classList.toggle('is-selected', choice === button);
-      });
-
-      const section = container.querySelector(
-        '.test-question[data-question-id="' + questionId + '"]'
-      );
-      if (section) section.classList.remove('is-wrong');
-
-      updateProgress();
-    });
-  }
-
-  function showIntro() {
-    const intro = document.querySelector('[data-test-intro]');
-    const quizBody = document.querySelector('[data-test-quiz-body]');
-    if (intro) intro.hidden = false;
-    if (quizBody) quizBody.hidden = true;
-  }
-
-  function showQuizBody() {
-    const intro = document.querySelector('[data-test-intro]');
-    const quizBody = document.querySelector('[data-test-quiz-body]');
-    if (intro) intro.hidden = true;
-    if (quizBody) quizBody.hidden = false;
-  }
-
-  function showQuiz(response) {
-    const authPanel = document.querySelector('[data-test-auth]');
-    const quizPanel = document.querySelector('[data-test-quiz]');
-    const result = document.querySelector('[data-test-result]');
-    const user = document.querySelector('[data-test-user]');
-    const questions = document.querySelector('[data-test-questions]');
-
-    state.name = response.name || '';
-    if (authPanel) authPanel.hidden = true;
-    if (quizPanel) quizPanel.hidden = false;
-    if (result) result.hidden = true;
-    if (user) user.textContent = state.name ? state.name + ' さん' : state.email;
-
-    if (questions && !questions.dataset.rendered) {
-      renderQuestions(questions);
-      bindChoices(questions);
-      questions.dataset.rendered = 'true';
-    }
-
-    if (state.lastMarks) {
-      showQuizBody();
-      restoreSelectedChoices(questions);
-      applyWrongQuestionMarks(state.lastMarks);
-      const firstWrong = QUESTIONS.findIndex(function (_question, index) {
-        return state.lastMarks[index] === '×';
-      });
-      if (firstWrong >= 0) {
-        const section = questions.querySelectorAll('.test-question')[firstWrong];
-        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+    box.hidden = false;
+    if (res.passed) {
+      box.className = 'result pass';
+      box.innerHTML = '<h2>合格です（' + QUESTIONS.length + ' / ' + QUESTIONS.length + '）</h2>' +
+        '<p>' + esc(res.message || '合格として記録しました。') + '</p>' +
+        '<a class="btn btn-primary" href="index.html">ヘルプセンターへ戻る</a>';
     } else {
-      showIntro();
+      box.className = 'result fail';
+      box.innerHTML = '<h2>あと少しです（' + score + ' / ' + QUESTIONS.length + '）</h2>' +
+        '<p>不正解の問題にヒントを表示しました。選び直して、もう一度「結果を送信」を押してください。</p>';
     }
-
-    updateProgress();
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function buildResultBreakdown(marks) {
-    if (!Array.isArray(marks) || !marks.length) return '';
+  function onSubmit(e) {
+    e.preventDefault();
+    var emailInput = $('#email');
+    var emailMsg = $('#email-msg');
+    var submitMsg = $('#submit-msg');
+    var email = emailInput.value.trim();
 
-    const items = marks.map(function (mark, index) {
-      const cls = mark === '○' ? 'is-ok' : 'is-ng';
-      return (
-        '<li class="test-result-item ' +
-        cls +
-        '"><span>' +
-        String(index + 1) +
-        '問目</span><strong>' +
-        mark +
-        '</strong></li>'
-      );
-    });
+    if (!email || !emailInput.checkValidity()) {
+      setMsg(emailMsg, 'メールアドレスを正しく入力してください。', 'error');
+      emailInput.focus();
+      return;
+    }
+    setMsg(emailMsg, '結果はこのメールアドレスで記録されます。');
 
-    return '<ul class="test-result-breakdown">' + items.join('') + '</ul>';
-  }
-
-  function showResult(response) {
-    const result = document.querySelector('[data-test-result]');
-    const quizPanel = document.querySelector('[data-test-quiz]');
-    const submit = document.querySelector('[data-test-submit]');
-    const passed = !!response.passed;
-    const score = typeof response.score === 'number' ? response.score : null;
-    const total = typeof response.total === 'number' ? response.total : QUESTIONS.length;
-    const marks = Array.isArray(response.marks) ? response.marks : null;
-
-    state.lastMarks = passed ? null : marks;
-
-    if (quizPanel) quizPanel.hidden = true;
-    if (!result) return;
-
-    result.hidden = false;
-    result.classList.toggle('is-pass', passed);
-    result.classList.toggle('is-fail', !passed);
-
-    if (passed) {
-      result.innerHTML =
-        '<strong>確認完了</strong>' +
-        '<span>' +
-        escapeHtml(response.message || '合格として記録しました。') +
-        '</span>' +
-        '<a class="btn btn-secondary" href="index.html#quiz">ガイドへ戻る</a>';
+    var missing = answers.indexOf(null);
+    if (missing >= 0) {
+      setMsg(submitMsg, (missing + 1) + '問目が未回答です。', 'error');
+      document.getElementById('q' + missing).scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    const wrongCount = marks ? marks.filter(function (mark) {
-      return mark === '×';
-    }).length : null;
+    try { localStorage.setItem(STORAGE_KEY, email); } catch (err) {}
 
-    result.innerHTML =
-      '<strong>未合格（' +
-      (score === null ? '—' : score) +
-      ' / ' +
-      total +
-      '）</strong>' +
-      '<span>' +
-      escapeHtml(
-        response.message ||
-          (wrongCount
-            ? wrongCount + '問が不正解です。下の結果を確認して、もう一度回答してください。'
-            : '結果を記録しました。もう一度回答してください。')
-      ) +
-      '</span>' +
-      buildResultBreakdown(marks) +
-      '<p class="test-result-hint">よくあるミス：①②のどちらか一方だけ選んでいる／依頼の種類と配信方法を取り違えている</p>' +
-      '<button type="button" class="btn btn-secondary" data-test-retry>もう一度回答する</button>';
+    var details = answers.map(function (oi, qi) {
+      var o = QUESTIONS[qi].options[oi];
+      return { questionId: 'q' + (qi + 1), target: o[0], method: o[1] };
+    });
 
-    const retry = result.querySelector('[data-test-retry]');
-    if (retry) {
-      retry.addEventListener('click', function () {
-        if (submit) {
-          submit.disabled = getAnsweredCount() !== QUESTIONS.length;
-          submit.textContent = '結果を送信';
-        }
-        showQuiz({ ok: true, name: state.name });
-      });
-    }
-  }
+    var btn = $('#submit');
+    btn.disabled = true;
+    btn.textContent = '送信中…';
+    setMsg(submitMsg, '送信しています…');
 
-  function initAuth() {
-    const form = document.querySelector('[data-test-auth-form]');
-    const emailInput = document.querySelector('[data-test-email]');
-    const message = document.querySelector('[data-test-auth-message]');
-
-    if (!form || !emailInput) return;
-
-    try {
-      const savedEmail = window.localStorage.getItem(STORAGE_KEY);
-      if (savedEmail && !emailInput.value) emailInput.value = savedEmail;
-    } catch (err) {
-      // Local storage is only a convenience for faster repeat access.
-    }
-
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
-      const email = emailInput.value.trim();
-
-      if (!email || !emailInput.checkValidity()) {
-        setMessage(message, 'メールアドレスを確認してください。', 'error');
+    send({
+      action: 'submit',
+      email: email,
+      answers: JSON.stringify(details),
+      details: JSON.stringify(details),
+      submittedAt: new Date().toISOString(),
+    }).then(function (res) {
+      if (!res || !res.ok) throw new Error((res && res.message) || '記録できませんでした。');
+      setMsg(submitMsg, '');
+      showResult(res);
+    }).catch(function (err) {
+      var msg = err && err.message ? err.message : '送信できませんでした。';
+      if (/メールアドレス/.test(msg)) {
+        setMsg(emailMsg, msg + ' 入力したアドレスを確認してください。', 'error');
         emailInput.focus();
-        return;
+        setMsg(submitMsg, '');
+      } else {
+        setMsg(submitMsg, msg, 'error');
       }
-
-      state.email = email;
-      state.lastMarks = null;
-      try {
-        window.localStorage.setItem(STORAGE_KEY, email);
-      } catch (err) {
-        // The quiz can still proceed without remembering the email.
-      }
-      setMessage(message, '開始します。', 'ok');
-      showQuiz({ ok: true });
-    });
-  }
-
-  function initIntro() {
-    const start = document.querySelector('[data-test-start]');
-    if (!start) return;
-
-    start.addEventListener('click', function () {
-      showQuizBody();
-      const questions = document.querySelector('[data-test-questions]');
-      if (questions) {
-        const first = questions.querySelector('.test-question');
-        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
-  }
-
-  function initSubmit() {
-    const form = document.querySelector('[data-test-form]');
-    const submit = document.querySelector('[data-test-submit]');
-    const message = document.querySelector('[data-test-submit-message]');
-
-    if (!form) return;
-
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
-      if (getAnsweredCount() !== QUESTIONS.length) {
-        setMessage(message, '各問題で①依頼の種類と②配信方法の両方を選んでください。', 'error');
-        updateProgress();
-        const firstMissing = getUnansweredQuestions()[0];
-        if (firstMissing) {
-          const section = document.querySelector(
-            '.test-question[data-question-id="' + firstMissing.id + '"]'
-          );
-          if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        return;
-      }
-
-      const details = QUESTIONS.map(function (question) {
-        return {
-          questionId: question.id,
-          target: state.answers[question.id].target,
-          method: state.answers[question.id].method,
-        };
-      });
-
-      if (submit) {
-        submit.disabled = true;
-        submit.textContent = '送信中';
-      }
-      setMessage(message, '送信しています。', '');
-
-      callQuizEndpoint({
-        action: 'submit',
-        email: state.email,
-        answers: JSON.stringify(details),
-        details: JSON.stringify(details),
-        submittedAt: new Date().toISOString(),
-      })
-        .then(function (response) {
-          if (!response.ok) throw new Error(response.message || '記録できませんでした。');
-          showResult(response);
-        })
-        .catch(function (error) {
-          setMessage(message, error.message || '送信できませんでした。', 'error');
-          if (submit) {
-            submit.disabled = false;
-            submit.textContent = '結果を送信';
-          }
-        });
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = '結果を送信';
     });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    initAuth();
-    initIntro();
-    initSubmit();
+    render();
+    updateProgress();
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) $('#email').value = saved;
+    } catch (err) {}
+    $('#quiz-form').addEventListener('submit', onSubmit);
   });
 })();

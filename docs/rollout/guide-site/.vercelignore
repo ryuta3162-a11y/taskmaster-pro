@@ -1,0 +1,7 @@
+videos/
+audio/
+images/
+scripts/
+README.md
+.env*
+guide.js

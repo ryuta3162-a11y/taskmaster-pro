@@ -3,428 +3,660 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="To Do List の使い方ガイド。" />
-  <title>To Do List</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="description" content="To Do List の使い方とよくある質問。困ったときはキーワードで検索できます。" />
+  <meta name="theme-color" content="#1e1b4b" />
+  <title>To Do List ヘルプセンター</title>
+  <link rel="stylesheet" href="styles.css?v=20260929b" />
 </head>
 <body>
-  <a class="skip-link" href="#register">本文へ移動</a>
-  <header class="site-header">
-    <a class="site-brand" href="#register">
-      <span class="brand-mark">TD</span>
-      <span>To Do List</span>
-    </a>
-    <div class="header-actions">
-      <a id="btn-app" class="btn btn-primary" href="#" target="_blank" rel="noopener">To Do List を開く</a>
-      <button type="button" class="menu-toggle" id="menu-toggle" aria-label="メニュー">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-      </button>
+  <a class="skip-link" href="#main">本文へ移動</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="ヘルプセンターのトップへ">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="brand-text">To Do List <span class="brand-sub">ヘルプセンター</span></span>
+      </a>
+      <nav class="topbar-actions" aria-label="主なリンク">
+        <a class="link-quiet hide-sm" href="quiz.html">理解度チェック</a>
+        <a class="btn btn-primary" data-app-link href="#" target="_blank" rel="noopener">To Do List を開く</a>
+      </nav>
     </div>
   </header>
 
-  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+  <div id="top"></div>
 
-  <div class="layout" id="top">
-    <aside class="sidebar" id="sidebar">
-      <p class="sidebar-label">目次</p>
-      <ul class="nav-list">
-        <li><a href="#register"><span class="nav-num">1</span>ログイン・初回登録</a></li>
-        <li><a href="#checklist"><span class="nav-num">2</span>リストチェック</a></li>
-        <li><a href="#request"><span class="nav-num">3</span>新規投稿</a></li>
-        <li><a href="#mail-notify"><span class="nav-num">4</span>通知メール</a></li>
-        <li><a href="#gmail-label"><span class="nav-num">5</span>Gmailラベル</a></li>
-        <li><a href="#repost"><span class="nav-num">6</span>修正・再投稿／リマインド</a></li>
-        <li><a href="#progress"><span class="nav-num">7</span>TFチーム進捗</a></li>
-        <li><a href="#logout"><span class="nav-num">8</span>ログアウト</a></li>
-      </ul>
-    </aside>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-inner">
+      <p class="hero-eyebrow">To Do List の使い方・よくある質問</p>
+      <h1 id="hero-title">お困りごとを検索してください</h1>
+      <div class="search" role="search">
+        <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+        <input id="search" type="search" autocomplete="off" enterkeyhint="search"
+          placeholder="例：完了を取り消したい、管轄店舗を変えたい、Gmail ラベル"
+          aria-label="質問を検索" aria-describedby="search-status" />
+        <kbd class="search-kbd hide-sm" aria-hidden="true">/</kbd>
+      </div>
+      <p class="search-status" id="search-status" aria-live="polite"></p>
+      <div class="popular" aria-label="よく見られている質問">
+        <span class="popular-label">よく見られている質問</span>
+        <a class="chip" href="#q-complete">完了報告のしかた</a>
+        <a class="chip" href="#q-undo">間違えて完了した</a>
+        <a class="chip" href="#q-change-profile">管轄店舗を変えたい</a>
+        <a class="chip" href="#q-cannot-open">開けない</a>
+        <a class="chip" href="#q-gmail-label">Gmail ラベル</a>
+        <a class="chip" href="#q-remind">未完了の人に催促</a>
+      </div>
+    </div>
+  </section>
 
-    <main class="main">
-      <aside class="guide-notice" role="note" aria-label="注意事項">
-        <p class="guide-notice-label">注意事項</p>
-        <p class="guide-notice-title">店舗メールアドレスではログイン・登録しないでください</p>
-        <p class="guide-notice-body">
-          To Do List は<strong>社員個人の社内メール</strong>での利用が前提です。
-          店舗共用メールでのログインは、完了状況の取り違えにつながるほか、
-          <strong>アルバイトスタッフへの情報漏洩の危険性</strong>もあります。
-          必ずご自身の社用メール（例：名前@okamoto-group.co.jp）をご利用ください。
-        </p>
+  <main id="main" class="page">
+
+    <!-- はじめての方へ -->
+    <section class="quickstart" aria-labelledby="qs-title" data-hide-on-search>
+      <h2 id="qs-title" class="block-title">はじめての方へ：3ステップ</h2>
+      <ol class="qs-grid">
+        <li class="qs-card">
+          <span class="qs-num">1</span>
+          <h3>ログインして登録</h3>
+          <p>社内メールでログインし、役職・チーム・管轄店舗を登録します。</p>
+          <a href="#q-login">手順を見る</a>
+        </li>
+        <li class="qs-card">
+          <span class="qs-num">2</span>
+          <h3>リストチェックで完了</h3>
+          <p>届いた依頼を確認し、対応したら完了を押します。</p>
+          <a href="#q-complete">手順を見る</a>
+        </li>
+        <li class="qs-card">
+          <span class="qs-num">3</span>
+          <h3>依頼を出す</h3>
+          <p>新規投稿から、社員・店舗・TFチームへ依頼を配信します。</p>
+          <a href="#q-how-to-request">手順を見る</a>
+        </li>
+      </ol>
+    </section>
+
+    <!-- カテゴリ -->
+    <section class="categories" aria-labelledby="cat-title" data-hide-on-search>
+      <h2 id="cat-title" class="block-title">カテゴリから探す</h2>
+      <div class="cat-grid">
+        <a class="cat-card" href="#c-start"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span><span class="cat-name">ログイン・登録</span><span class="cat-count" data-count-for="c-start"></span></a>
+        <a class="cat-card" href="#c-checklist"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span class="cat-name">依頼を受け取る・完了する</span><span class="cat-count" data-count-for="c-checklist"></span></a>
+        <a class="cat-card" href="#c-request"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span><span class="cat-name">依頼を出す</span><span class="cat-count" data-count-for="c-request"></span></a>
+        <a class="cat-card" href="#c-repost"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span><span class="cat-name">修正・再投稿・リマインド</span><span class="cat-count" data-count-for="c-repost"></span></a>
+        <a class="cat-card" href="#c-mail"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg></span><span class="cat-name">メール・通知</span><span class="cat-count" data-count-for="c-mail"></span></a>
+        <a class="cat-card" href="#c-profile"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span class="cat-name">担当・登録内容の変更</span><span class="cat-count" data-count-for="c-profile"></span></a>
+        <a class="cat-card" href="#c-progress"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span><span class="cat-name">TFチーム進捗</span><span class="cat-count" data-count-for="c-progress"></span></a>
+        <a class="cat-card" href="#c-glossary"><span class="cat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span><span class="cat-name">用語集</span><span class="cat-count" data-count-for="c-glossary"></span></a>
+      </div>
+    </section>
+
+    <div class="layout">
+      <aside class="toc" aria-label="カテゴリ">
+        <p class="toc-label">カテゴリ</p>
+        <ul>
+          <li><a href="#c-start">ログイン・登録</a></li>
+          <li><a href="#c-checklist">依頼を受け取る・完了する</a></li>
+          <li><a href="#c-request">依頼を出す</a></li>
+          <li><a href="#c-repost">修正・再投稿・リマインド</a></li>
+          <li><a href="#c-mail">メール・通知</a></li>
+          <li><a href="#c-profile">担当・登録内容の変更</a></li>
+          <li><a href="#c-progress">TFチーム進捗</a></li>
+          <li><a href="#c-glossary">用語集</a></li>
+        </ul>
+        <a class="toc-quiz" href="quiz.html">理解度チェック（約2分）→</a>
       </aside>
 
-      <!-- 登録 -->
-      <article class="section section--enhanced" id="register">
-        <header class="section-header section-header--rich">
-          <h2><span class="section-num">1.</span> ログイン・初回登録</h2>
-        </header>
+      <div class="content">
 
-        <p class="register-oneline">社員個人の社内メールでログインし、プロフィールを登録します。</p>
-
-        <div class="register-main">
-          <div class="video-block video-block--rich" data-video="register">
-            <div class="video-frame-wrap"></div>
-          </div>
+        <div class="notice" role="note">
+          <strong>店舗のメールアドレスではログイン・登録できません。</strong>
+          必ずご自身の社内メール（名前@okamoto-group.co.jp）をお使いください。
         </div>
 
-        <div class="register-paths">
-          <div class="path-tabs" role="tablist" aria-label="所属別の流れ">
-            <button type="button" class="path-tab is-active" role="tab" aria-selected="true" aria-controls="path-store" id="tab-store" data-path="store">店舗エリア所属</button>
-            <button type="button" class="path-tab" role="tab" aria-selected="false" aria-controls="path-hq" id="tab-hq" data-path="hq">EAST本部所属</button>
-          </div>
-          <div class="path-panels">
-            <div class="path-panel is-active" id="path-store" role="tabpanel" aria-labelledby="tab-store">
-              <div class="path-flow" aria-hidden="true">
-                <svg class="path-flow-svg" viewBox="0 0 520 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="4" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
-                  <text x="48" y="40" text-anchor="middle" fill="#4338ca" font-size="11" font-family="sans-serif">ログイン</text>
-                  <path d="M92 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="120" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
-                  <text x="164" y="40" text-anchor="middle" fill="#4338ca" font-size="11" font-family="sans-serif">チーム</text>
-                  <path d="M208 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="236" y="20" width="88" height="32" rx="8" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.5"/>
-                  <text x="280" y="40" text-anchor="middle" fill="#312e81" font-size="11" font-weight="bold" font-family="sans-serif">エリア</text>
-                  <path d="M324 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="352" y="20" width="88" height="32" rx="8" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.5"/>
-                  <text x="396" y="40" text-anchor="middle" fill="#312e81" font-size="11" font-weight="bold" font-family="sans-serif">管轄店舗</text>
-                  <path d="M440 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="468" y="20" width="48" height="32" rx="8" fill="#4f46e5"/>
-                  <text x="492" y="40" text-anchor="middle" fill="#fff" font-size="11" font-family="sans-serif">完了</text>
-                </svg>
-              </div>
-            </div>
-            <div class="path-panel" id="path-hq" role="tabpanel" aria-labelledby="tab-hq" hidden>
-              <div class="path-flow" aria-hidden="true">
-                <svg class="path-flow-svg" viewBox="0 0 520 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="4" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
-                  <text x="48" y="40" text-anchor="middle" fill="#4338ca" font-size="11" font-family="sans-serif">ログイン</text>
-                  <path d="M92 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="120" y="20" width="88" height="32" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
-                  <text x="164" y="40" text-anchor="middle" fill="#4338ca" font-size="11" font-family="sans-serif">チーム</text>
-                  <path d="M208 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="236" y="20" width="88" height="32" rx="8" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.5"/>
-                  <text x="280" y="40" text-anchor="middle" fill="#312e81" font-size="10" font-weight="bold" font-family="sans-serif">EAST本部</text>
-                  <path d="M324 36h28" stroke="#a5b4fc" stroke-width="2"/>
-                  <rect x="352" y="20" width="48" height="32" rx="8" fill="#4f46e5"/>
-                  <text x="376" y="40" text-anchor="middle" fill="#fff" font-size="11" font-family="sans-serif">完了</text>
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
+        <!-- ============ ログイン・登録 ============ -->
+        <section class="cat" id="c-start" aria-labelledby="c-start-h">
+          <h2 class="cat-title" id="c-start-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span>ログイン・登録</h2>
 
-      <!-- リストチェック -->
-      <article class="section" id="checklist">
-        <header class="section-header">
-          <h2><span class="section-num">2.</span> リストチェック</h2>
-        </header>
-        <div class="section-body">
-          <div class="video-block video-block--rich" data-video="checklist">
-            <div class="video-frame-wrap"></div>
-          </div>
-          <p>
-            依頼を受け取った方は、ホームの<strong>リストチェック</strong>を開きます。
-            配信が完了すると <a href="#mail-notify">通知メール</a> が届き、メール内のリンクからも同じ画面を開けます。
-            リストチェック横の数字は<strong>未完了件数</strong>です。
-          </p>
-
-          <table class="info-table">
-            <tr>
-              <th>未実施</th>
-              <td>対応が必要な To Do 一覧。内容を確認し、対応後に<strong>完了</strong>を押します。</td>
-            </tr>
-            <tr>
-              <th>実施済み</th>
-              <td>完了した To Do 一覧。誤って完了した場合はここから<strong>取り消し</strong>できます。</td>
-            </tr>
-            <tr>
-              <th>依頼の種類</th>
-              <td><strong>社員依頼</strong>・<strong>店舗依頼</strong>・<strong>TFチーム依頼</strong>で絞り込みできます。</td>
-            </tr>
-            <tr>
-              <th>店舗依頼</th>
-              <td>担当店舗ごとに完了します。画面上部の<strong>店舗名チップ</strong>で絞り込み、店舗単位で完了操作ができます。</td>
-            </tr>
-          </table>
-
-          <div class="callout-box">
-            <p class="callout-title">依頼を出さない方へ（ブックマーク登録）</p>
-            <p>次のURLをブラウザの<strong>ブックマーク</strong>に登録してください。ホームを開かず、リストチェックだけ開けます。</p>
-            <a id="link-checklist" class="code-chip code-chip-link" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
-            <p class="callout-footnote">
-              通知メールの整理は <a href="#gmail-label">Gmailラベル</a> を参照してください。
-            </p>
-          </div>
-        </div>
-      </article>
-
-      <!-- 新規投稿 -->
-      <article class="section" id="request">
-        <header class="section-header">
-          <h2><span class="section-num">3.</span> 新規投稿（To Do 申請）</h2>
-        </header>
-        <div class="section-body">
-          <div class="video-block video-block--rich" data-video="request">
-            <div class="video-frame-wrap"></div>
-          </div>
-          <p>ホーム画面の <strong>新規投稿</strong> をタップして、依頼を作成します。まず <strong>依頼の種類</strong> を選びます。</p>
-          <table class="info-table">
-            <tr>
-              <th>社員への依頼</th>
-              <td><strong>役職別</strong>で配信できます（社員へ依頼したい場合）。該当する役職の方が、それぞれリストチェックで完了します。</td>
-            </tr>
-            <tr>
-              <th>店舗への依頼</th>
-              <td><strong>エリア・店舗別</strong>で配信できます（店舗へ依頼したい場合）。担当店舗ごとに完了します。</td>
-            </tr>
-            <tr>
-              <th>TFチームの依頼</th>
-              <td><strong>所属チーム別</strong>に配信できます。社員への依頼と同じタスク配信形式のため、<strong>各チームで1名が完了しても、チーム全体の完了にはなりません</strong>（該当チームのメンバーそれぞれが完了が必要です）。</td>
-            </tr>
-            <tr>
-              <th>添付ファイル</th>
-              <td>画像・PDF・ZIP を添付できます。画像が多い場合は ZIP にまとめると、配信先が資料を確認しやすくなります。</td>
-            </tr>
-          </table>
-          <p>
-            依頼内容・期限を入力し、配信先を確認して <strong>この内容で配信する</strong> を押します。
-            配信が完了すると <strong>メールが届き</strong>、受信者の <strong>リストチェック</strong> に To Do が表示されます。
-          </p>
-          <p><a href="#mail-notify">届くメールの見本はこちら →</a></p>
-        </div>
-      </article>
-
-      <!-- 通知メール -->
-      <article class="section" id="mail-notify">
-        <header class="section-header">
-          <h2><span class="section-num">4.</span> 届く通知メールの見本</h2>
-        </header>
-        <div class="section-body">
-          <p>依頼を送ると、配信先の方に次のようなメールが届きます。件名は <strong>【TODOリスト】新しいタスクが届きました</strong> です。</p>
-
-          <div class="gmail-shell" aria-label="Gmail通知メールの見本">
-            <div class="gmail-toolbar">
-              <span class="gmail-label-pill inbox">受信トレイ</span>
-              <span class="gmail-label-pill custom">To-Do List</span>
-            </div>
-            <h3 class="gmail-subject">【TODOリスト】新しいタスクが届きました</h3>
-            <div class="gmail-meta">
-              <span class="gmail-avatar" aria-hidden="true">RK</span>
-              <div>
-                <strong>r-kusaka@okamoto-group.co.jp</strong>
-                <span class="gmail-to">To 自分</span>
-              </div>
-            </div>
-            <div class="gmail-body-mock">
-              <p class="gmail-body-title">[ ToDo List ] 新着タスク通知</p>
-              <hr class="gmail-hr" />
-              <ul class="gmail-facts">
-                <li><span>依頼者</span> 日下 竜太</li>
-                <li><span>対象エリア</span> 全店</li>
-                <li><span>期限 (DL)</span> 2026-03-31</li>
+          <details class="qa" id="q-what" data-keywords="とは 概要 アプリ">
+            <summary>To Do List とは何ですか？</summary>
+            <div class="answer">
+              <p>TFチームや本部からの依頼（To Do）を一か所で受け取り、対応したら完了を報告するためのアプリです。</p>
+              <ul>
+                <li>自分宛ての依頼は<a href="#q-where">リストチェック</a>にまとまります。</li>
+                <li>依頼を出した人は、誰が完了したかを確認でき、未完了の人だけに<a href="#q-remind">催促</a>できます。</li>
+                <li>期限が近づくと、未完了の人に<a href="#q-auto-remind">自動でリマインドメール</a>が届きます。</li>
               </ul>
-              <hr class="gmail-hr" />
-              <p class="gmail-section-label">[ 依頼内容 ]</p>
-              <p class="gmail-content-sample">（依頼時に入力した内容がここに表示されます）</p>
-              <p class="gmail-cta-hint">▼ 以下のリンクから確認・完了報告をしてください。</p>
-              <a id="mail-checklist-link" class="gmail-link-sample" href="#" target="_blank" rel="noopener">（URLを読み込み中…）</a>
             </div>
-          </div>
+          </details>
 
-          <p>メール内のリンクを開くと <strong>リストチェック</strong> に移動できます。ラベル整理は <a href="#gmail-label">次の章</a> へ。</p>
-        </div>
-      </article>
-
-      <!-- Gmailラベル -->
-      <article class="section" id="gmail-label">
-        <header class="section-header">
-          <h2><span class="section-num">5.</span> Gmail でラベルを付ける</h2>
-        </header>
-        <div class="section-body">
-          <p>
-            To Do の通知メールは件名が <strong>【TODOリスト】新しいタスクが届きました</strong> で統一されています。
-            Gmail のフィルタで <strong>To-Do List</strong> ラベルを自動で付けると、受信トレイが整理されて管理しやすくなります。
-          </p>
-
-          <ol class="steps-list">
-            <li>
-              <strong>Gmail を開き、検索ボックスに次を入力</strong>
-              <div class="code-chip">subject:【TODOリスト】新しいタスクが届きました</div>
-            </li>
-            <li><strong>検索オプション（フィルタ作成）を開く</strong> →「この検索条件で検索」で一度確認してもOK</li>
-            <li><strong>「フィルタを作成」</strong> をクリック</li>
-            <li>
-              <strong>「ラベルを付ける」</strong> にチェック → ラベルで <strong>To-Do List</strong> を選択
-              <span class="steps-note">（なければ「新規作成」で To-Do List を作ります）</span>
-            </li>
-            <li>必要なら「○件の一致するスレッドにもフィルタを適用する」にチェック（過去の通知もまとめられます）</li>
-            <li><strong>「フィルタを作成」</strong> で完了</li>
-          </ol>
-
-          <div class="callout-box callout-success">
-            <p class="callout-title">設定後のイメージ</p>
-            <p>件名が <strong>【TODOリスト】新しいタスクが届きました</strong> のメールに、自動で <strong>To-Do List</strong> ラベルが付きます。左メニューから To-Do 通知だけを一覧できます。</p>
-          </div>
-        </div>
-      </article>
-
-      <!-- 修正・再投稿／リマインド -->
-      <article class="section" id="repost">
-        <header class="section-header">
-          <h2><span class="section-num">6.</span> 修正・再投稿／リマインド</h2>
-        </header>
-        <div class="section-body">
-          <div class="video-block video-block--rich" data-video="repost">
-            <div class="video-frame-wrap"></div>
-          </div>
-          <p>
-            ホームの <strong>修正・再投稿</strong> では、自分が送った依頼が一覧に出ます。
-            <strong>上段が修正（期限内）</strong>、<strong>下段が再投稿（期限超過）</strong>です。
-            動画の前半は再投稿、後半は<strong>リマインド</strong>の流れです（画面名が古い場合は上記の名称に読み替えてください）。
-          </p>
-          <table class="info-table">
-            <tr>
-              <th>修正（期限内）</th>
-              <td>
-                期限当日まで。<strong>この内容を修正する</strong> → 同じ依頼を上書きし、<strong>訂正メール</strong>を送ります。
-                実施済みの記録は残ります。
-              </td>
-            </tr>
-            <tr>
-              <th>再投稿（期限超過）</th>
-              <td>
-                期限が過ぎた依頼のみ。<strong>この内容で再投稿</strong> → <strong>新しい依頼</strong>として送り直します（修正はできません）。
-                期限を選び直し、配信先を確認して送信します。
-              </td>
-            </tr>
-            <tr>
-              <th>リマインド</th>
-              <td>
-                ホームの <strong>リマインド</strong> → <strong>この内容でリマインド</strong>。
-                <strong>未実施者のみ</strong>が宛先になります。
-              </td>
-            </tr>
-            <tr>
-              <th>送信</th>
-              <td>
-                修正は <strong>この内容で訂正する</strong>、再投稿・リマインドは <strong>この内容で配信する</strong> を押します。
-              </td>
-            </tr>
-          </table>
-          <div class="callout-box">
-            <p class="callout-title">使い分け（ここだけ覚えればOK）</p>
-            <p>
-              <strong>修正</strong> … 期限前に内容・宛先・期限を直したいとき。<br />
-              <strong>再投稿</strong> … 期限超過後に、同じ宛先へもう一度送りたいとき。<br />
-              <strong>リマインド</strong> … 未実施者だけに催促したいとき。
-            </p>
-          </div>
-        </div>
-      </article>
-
-      <!-- TFチーム進捗 -->
-      <article class="section" id="progress">
-        <header class="section-header">
-          <h2><span class="section-num">7.</span> TFチーム進捗管理ダッシュボード</h2>
-        </header>
-        <div class="section-body">
-          <p>
-            <strong>TFチームの依頼をまとめ、進捗状況を閲覧できるページ</strong>です。
-            画面右上の丸いアイコン（プロフィール）を開き、<strong>アクセントカラーの下</strong>にある
-            <strong>〇〇チーム進捗管理ダッシュボード</strong> から開きます。
-            所属チームが複数ある方は、チームごとに表示されます。
-          </p>
-
-          <table class="info-table">
-            <tr>
-              <th>表示される依頼</th>
-              <td><strong>TFチームの依頼</strong>が対象です（新規投稿で「TFチームの依頼」として配信したものなど）。</td>
-            </tr>
-            <tr>
-              <th>確認できること</th>
-              <td>依頼ごとの<strong>進捗率</strong>・<strong>期限</strong>・<strong>誰が完了したか</strong>を一覧で確認できます。</td>
-            </tr>
-            <tr>
-              <th>リストチェックとの違い</th>
-              <td>こちらは<strong>見るだけ</strong>の画面です。自分の To Do を完了する操作は、<a href="#checklist">リストチェック</a>で行います。</td>
-            </tr>
-          </table>
-
-          <p class="mock-label">画面のイメージ</p>
-          <div class="progress-mock" aria-label="TFチーム進捗管理ダッシュボードの見本">
-            <div class="progress-mock-header">
-              <span class="progress-mock-title">TFチーム進捗管理ダッシュボード</span>
+          <details class="qa" id="q-login" data-keywords="ログイン 新規登録 はじめて 初回 サインイン 入り方 ろぐいん URL どこから開く 入れない">
+            <summary>ログインのしかたを教えてください</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li>このページ右上の <span class="ui">To Do List を開く</span> を押します（To Do List のホーム画面の「マニュアルはこちら」からもこのページに来られます）。</li>
+                <li>ログイン画面に<strong>ご自身の社内メールアドレス</strong>を入力し、<span class="ui">ログイン / 新規登録</span> を押します。</li>
+                <li>はじめての方は、続けて<a href="#q-register">プロフィール登録</a>の画面になります。登録済みの方は内容を確認して <span class="ui">このアカウントで開始</span> を押します。</li>
+              </ol>
+              <p class="tip">一度ログインすると、次からは同じ端末・ブラウザでそのまま開けます。</p>
             </div>
-            <div class="progress-stats">
-              <div class="progress-stat"><span class="n">3</span><span class="l">対象</span></div>
-              <div class="progress-stat accent"><span class="n">1</span><span class="l">進行中</span></div>
-              <div class="progress-stat warn"><span class="n">0</span><span class="l">期限超過</span></div>
-              <div class="progress-stat done"><span class="n">2</span><span class="l">完了</span></div>
+          </details>
+
+          <details class="qa" id="q-register" data-keywords="初回登録 プロフィール 登録項目 役職 チーム エリア テリトリー 管轄店舗 本部所属">
+            <summary>初回登録では何を入力しますか？</summary>
+            <div class="answer">
+              <table class="table">
+                <tr><th>お名前</th><td>氏名を入力します。依頼や完了記録に表示されます。</td></tr>
+                <tr><th>あなたの役職</th><td>GMG・A-SMG・SMG・TMG・CMG・CL・CF・IR から選びます。社員への依頼はこの役職で届きます。</td></tr>
+                <tr><th>チーム名</th><td>所属するTFチームを選びます（複数選択可・必須）。TFチームの依頼はこのチームで届きます。</td></tr>
+                <tr><th>エリア</th><td>担当するエリアを選びます（複数選択可）。</td></tr>
+                <tr><th>テリトリー</th><td>選んだエリアのテリトリーが表示されます。<strong>担当しないテリトリーだけ</strong>タップして外します。</td></tr>
+                <tr><th>管轄店舗</th><td>選んだテリトリーの店舗が表示されます。<strong>管轄外の店舗だけ</strong>タップして外します（最大50店舗）。店舗への依頼はここで選んだ店舗について届きます。</td></tr>
+              </table>
+              <p>入力したら <span class="ui">登録して開始</span> を押します。</p>
+              <p class="tip"><strong>本部所属の方</strong>（第1〜第7エリアに所属しない方）は、エリアの代わりに <span class="ui">本部所属</span> を選びます。エリア・店舗の選択は不要です。社員への依頼・TFチームの依頼は届きますが、店舗への依頼は届きません。</p>
             </div>
-            <div class="progress-task">
-              <div class="progress-task-top">
-                <span class="progress-tag tf">TFチーム依頼</span>
-                <span class="progress-tag status">進行中</span>
-              </div>
-              <p class="progress-task-title">【サンプル】月次レポートの確認依頼</p>
-              <p class="progress-task-meta">期限 2026-06-30 · 日下 竜太 · 4人中 2人完了（50%）</p>
-              <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:50%"></div></div>
+          </details>
+
+          <details class="qa" id="q-store-mail" data-keywords="店舗メール 店舗アドレス 共用 jf- ログインできない 登録できない">
+            <summary>店舗のメールアドレスでログインできますか？</summary>
+            <div class="answer">
+              <p><strong>できません。</strong>店舗の共用メールではログイン・登録ができないようになっています。</p>
+              <p>共用メールでの利用は、誰が完了したのか分からなくなるほか、アルバイトスタッフへの情報漏洩につながるためです。必ずご自身の社内メールをお使いください。</p>
+              <p>店舗のスタッフに依頼内容を伝えたいときは、<a href="#q-store-share">店舗アドレスへ共有</a>を使ってください。</p>
             </div>
-            <div class="progress-task">
-              <div class="progress-task-top">
-                <span class="progress-tag tf">TFチーム依頼</span>
-                <span class="progress-tag status done">完了</span>
-              </div>
-              <p class="progress-task-title">【サンプル】共有ドキュメントの更新</p>
-              <p class="progress-task-meta">期限 2026-06-15 · 日下 竜太 · 3人中 3人完了（100%）</p>
-              <div class="progress-bar-wrap"><div class="progress-bar-fill done" style="width:100%"></div></div>
+          </details>
+
+          <details class="qa" id="q-cannot-open" data-keywords="開けない 表示されない エラー ファイルを開くことができません 権限 アクセス 複数アカウント 開かない ひらけない 見られない 使えない 真っ白">
+            <summary>「ファイルを開くことができません」などと表示されて開けません</summary>
+            <div class="answer">
+              <p>ブラウザで<strong>複数の Google アカウントに同時にログインしている</strong>と起きることがあります。次のどれかをお試しください。</p>
+              <ol class="steps">
+                <li>ブラウザの<strong>シークレットウィンドウ</strong>（Chrome は <span class="ui">Ctrl</span>＋<span class="ui">Shift</span>＋<span class="ui">N</span>）を開き、社内アカウントだけでログインしてから To Do List を開く。</li>
+                <li>Google の右上のアイコンから、一度すべてのアカウントからログアウトし、<strong>社内アカウントを最初に</strong>ログインし直す。</li>
+                <li>個人の Google アカウントでは開けません。社内アカウント（@okamoto-group.co.jp）でログインしているか確認する。</li>
+              </ol>
+              <p>それでも開けない場合は、表示された画面を撮影して<span data-contact>DXチーム</span>までご連絡ください。</p>
             </div>
+          </details>
+
+          <details class="qa" id="q-slow" data-keywords="遅い 重い 時間がかかる 読み込み 起動 くるくる システムを起動しています">
+            <summary>開くまでに時間がかかります</summary>
+            <div class="answer">
+              <p>開いた直後は「システムを起動しています...」と表示され、<strong>数秒〜十数秒</strong>かかることがあります。画面を閉じずにそのままお待ちください。</p>
+              <ul>
+                <li>30秒以上変わらない場合は、ページを再読み込みしてください。</li>
+                <li>依頼を確認するだけなら、<a href="#q-bookmark">リストチェックを直接開く URL</a> をブックマークしておくと便利です。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-smartphone" data-keywords="スマホ スマートフォン iPhone Android タブレット アプリ ホーム画面">
+            <summary>スマートフォンでも使えますか？</summary>
+            <div class="answer">
+              <p>使えます。スマートフォンのブラウザ（Chrome・Safari など）で開いてください。インストールは不要です。</p>
+              <p class="tip">ブラウザのメニューから「ホーム画面に追加」をしておくと、アプリのようにすぐ開けます。</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ 依頼を受け取る・完了する ============ -->
+        <section class="cat" id="c-checklist" aria-labelledby="c-checklist-h">
+          <h2 class="cat-title" id="c-checklist-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>依頼を受け取る・完了する</h2>
+
+          <details class="qa" id="q-where" data-keywords="リストチェック 依頼 確認 どこ 見る 未完了 件数 自分宛て">
+            <summary>自分宛ての依頼はどこで確認できますか？</summary>
+            <div class="answer">
+              <p>ホーム画面の <span class="ui">リストチェック</span> を開きます。横の数字は<strong>未完了の件数</strong>です。</p>
+              <p>依頼が届くと<a href="#q-mails">通知メール</a>も届き、メール内のリンクから同じ画面を開けます。</p>
+              <table class="table">
+                <tr><th>未実施</th><td>対応が必要な依頼の一覧です。</td></tr>
+                <tr><th>実施済み</th><td>完了した依頼の一覧です。ここから完了の取り消しもできます。</td></tr>
+                <tr><th>すべて／社員依頼／店舗依頼／TFチーム依頼</th><td>依頼の種類で絞り込めます。</td></tr>
+              </table>
+            </div>
+          </details>
+
+          <details class="qa" id="q-complete" data-keywords="完了 報告 チェック 終わった 対応した 済み 押す 社員依頼 TF かんりょう 完了にしたい">
+            <summary>完了報告のしかたを教えてください（社員依頼・TFチーム依頼）</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li><span class="ui">リストチェック</span> の <span class="ui">未実施</span> で、対応した依頼を探します。</li>
+                <li>依頼の右側（スマートフォンでは下側）にある <span class="ui">✓</span> ボタンを押します。</li>
+                <li>「完了しますか？」と表示されたら <span class="ui">完了する</span> を押します。</li>
+              </ol>
+              <p>完了した依頼は <span class="ui">実施済み</span> に移ります。社員依頼・TFチーム依頼は、<strong>宛先の一人ひとりが</strong>それぞれ完了します（同じチームの誰かが完了しても、自分の分は完了になりません）。</p>
+              <p class="tip">店舗依頼の完了方法は<a href="#q-complete-store">こちら</a>。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-complete-store" data-keywords="店舗依頼 店舗 完了 まとめて 全て完了 チェックボックス 担当店舗">
+            <summary>店舗依頼はどうやって完了しますか？</summary>
+            <div class="answer">
+              <p>店舗依頼では、依頼の中に<strong>自分の管轄店舗</strong>が一覧で表示され、<strong>店舗ごと</strong>に完了します。</p>
+              <ol class="steps">
+                <li>店舗ごとに完了する場合：店舗名の右の<strong>チェックボックス</strong>にチェックを入れます。</li>
+                <li>まとめて完了する場合：依頼の右側の <span class="ui">全て完了にする</span> を押し、表示された店舗を確認して <span class="ui">完了する</span> を押します。</li>
+              </ol>
+              <ul>
+                <li>1つの店舗は、担当者の<strong>誰か1人が完了すれば完了</strong>です。同じ店舗を担当する他の方にも「完了・名前（日時）」と表示されるので、重ねて報告する必要はありません。</li>
+                <li>自分の管轄店舗がすべて完了すると、その依頼は <span class="ui">実施済み</span> に移ります。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-undo" data-keywords="取り消し 間違えた 誤って 戻す 未実施に戻す キャンセル 完了を取り消す とりけし もどす 解除">
+            <summary>間違えて完了してしまいました。取り消せますか？</summary>
+            <div class="answer">
+              <p>取り消せます。</p>
+              <table class="table">
+                <tr><th>社員依頼・TFチーム依頼</th><td><span class="ui">実施済み</span> で依頼を探し、<span class="ui">完了を取り消す</span> を押します。</td></tr>
+                <tr><th>店舗依頼</th><td>該当の店舗の<strong>チェックを外し</strong>、確認で OK を押します。</td></tr>
+              </table>
+              <p class="tip">取り消せるのは<strong>自分が付けた完了だけ</strong>です。他の方が完了した店舗は取り消せないので、その方に取り消しを依頼してください。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-filter-store" data-keywords="店舗で絞り込み 店舗名 チップ 店舗ごと 探す グレー">
+            <summary>店舗ごとに依頼を絞り込めますか？</summary>
+            <div class="answer">
+              <p><span class="ui">リストチェック</span> で <span class="ui">店舗依頼</span> を選ぶと、管轄店舗の名前が並びます。店舗名を押すと、その店舗の依頼だけが表示されます（複数選択可）。<span class="ui">全店</span> で元に戻ります。</p>
+              <p class="tip">グレーの店舗名は、該当する依頼がない店舗です。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-search-done" data-keywords="検索 過去 完了した 探す キーワード 実施済み 履歴">
+            <summary>過去に完了した依頼を探したいです</summary>
+            <div class="answer">
+              <p><span class="ui">リストチェック</span> の <span class="ui">実施済み</span> を開くと、上に<strong>キーワード検索</strong>が表示されます。依頼内容の言葉で検索できます。新しい依頼ほど上に表示されます。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-card" data-keywords="見方 表示 ラベル 期限 超過 今日まで 明日まで 残り2日 リンク 添付 PDF ZIP 開く">
+            <summary>依頼の画面の見方を教えてください</summary>
+            <div class="answer">
+              <table class="table">
+                <tr><th>上部のラベル</th><td>依頼の種類（社員依頼・店舗依頼・TFチーム依頼）、宛先、「from 依頼者名」が表示されます。</td></tr>
+                <tr><th>提出期限</th><td>期限日です。期限が近いと <span class="badge badge-amber">残り2日</span> <span class="badge badge-orange">明日まで</span> <span class="badge badge-red">今日まで</span>、過ぎると <span class="badge badge-dark">⚠ 超過</span> と表示されます。</td></tr>
+                <tr><th>リンク・添付</th><td><span class="ui">リンクを開く</span> <span class="ui">PDFを開く</span> <span class="ui">ZIPを開く</span> などから資料を確認できます。</td></tr>
+              </table>
+            </div>
+          </details>
+
+          <details class="qa" id="q-bookmark" data-keywords="ブックマーク URL 直接 リストチェックだけ すぐ開く お気に入り">
+            <summary>リストチェックだけをすぐ開けますか？</summary>
+            <div class="answer">
+              <p>次の URL をブラウザのブックマークに登録してください。ホーム画面を通らず、リストチェックが直接開きます。依頼を出さない方におすすめです。</p>
+              <p><a class="url" data-checklist-link href="#" target="_blank" rel="noopener">（読み込み中）</a>
+                <button type="button" class="btn-copy" data-copy-checklist>URLをコピー</button></p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-not-shown" data-keywords="届かない 表示されない 出てこない 依頼がない 見えない 宛先 入っていない">
+            <summary>届いているはずの依頼がリストチェックに表示されません</summary>
+            <div class="answer">
+              <p>依頼の種類ごとに、宛先の決まり方が違います。</p>
+              <table class="table">
+                <tr><th>社員依頼</th><td>依頼者が選んだ<strong>役職</strong>の方に、配信した時点で届きます。配信後に役職を変えても、過去の依頼は届きません。</td></tr>
+                <tr><th>TFチーム依頼</th><td>依頼者が選んだ<strong>チーム</strong>の方に、配信した時点で届きます。</td></tr>
+                <tr><th>店舗依頼</th><td>依頼の対象店舗のうち、<strong>自分の管轄店舗</strong>について表示されます。管轄店舗に入っていない店舗の依頼は表示されません。</td></tr>
+              </table>
+              <ol class="steps">
+                <li>画面右上の丸いアイコンを押し、役職・所属チーム・管轄店舗が正しいか確認します（<a href="#q-my-profile">確認方法</a>）。違っていれば<a href="#q-change-profile">登録内容を変更</a>します。</li>
+                <li>登録内容が正しい場合は、依頼者に宛先に入っているか確認してください。宛先から外れていた場合は、依頼者が<a href="#q-edit">修正</a>で宛先に追加できます。</li>
+              </ol>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ 依頼を出す ============ -->
+        <section class="cat" id="c-request" aria-labelledby="c-request-h">
+          <h2 class="cat-title" id="c-request-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span>依頼を出す</h2>
+
+          <details class="qa" id="q-how-to-request" data-keywords="新規投稿 依頼を出す 配信 作成 送る 申請 投稿のしかた">
+            <summary>依頼の出し方を教えてください</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li>ホーム画面の <span class="ui">新規投稿</span> を押します。</li>
+                <li><strong>依頼の種類</strong>を選びます（<a href="#q-kinds">違いはこちら</a>）。</li>
+                <li><strong>1. 依頼内容</strong>、<strong>2. 期限（DL）</strong>を入力します。必要なら <strong>3. URL</strong>（最大3つ）、<strong>4. 参考画像・PDF・ZIP</strong> を追加します。</li>
+                <li><strong>5. 配信先</strong>を選びます（社員依頼は役職、店舗依頼はエリア・店舗、TFチーム依頼はチーム）。</li>
+                <li><strong>6. 配信先の最終確認</strong>に宛先の一覧が出ます。外したい人がいればタップして外します。</li>
+                <li><span class="ui">この内容で配信する</span> を押します。</li>
+              </ol>
+              <p>配信すると、宛先の方に<a href="#q-mails">通知メール</a>が届き、リストチェックに依頼が表示されます。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-kinds" data-keywords="種類 違い 社員への依頼 店舗への依頼 TFチームの依頼 どれ 選び方">
+            <summary>「社員への依頼」「店舗への依頼」「TFチームの依頼」の違いは？</summary>
+            <div class="answer">
+              <table class="table table-compare">
+                <thead><tr><th></th><th>配信先の選び方</th><th>誰が完了する？</th><th>向いている依頼</th></tr></thead>
+                <tbody>
+                  <tr><th>社員への依頼</th><td>役職</td><td>宛先の一人ひとり</td><td>本人の回答・入力（アンケート、個人実績の入力など）</td></tr>
+                  <tr><th>店舗への依頼</th><td>エリア・店舗</td><td>店舗ごと（担当者の誰か1人）</td><td>店舗での作業（POP掲示、店舗数値の入力など）</td></tr>
+                  <tr><th>TFチームの依頼</th><td>所属チーム</td><td>宛先の一人ひとり</td><td>特定のTFチームのメンバーだけへの依頼</td></tr>
+                </tbody>
+              </table>
+              <p class="tip">迷ったら「<strong>店舗で作業が必要か？</strong>」で考えます。店舗単位の作業なら店舗への依頼、本人に答えてほしいなら社員への依頼です。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-exclude" data-keywords="外す 除外 特定の人 宛先 選ぶ 配信先の最終確認 一人だけ">
+            <summary>特定の人を宛先から外したい（または特定の人だけに送りたい）</summary>
+            <div class="answer">
+              <p><strong>6. 配信先の最終確認</strong>で、名前をタップすると宛先から外れます（もう一度タップで戻ります）。</p>
+              <ul>
+                <li><span class="ui">すべて外す</span> を押してから、送りたい人だけをタップすると、特定の人だけに送れます。</li>
+                <li>人数が多いときは、名前・メール・役職で検索できます。</li>
+                <li>右上の数字（例：12/15）は「宛先に含める人数／条件に一致した人数」です。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-attach" data-keywords="添付 ファイル 画像 写真 PDF ZIP 容量 サイズ 何個 URL てんぷ 25MB">
+            <summary>添付できるファイルと上限を教えてください</summary>
+            <div class="answer">
+              <table class="table">
+                <tr><th>画像・PDF・ZIP</th><td>合計<strong>3ファイル</strong>まで。PDF・ZIP は1ファイル<strong>25MB</strong>までです。</td></tr>
+                <tr><th>画像が4枚以上</th><td>ZIP にまとめて添付してください（例：画像2枚＋ZIP 1個）。</td></tr>
+                <tr><th>URL</th><td>最大<strong>3つ</strong>まで入力できます。</td></tr>
+              </table>
+              <p class="tip">添付ファイルは自動で Google ドライブに保存され、宛先の方は依頼の画面から開けます。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-deadline" data-keywords="期限 DL 締め切り 設定 決め方 過去の日付 きげん 〆切 締切">
+            <summary>期限はどう決めればよいですか？</summary>
+            <div class="answer">
+              <ul>
+                <li>期限は今日以降の日付から選べます。</li>
+                <li>期限の<strong>2日前・前日・当日の朝8時</strong>に、未完了の方へ<a href="#q-auto-remind">自動リマインド</a>が届きます。余裕のある期限にすると、自動リマインドが働きやすくなります。</li>
+                <li>内容を直せるのは<strong>期限当日まで</strong>です。期限を過ぎた依頼は<a href="#q-repost">再投稿</a>で送り直します。</li>
+              </ul>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ 修正・再投稿・リマインド ============ -->
+        <section class="cat" id="c-repost" aria-labelledby="c-repost-h">
+          <h2 class="cat-title" id="c-repost-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>修正・再投稿・リマインド</h2>
+
+          <details class="qa" id="q-which" data-keywords="使い分け 修正 再投稿 リマインド 違い どれ">
+            <summary>「修正」「再投稿」「リマインド」はどう使い分けますか？</summary>
+            <div class="answer">
+              <table class="table table-compare">
+                <thead><tr><th></th><th>使うとき</th><th>宛先</th><th>入口</th></tr></thead>
+                <tbody>
+                  <tr><th>修正</th><td>期限内に、内容・宛先・期限を直したい</td><td>同じ依頼を上書き（訂正メールが届く）</td><td>ホーム ▸ 修正・再投稿（上段）</td></tr>
+                  <tr><th>再投稿</th><td>期限を過ぎた依頼を、もう一度同じ宛先に送りたい</td><td>前回と同じ宛先（新しい依頼）</td><td>ホーム ▸ 修正・再投稿（下段）</td></tr>
+                  <tr><th>リマインド</th><td>期限を過ぎた依頼を、まだの人だけに催促したい</td><td>未実施の人だけ（新しい依頼）</td><td>ホーム ▸ リマインド</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+          <details class="qa" id="q-edit" data-keywords="修正 訂正 内容を直す 間違えた 宛先を追加 期限を変更 期限内">
+            <summary>送った依頼の内容を直したい（期限内）</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li>ホーム画面の <span class="ui">修正・再投稿</span> を押します。</li>
+                <li>上段の <strong>修正（期限内）</strong> から依頼を選び、<span class="ui">この内容を修正する</span> を押します。</li>
+                <li>内容・期限・宛先・添付を直し、<span class="ui">この内容で訂正する</span> を押します。</li>
+              </ol>
+              <ul>
+                <li>同じ依頼が上書きされ、宛先の方に<strong>訂正メール</strong>が届きます。</li>
+                <li>すでに完了した方の記録はそのまま残ります。</li>
+                <li>修正できるのは<strong>期限当日まで</strong>です。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-repost" data-keywords="再投稿 期限切れ 期限超過 もう一度 送り直す 過ぎた">
+            <summary>期限が過ぎた依頼を、もう一度送りたい</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li>ホーム画面の <span class="ui">修正・再投稿</span> を押します。</li>
+                <li>下段の <strong>再投稿（期限超過）</strong> から依頼を選び、<span class="ui">この内容で再投稿</span> を押します。</li>
+                <li><strong>2. 期限（DL）</strong>を選び直し（文面・添付も変更できます）、<span class="ui">この内容で配信する</span> を押します。</li>
+              </ol>
+              <p class="tip">再投稿は<strong>新しい依頼</strong>として、前回と同じ宛先全員に届きます。まだの人だけに送りたい場合は<a href="#q-remind">リマインド</a>を使ってください。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-remind" data-keywords="リマインド 催促 未完了 未実施 まだの人 だけ 督促 さいそく 未完了者">
+            <summary>まだ完了していない人だけに催促したい</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li>ホーム画面の <span class="ui">リマインド</span> を押します。</li>
+                <li>依頼を選び、<span class="ui">この内容でリマインド</span> を押します。<strong>未実施の人だけ</strong>が宛先に入った状態で投稿画面が開きます。</li>
+                <li><strong>2. 期限（DL）</strong>を選び直し、<span class="ui">この内容で配信する</span> を押します。</li>
+              </ol>
+              <ul>
+                <li>リマインドは<strong>新しい依頼</strong>として、未実施の人にだけ届きます。</li>
+                <li>一覧に出るのは<strong>期限が過ぎた依頼</strong>です。期限前の依頼は、期限の2日前・前日・当日に<a href="#q-auto-remind">自動リマインド</a>が届くので、手動での催促は不要です。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-who-not-done" data-keywords="誰が 未完了 確認 進捗 何人 完了した人 見たい">
+            <summary>自分が出した依頼で、誰が未完了か確認したい</summary>
+            <div class="answer">
+              <ul>
+                <li><strong>期限を過ぎた依頼</strong>：ホーム画面の <span class="ui">リマインド</span> で依頼を選ぶと、<strong>6. 配信先の最終確認</strong>に未実施の人が表示されます。配信ボタンを押さなければ何も送られないので、確認だけでも使えます。</li>
+                <li><strong>TFチームの依頼</strong>：<a href="#q-progress-open">TFチーム進捗管理ダッシュボード</a>で、依頼ごとに誰が完了したかを確認できます。</li>
+              </ul>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ メール・通知 ============ -->
+        <section class="cat" id="c-mail" aria-labelledby="c-mail-h">
+          <h2 class="cat-title" id="c-mail-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg></span>メール・通知</h2>
+
+          <details class="qa" id="q-mails" data-keywords="メール 通知 件名 種類 どんな 届く 差出人">
+            <summary>どんなメールが届きますか？</summary>
+            <div class="answer">
+              <p>To Do List から届くメールの件名には、すべて「<strong>To-Do List</strong>」が入っています。差出人は <code data-sender-email>r-kusaka@okamoto-group.co.jp</code> です（システムからの自動送信です）。</p>
+              <table class="table">
+                <thead><tr><th>こんなとき</th><th>件名</th></tr></thead>
+                <tbody>
+                  <tr><td>新しい依頼が届いた（再投稿・リマインドを含む）</td><td><code>To-Do List</code></td></tr>
+                  <tr><td>依頼の内容が修正された</td><td><code>【To-Do List】【訂正】依頼内容を修正してお送りします</code></td></tr>
+                  <tr><td>期限の2日前（未完了の場合）</td><td><code>【To-Do List】期限まであと2日です</code></td></tr>
+                  <tr><td>期限の前日（未完了の場合）</td><td><code>【To-Do List】明日が期限です</code></td></tr>
+                  <tr><td>期限の当日（未完了の場合）</td><td><code>【To-Do List】本日が期限です</code></td></tr>
+                  <tr><td>管理者からの催促</td><td><code>【To-Do List】〇〇チーム からのリマインド</code> など</td></tr>
+                </tbody>
+              </table>
+              <p>メール内のリンクを押すと、To Do List のリストチェックが開きます。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-auto-remind" data-keywords="自動リマインド 自動 催促 メール 8時 期限前 止めたい 届く">
+            <summary>自動リマインドとは何ですか？</summary>
+            <div class="answer">
+              <p>期限が近づいた依頼を、<strong>まだ完了していない方</strong>にお知らせするメールです。</p>
+              <table class="table">
+                <tr><th>届くタイミング</th><td>期限の<strong>2日前・前日・当日</strong>の、それぞれ朝8時ごろ</td></tr>
+                <tr><th>届く人</th><td>社員依頼・TFチーム依頼：未完了の本人<br>店舗依頼：未完了の店舗を管轄店舗に持っている方</td></tr>
+                <tr><th>止めるには</th><td>依頼を<a href="#q-complete">完了</a>すれば、以降は届きません。</td></tr>
+              </table>
+            </div>
+          </details>
+
+          <details class="qa" id="q-gmail-label" data-keywords="Gmail ラベル フィルタ 振り分け 整理 自動 受信トレイ がめーる らべる 自動振り分け">
+            <summary>Gmail で To Do List のメールに自動でラベルを付けたい</summary>
+            <div class="answer">
+              <p>Gmail のフィルタを1回設定すると、To Do List のメールすべてに自動で「To-Do List」ラベルが付きます。</p>
+              <ol class="steps">
+                <li>パソコンで Gmail を開き、上の検索ボックスに次を入力して検索します。
+                  <div class="codeblock"><code id="gmail-query">subject:"To-Do List"</code><button type="button" class="btn-copy" data-copy-target="gmail-query">コピー</button></div>
+                  To Do List のメールが一覧に出ることを確認します。
+                </li>
+                <li>検索ボックスの右端にある <span class="ui">検索オプションを表示</span>（つまみのアイコン）を押します。</li>
+                <li>右下の <span class="ui">フィルタを作成</span> を押します。</li>
+                <li><span class="ui">ラベルを付ける</span> にチェックを入れ、ラベルを選びます。まだない場合は <span class="ui">新しいラベル</span> で「To-Do List」を作ります。</li>
+                <li>過去のメールにも付けたい場合は、<span class="ui">一致するスレッドにもフィルタを適用する</span> にもチェックを入れます。</li>
+                <li><span class="ui">フィルタを作成</span> を押して完了です。</li>
+              </ol>
+              <p class="tip">左のメニューの「To-Do List」ラベルを押すと、To Do List のメールだけを一覧で見られます。</p>
+              <p class="warn"><span class="ui">受信トレイをスキップ（アーカイブする）</span> にはチェックを入れないでください。期限のお知らせを見落とす原因になります。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-no-mail" data-keywords="メールが来ない 届かない 迷惑メール 通知がない めーる 来ない 受信">
+            <summary>通知メールが届きません</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li>迷惑メールフォルダや、Gmail のフィルタで別のフォルダに振り分けられていないか確認します。検索ボックスで <code>subject:"To-Do List"</code> と検索すると見つけやすいです。</li>
+                <li>メールが届かなくても、宛先に入っていれば<a href="#q-where">リストチェック</a>には表示されます。</li>
+                <li>リストチェックにも表示されない場合は、<a href="#q-not-shown">こちら</a>を確認してください。</li>
+              </ol>
+            </div>
+          </details>
+
+          <details class="qa" id="q-store-share" data-keywords="店舗アドレスへ共有 店舗メール 共有 スタッフに伝える 転送 店舗に送る">
+            <summary>依頼内容を店舗のメールアドレスに共有したい</summary>
+            <div class="answer">
+              <ol class="steps">
+                <li><span class="ui">リストチェック</span> で依頼の <span class="ui">店舗アドレスへ共有</span> を押します。</li>
+                <li>送り先の店舗にチェックを入れ（<span class="ui">すべて選択</span> も可）、<span class="ui">送信する</span> を押します。</li>
+              </ol>
+              <ul>
+                <li>店舗には件名「<code>【To-Do List】期限までにご対応ください</code>」で、依頼内容・期限・資料のリンクが届きます。店舗からの返信は、共有したあなたに届きます。</li>
+                <li>共有できるのは、<strong>自分の管轄店舗</strong>のうち、店舗メールが登録されている店舗だけです。</li>
+                <li><strong>共有しただけでは完了になりません。</strong>店舗で対応が終わったら、リストチェックで完了を押してください。</li>
+              </ul>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ 担当・登録内容の変更 ============ -->
+        <section class="cat" id="c-profile" aria-labelledby="c-profile-h">
+          <h2 class="cat-title" id="c-profile-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>担当・登録内容の変更</h2>
+
+          <details class="qa" id="q-change-profile" data-keywords="管轄店舗 変更 店舗を増やす 減らす 異動 担当が変わった 役職 チーム エリア テリトリー 登録内容 ログイン情報を変更 かんかつ てんぽ 店舗変更 追加 削除 ログアウト">
+            <summary>管轄店舗・役職・チームなど、登録内容を変えたい</summary>
+            <div class="answer">
+              <p>異動で担当が変わったときや、管轄店舗を増やしたい・減らしたいときは、ご自身で変更できます。</p>
+              <ol class="steps">
+                <li>画面右上の丸いアイコン（自分のイニシャル）を押し、一番下の <span class="ui">ログアウト</span> を押します。</li>
+                <li>ログイン画面でご自身の社内メールアドレスを入力し、<span class="ui">ログイン情報を変更</span> を押します。</li>
+                <li>役職・チーム・エリア・テリトリー・管轄店舗を直し、<span class="ui">変更を保存</span> を押します。</li>
+                <li>内容を確認してログインします。</li>
+              </ol>
+              <ul>
+                <li>変更後は、新しい管轄店舗の依頼（まだ完了していないもの）も表示されるようになります。</li>
+                <li>これまでの完了記録は消えません。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-my-profile" data-keywords="登録内容 確認 自分の 管轄店舗 見る 役職 チーム アイコン">
+            <summary>自分の登録内容（管轄店舗など）を確認したい</summary>
+            <div class="answer">
+              <p>画面右上の丸いアイコン（自分のイニシャル）を押すと、<strong>役職・担当エリア・テリトリー・管轄店舗・所属チーム</strong>が表示されます。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-no-store-option" data-keywords="店舗がない 選べない 新店 新しい店舗 選択肢 見つからない 店舗名">
+            <summary>管轄店舗の選択肢に、担当の店舗が見つかりません</summary>
+            <div class="answer">
+              <ul>
+                <li>まず、その店舗の<strong>エリアとテリトリー</strong>を選んでいるか確認してください。選んだテリトリーの店舗だけが表示されます。</li>
+                <li>新しくできた店舗などで選択肢に出ない場合は、<span data-contact>DXチーム</span>に店舗名とエリア・テリトリーをご連絡ください。店舗を追加します。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="qa" id="q-accent" data-keywords="色 アクセントカラー テーマ 変更 見た目">
+            <summary>画面の色は変えられますか？</summary>
+            <div class="answer">
+              <p>画面右上の丸いアイコンを押し、<strong>アクセントカラー</strong>から好きな色を選べます。変わるのは自分の画面だけです。</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ TFチーム進捗 ============ -->
+        <section class="cat" id="c-progress" aria-labelledby="c-progress-h">
+          <h2 class="cat-title" id="c-progress-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></span>TFチーム進捗</h2>
+
+          <details class="qa" id="q-progress-open" data-keywords="TFチーム進捗 ダッシュボード 進捗管理 開き方 チーム">
+            <summary>TFチーム進捗管理ダッシュボードはどこから開きますか？</summary>
+            <div class="answer">
+              <p>画面右上の丸いアイコンを押し、<strong>TFチーム進捗</strong>の <span class="ui">〇〇チーム進捗管理ダッシュボード</span> を押します。複数のチームに所属している方は、チームごとに表示されます。</p>
+              <p class="tip">「所属チーム未設定のため開けません」と表示される場合は、<a href="#q-change-profile">登録内容の変更</a>でチームを設定してください。</p>
+            </div>
+          </details>
+
+          <details class="qa" id="q-progress-what" data-keywords="ダッシュボード 何が見られる 進捗率 完了した人 未完了 期限超過 閲覧">
+            <summary>ダッシュボードでは何が確認できますか？</summary>
+            <div class="answer">
+              <ul>
+                <li>自分のチーム宛ての <strong>TFチーム依頼</strong>について、依頼ごとの<strong>進捗率・期限・誰が完了したか</strong>を確認できます。</li>
+                <li><span class="ui">すべて</span> <span class="ui">未完了のみ</span> <span class="ui">期限超過のみ</span> で絞り込めます。</li>
+                <li>ダッシュボードは<strong>見るための画面</strong>です。自分の完了報告は<a href="#q-complete">リストチェック</a>で行います。</li>
+              </ul>
+            </div>
+          </details>
+        </section>
+
+        <!-- ============ 用語集 ============ -->
+        <section class="cat" id="c-glossary" aria-labelledby="c-glossary-h">
+          <h2 class="cat-title" id="c-glossary-h"><span class="cat-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>用語集</h2>
+          <details class="qa" id="q-glossary" data-keywords="用語 意味 言葉 リストチェック 管轄店舗 テリトリー 未実施 実施済み">
+            <summary>画面に出てくる言葉の意味を知りたい</summary>
+            <div class="answer">
+              <dl class="glossary">
+                <dt>リストチェック</dt><dd>自分宛ての依頼を確認・完了する画面。</dd>
+                <dt>未実施／実施済み</dt><dd>まだ完了していない依頼／完了した依頼。</dd>
+                <dt>社員依頼</dt><dd>役職で配信され、一人ひとりが完了する依頼。</dd>
+                <dt>店舗依頼</dt><dd>店舗を対象に配信され、店舗ごとに完了する依頼。担当の社員に届きます。</dd>
+                <dt>TFチーム依頼</dt><dd>TFチームのメンバーに配信され、一人ひとりが完了する依頼。</dd>
+                <dt>管轄店舗</dt><dd>自分が担当している店舗。店舗依頼はこの店舗について届きます。</dd>
+                <dt>エリア／テリトリー</dt><dd>第1〜第7エリアと、その中の区分（テリトリー1〜3）。</dd>
+                <dt>DL</dt><dd>期限（デッドライン）。</dd>
+                <dt>修正（訂正）</dt><dd>期限内の依頼を上書きして直すこと。</dd>
+                <dt>再投稿</dt><dd>期限を過ぎた依頼を、同じ宛先に新しい依頼として送り直すこと。</dd>
+                <dt>リマインド</dt><dd>期限を過ぎた依頼を、未実施の人だけに送り直すこと。</dd>
+                <dt>自動リマインド</dt><dd>期限の2日前・前日・当日に、未完了の人へ自動で届くメール。</dd>
+              </dl>
+            </div>
+          </details>
+        </section>
+
+        <div class="empty" id="empty" hidden>
+          <p class="empty-title">「<span id="empty-q"></span>」に一致する質問が見つかりませんでした</p>
+          <p>別の言葉（例：「完了」「店舗」「メール」）で検索するか、<a href="#top" data-clear-search>カテゴリから探して</a>ください。</p>
+        </div>
+
+        <section class="contact" aria-labelledby="contact-h">
+          <h2 id="contact-h">解決しないときは</h2>
+          <p><span data-contact>DXチーム</span>までご連絡ください。困っている画面のスクリーンショットがあると、早く解決できます。</p>
+          <div class="contact-actions">
+            <a class="btn btn-primary" data-app-link href="#" target="_blank" rel="noopener">To Do List を開く</a>
+            <a class="btn btn-ghost" href="quiz.html">理解度チェックに挑戦</a>
           </div>
-        </div>
-      </article>
+        </section>
 
-      <!-- ログアウト -->
-      <article class="section" id="logout">
-        <header class="section-header">
-          <h2><span class="section-num">8.</span> ログアウト（登録内容の変更）</h2>
-        </header>
-        <div class="section-body">
-          <table class="info-table">
-            <tr>
-              <th>ログアウト</th>
-              <td>
-                画面<strong>右上の丸いアイコン</strong>（自分のイニシャル）をタップし、メニュー下部の
-                <strong>ログアウト</strong> を押します。確認メッセージで OK するとログイン画面に戻ります。
-              </td>
-            </tr>
-            <tr>
-              <th>登録内容の変更</th>
-              <td>
-                ログイン画面で社内メールアドレスを入力し、<strong>ログイン情報を変更</strong> を押します。
-                チーム・役職・エリア・管轄店舗などを直して保存できます（ログイン後は
-                <a href="#register">初回登録</a> の項目と同じ内容です）。
-              </td>
-            </tr>
-          </table>
-        </div>
-      </article>
-
-      <!-- 理解度チェック（小さく残す） -->
-      <div class="quiz-mini" id="quiz">
-        <a href="quiz.html">理解度チェック</a>
-        <span class="quiz-mini-sep">·</span>
-        <span>任意・練習用</span>
       </div>
+    </div>
+  </main>
 
-    </main>
-  </div>
-
-  <footer class="site-footer">
-    <p>To Do List</p>
+  <footer class="footer">
+    <p>To Do List ヘルプセンター<span class="footer-sep">·</span><span data-updated></span>更新</p>
   </footer>
 
-  <script src="guide-config.js"></script>
-  <script src="guide.js"></script>
+  <button type="button" class="to-top" id="to-top" aria-label="ページの先頭へ" hidden>
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+
+  <script src="guide-config.js?v=20260929b"></script>
+  <script src="help.js?v=20260929b"></script>
 </body>
 </html>
