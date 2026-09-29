@@ -14,7 +14,27 @@ function trimCell_(v) {
   return String(v == null ? '' : v).trim();
 }
 
-function computeNewOrgEmployeeChanges_(empValues) {
+/** 管轄店舗から E列（エリア）/ F列（テリトリー）を組み立てる。店舗データに無い店舗が 1 つでもあれば null */
+function computeAreaTerritoryFromStores_(stores, storeRows) {
+  var meta = {};
+  storeRows.forEach(function (r) { if (r[2]) meta[r[2]] = { area: r[0], territory: r[1] }; });
+  var field = stores.filter(function (s) { return !isHqStoreName_(s); });
+  if (!field.length) return null;
+  for (var i = 0; i < field.length; i++) if (!meta[field[i]]) return null;
+  var areaNum = function (a) { var m = String(a).match(/第(\d+)エリア/); return m ? parseInt(m[1], 10) : 99; };
+  var areas = [];
+  field.forEach(function (s) { if (areas.indexOf(meta[s].area) < 0) areas.push(meta[s].area); });
+  areas.sort(function (a, b) { return areaNum(a) - areaNum(b); });
+  var terr = areas.map(function (a) {
+    var ts = [];
+    field.forEach(function (s) { if (meta[s].area === a && ts.indexOf(meta[s].territory) < 0) ts.push(meta[s].territory); });
+    ts.sort();
+    return a + ': ' + ts.join(',');
+  });
+  return { area: areas.join(', '), territory: terr.join(' / ') };
+}
+
+function computeNewOrgEmployeeChanges_(empValues, storeRows) {
   var rows = [];
   for (var i = 1; i < empValues.length; i++) {
     var row = empValues[i];
@@ -23,9 +43,11 @@ function computeNewOrgEmployeeChanges_(empValues) {
     var oldStores = row.slice(7).map(trimCell_).filter(Boolean);
     var m = NEW_ORG_EMPLOYEE_STORES_[email];
     if (!m) {
+      var ef = computeAreaTerritoryFromStores_(oldStores, storeRows || []);
       rows.push({
         rowIndex: i, name: trimCell_(row[0]), email: email, role: trimCell_(row[6]),
-        kind: 'review', oldStores: oldStores, newStores: oldStores, added: [], removed: []
+        kind: 'review', oldStores: oldStores, newStores: oldStores, added: [], removed: [],
+        area: ef ? ef.area : trimCell_(row[4]), territory: ef ? ef.territory : trimCell_(row[5])
       });
       continue;
     }
@@ -55,8 +77,27 @@ function applyNewOrgMigration_(execute) {
     .filter(function (r) { return r[0] || r[1] || r[2] || r[3]; });
 
   var empValues = empSheet.getDataRange().getValues();
-  var changes = computeNewOrgEmployeeChanges_(empValues);
+  var changes = computeNewOrgEmployeeChanges_(empValues, newStoreRows);
   var result = { executed: false, newStoreCount: newStoreRows.length, changes: changes, backups: [] };
+
+  var validNames = {};
+  var dupNames = [];
+  newStoreRows.forEach(function (r) {
+    if (!r[2]) return;
+    if (validNames[r[2]]) dupNames.push(r[2]);
+    validNames[r[2]] = true;
+  });
+  var missing = [];
+  changes.forEach(function (c) {
+    c.newStores.forEach(function (s) {
+      if (!isHqStoreName_(s) && !validNames[s]) missing.push(c.name + '→' + s);
+    });
+  });
+  if (dupNames.length || missing.length) {
+    throw new Error('整合性チェックで止めました（何も変更していません）。' +
+      (dupNames.length ? ' 新店舗データの店舗名重複: ' + dupNames.join('、') : '') +
+      (missing.length ? ' 新店舗データに無い店舗名: ' + missing.join('、') : ''));
+  }
   if (!execute) return result;
 
   var props = PropertiesService.getScriptProperties();
@@ -83,12 +124,14 @@ function applyNewOrgMigration_(execute) {
     var width = Math.max(empSheet.getLastColumn(), 7 + EMPLOYEE_STORE_COL_MAX) - 7;
     changes.forEach(function (c) {
       var rowNum = c.rowIndex + 1;
+      var oldRow = empValues[c.rowIndex];
       if (c.kind === 'review') {
         empSheet.getRange(rowNum, 1).setBackground(NEW_ORG_REVIEW_BG_);
+        if (trimCell_(oldRow[4]) !== c.area) empSheet.getRange(rowNum, 5).setValue(c.area).setBackground(NEW_ORG_CHANGED_BG_);
+        if (trimCell_(oldRow[5]) !== c.territory) empSheet.getRange(rowNum, 6).setValue(c.territory).setBackground(NEW_ORG_CHANGED_BG_);
         return;
       }
       if (c.kind === 'same') return;
-      var oldRow = empValues[c.rowIndex];
       var vals = [];
       var bgs = [];
       for (var k = 0; k < width; k++) {
