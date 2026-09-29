@@ -701,7 +701,7 @@ function getTaskStoresForRow_(row, allStores, areasList) {
     var snap = parseTaskStoreSnapshot_(row[TASK_STORE_SNAPSHOT_COL_ - 1]);
     if (snap && snap.length) return snap;
   }
-  return getTaskStoresForRow_(row, allStores, areasList);
+  return parseTargetStoresFromTags_(String(row[12] || ''), allStores, areasList);
 }
 
 function buildTaskStoreSnapshotValue_(reqKind, tags, allStoresOpt) {
