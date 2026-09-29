@@ -156,7 +156,7 @@
     /* モード切替 */
     .mode-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: .5rem;
       width: 100%;
     }
@@ -600,6 +600,100 @@
     .attach-thumb span {
       font-size: .625rem; font-weight: 700; color: #64748b; text-align: center; line-height: 1.2;
     }
+
+    /* --- 分析タブ --- */
+    .an { display: flex; flex-direction: column; gap: 1rem; }
+    .an-card {
+      background: #fff; border-radius: 1.1rem; padding: 1rem 1.1rem;
+      border: 1px solid rgba(0,0,0,.05); box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      min-width: 0;
+    }
+    @media (min-width: 768px) { .an-card { padding: 1.25rem 1.4rem; } }
+    .an-card h3 { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -.01em; color: #0f172a; display: flex; align-items: center; gap: .5rem; }
+    .an-card h3 .tag { font-size: .68rem; font-weight: 700; color: var(--acc-700); background: var(--acc-50); padding: .15rem .5rem; border-radius: 999px; }
+    .an-lead { margin: .3rem 0 .9rem; font-size: .78rem; color: #64748b; line-height: 1.6; }
+    .an-toolbar { display: flex; flex-direction: column; gap: .75rem; }
+    .an-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+    .an-seg { display: inline-flex; background: #f1f5f9; border-radius: .8rem; padding: .2rem; gap: .15rem; }
+    .an-seg button {
+      border: none; background: transparent; cursor: pointer; font: inherit;
+      font-size: .82rem; font-weight: 700; color: #475569; padding: .45rem .85rem; border-radius: .65rem;
+    }
+    .an-seg button.on { background: #fff; color: var(--acc-700); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .an-period { display: inline-flex; align-items: center; gap: .35rem; }
+    .an-period .nav {
+      width: 2.2rem; height: 2.2rem; border-radius: .65rem; border: 1px solid #e2e8f0; background: #fff;
+      cursor: pointer; font-size: 1rem; font-weight: 800; color: #334155;
+    }
+    .an-period .nav:disabled { opacity: .35; cursor: default; }
+    .an-period select {
+      height: 2.2rem; border-radius: .65rem; border: 1px solid #e2e8f0; background: #fff; font: inherit;
+      font-size: .9rem; font-weight: 800; color: #0f172a; padding: 0 .6rem; min-width: 12rem;
+    }
+    .an-label { font-size: .7rem; font-weight: 800; color: #94a3b8; letter-spacing: .08em; }
+    .an-toggle { display: inline-flex; align-items: center; gap: .4rem; font-size: .78rem; font-weight: 600; color: #475569; cursor: pointer; }
+    .an-toggle input { accent-color: var(--acc-600); width: 1rem; height: 1rem; }
+    .an-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .6rem; }
+    .an-kpi {
+      background: #fff; border-radius: 1rem; padding: .85rem 1rem; border: 1px solid rgba(0,0,0,.05);
+      box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; flex-direction: column; gap: .2rem; min-width: 0;
+    }
+    .an-kpi.hero { background: linear-gradient(135deg, var(--acc-600), var(--acc-900)); color: #fff; border: none; }
+    .an-kpi .k { font-size: .72rem; font-weight: 700; color: #64748b; }
+    .an-kpi.hero .k, .an-kpi.hero .s { color: rgba(255,255,255,.8); }
+    .an-kpi .v { font-size: 1.65rem; font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+    .an-kpi .v small { font-size: .8rem; font-weight: 700; margin-left: .15rem; opacity: .7; }
+    .an-kpi .s { font-size: .7rem; color: #94a3b8; font-weight: 600; }
+    .an-delta { display: inline-block; font-size: .68rem; font-weight: 800; padding: .05rem .4rem; border-radius: 999px; margin-left: .3rem; vertical-align: middle; }
+    .an-delta.up { background: #dcfce7; color: #166534; }
+    .an-delta.down { background: #fee2e2; color: #991b1b; }
+    .an-delta.flat { background: #f1f5f9; color: #64748b; }
+    .an-kpi.hero .an-delta { background: rgba(255,255,255,.2); color: #fff; }
+    .an-grid2 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    @media (min-width: 1100px) { .an-grid2 { grid-template-columns: 1fr 1fr; } }
+    .an-chart svg { width: 100%; height: auto; display: block; }
+    .an-legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .72rem; color: #475569; font-weight: 600; margin-top: .5rem; }
+    .an-legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: .2rem; margin-right: .3rem; vertical-align: -1px; }
+    .an-vs { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+    @media (min-width: 700px) { .an-vs { grid-template-columns: 1fr 1fr; } }
+    .an-side { border-radius: .9rem; padding: .9rem 1rem; background: #f8fafc; border: 1px solid #eef2f7; }
+    .an-side h4 { margin: 0 0 .6rem; font-size: .85rem; font-weight: 800; display: flex; align-items: center; gap: .4rem; }
+    .an-side h4 .dot { width: .6rem; height: .6rem; border-radius: 50%; }
+    .an-side dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: .35rem .75rem; font-size: .8rem; }
+    .an-side dt { color: #64748b; font-weight: 600; }
+    .an-side dd { margin: 0; font-weight: 800; color: #0f172a; text-align: right; font-variant-numeric: tabular-nums; }
+    .an-tablewrap { overflow-x: auto; margin: 0 -.25rem; }
+    .an-table { width: 100%; border-collapse: collapse; font-size: .8rem; min-width: 34rem; }
+    .an-table th {
+      text-align: left; font-size: .68rem; font-weight: 800; color: #64748b; padding: .5rem .5rem;
+      border-bottom: 1px solid #e2e8f0; white-space: nowrap; cursor: pointer; user-select: none; background: #fff;
+    }
+    .an-table th.num, .an-table td.num { text-align: right; }
+    .an-table th.on { color: var(--acc-700); }
+    .an-table td { padding: .5rem .5rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-variant-numeric: tabular-nums; }
+    .an-table tr:hover td { background: #fafbff; }
+    .an-table .nm { font-weight: 700; color: #0f172a; white-space: nowrap; }
+    .an-table .sub { font-size: .68rem; color: #94a3b8; font-weight: 600; }
+    .an-table .rk { width: 1.8rem; color: #94a3b8; font-weight: 800; }
+    .an-barcell { display: flex; align-items: center; gap: .45rem; min-width: 7rem; }
+    .an-bar { flex: 1; height: .45rem; background: #f1f5f9; border-radius: 999px; overflow: hidden; min-width: 3rem; }
+    .an-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--acc-500); }
+    .an-pill { display: inline-block; min-width: 3.2rem; text-align: center; padding: .12rem .45rem; border-radius: 999px; font-weight: 800; font-size: .74rem; }
+    .an-pill.g { background: #dcfce7; color: #166534; }
+    .an-pill.y { background: #fef3c7; color: #92400e; }
+    .an-pill.r { background: #fee2e2; color: #991b1b; }
+    .an-pill.n { background: #f1f5f9; color: #94a3b8; }
+    .an-more { margin-top: .6rem; border: none; background: transparent; color: var(--acc-700); font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
+    .an-search { height: 2.1rem; border-radius: .6rem; border: 1px solid #e2e8f0; padding: 0 .7rem; font: inherit; font-size: .8rem; min-width: 10rem; }
+    .an-hbars { display: flex; flex-direction: column; gap: .55rem; }
+    .an-hbar { display: grid; grid-template-columns: 7.5rem 1fr 6.5rem; align-items: center; gap: .6rem; font-size: .78rem; }
+    .an-hbar .nm { font-weight: 700; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .an-hbar .val { text-align: right; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .an-hbar .val span { color: #94a3b8; font-weight: 600; font-size: .7rem; }
+    .an-stack { display: flex; height: .8rem; border-radius: 999px; overflow: hidden; background: #f1f5f9; }
+    .an-stack > span { display: block; height: 100%; }
+    .an-note { font-size: .7rem; color: #94a3b8; margin-top: .6rem; line-height: 1.6; }
+    .an-empty { padding: 1.5rem; text-align: center; color: #94a3b8; font-weight: 700; font-size: .85rem; }
   </style>
 </head>
 <body>
@@ -644,7 +738,13 @@
         <div id="statsBar" class="status-strip">読み込み中…</div>
 
         <div class="mode-grid" role="tablist" id="modeGrid">
-          <button type="button" class="mode-nav-tile on" data-mode="combined" aria-selected="true">
+          <button type="button" class="mode-nav-tile on" data-mode="analytics" aria-selected="true">
+            <div class="mode-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="5" width="3" height="13" rx="1"/></svg>
+            </div>
+            <h4 class="mode-nav-label">分析サマリー</h4>
+          </button>
+          <button type="button" class="mode-nav-tile" data-mode="combined" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
             </div>
@@ -706,7 +806,7 @@
       var CHEV = '<svg class="tile-chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>';
       var ICON_CLIP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>';
 
-      var mode = 'combined';
+      var mode = 'analytics';
       var filter = 'all';
       var typeFilter = 'all'; // all | new | repost | remind
       var sortOrder = 'desc'; // desc=新しい順(降順) | asc=古い順(昇順)
@@ -1219,6 +1319,8 @@
 
       function renderStats() {
         var bar = document.getElementById('statsBar');
+        bar.style.display = mode === 'analytics' ? 'none' : '';
+        if (mode === 'analytics') return;
         if (mode === 'reminderEffect') {
           var s = (lastData.reminderEffects && lastData.reminderEffects.summary) || {};
           bar.innerHTML =
@@ -1282,7 +1384,7 @@
       function renderFilters() {
         var panel = document.getElementById('filtersPanel');
         var bar = document.getElementById('filtersBar');
-        if (mode === 'reminderEffect') {
+        if (mode === 'reminderEffect' || mode === 'analytics') {
           panel.style.display = 'none';
           return;
         }
@@ -1409,9 +1511,557 @@
         });
       }
 
+      /* ================= 分析サマリー ================= */
+      var AN = {
+        data: null, loading: false,
+        unit: 'all', key: '', kind: 'all', excl: true,
+        reqSort: { k: 'tasks', d: -1 }, execSort: { k: 'handled', d: -1 },
+        reqAll: false, execAll: false, execQuery: '', execRole: ''
+      };
+      var AN_KIND = { employee: { label: '社員', color: 'var(--acc-500)' }, store: { label: '店舗', color: '#f59e0b' }, tf: { label: 'TF', color: '#10b981' } };
+
+      function ensureAnalytics() {
+        if (AN.data || AN.loading) return;
+        AN.loading = true;
+        if (mode === 'analytics') document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
+        google.script.run
+          .withSuccessHandler(function (d) {
+            AN.loading = false;
+            if (!d || !d.ok) { if (mode === 'analytics') showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
+            AN.data = d;
+            if (mode === 'analytics') renderAll();
+          })
+          .withFailureHandler(function (e) {
+            AN.loading = false;
+            if (mode === 'analytics') showError(e && e.message ? e.message : String(e));
+          })
+          .getAdminAnalyticsData();
+      }
+
+      function anPad(n) { return (n < 10 ? '0' : '') + n; }
+      function anFy(d) { return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1; }
+      function anKeyOf(unit, d) {
+        if (unit === 'month') return d.getFullYear() + '-' + anPad(d.getMonth() + 1);
+        if (unit === 'half') return anFy(d) + '-' + (d.getMonth() >= 3 && d.getMonth() <= 8 ? 'H1' : 'H2');
+        if (unit === 'fy') return String(anFy(d));
+        return 'all';
+      }
+      function anLabel(unit, key) {
+        if (unit === 'month') { var p = key.split('-'); return p[0] + '年' + Number(p[1]) + '月'; }
+        if (unit === 'half') { var h = key.split('-'); return h[0] + '年度 ' + (h[1] === 'H1' ? '上期（4〜9月）' : '下期（10〜3月）'); }
+        if (unit === 'fy') return key + '年度（4月〜翌3月）';
+        return '全期間';
+      }
+      function anKeys(unit) {
+        if (unit === 'all') return ['all'];
+        var set = {};
+        AN.data.tasks.forEach(function (t) { set[anKeyOf(unit, new Date(t.c))] = 1; });
+        set[anKeyOf(unit, new Date())] = 1;
+        return Object.keys(set).sort();
+      }
+      function anPrevKey(unit, key) {
+        if (unit === 'all') return null;
+        var ks = anKeys(unit), i = ks.indexOf(key);
+        return i > 0 ? ks[i - 1] : null;
+      }
+      function anPct(a, b) { return b ? Math.round(a / b * 1000) / 10 : null; }
+      function anPctText(v) { return v == null ? '—' : (Math.round(v) + '%'); }
+      function anPill(v) {
+        if (v == null) return '<span class="an-pill n">—</span>';
+        var c = v >= 90 ? 'g' : v >= 70 ? 'y' : 'r';
+        return '<span class="an-pill ' + c + '">' + Math.round(v) + '%</span>';
+      }
+      function anHours(h) {
+        if (h == null) return '—';
+        if (h < 24) return (Math.round(h * 10) / 10) + '時間';
+        return (Math.round(h / 24 * 10) / 10) + '日';
+      }
+      function anMedian(arr) {
+        if (!arr.length) return null;
+        var s = arr.slice().sort(function (a, b) { return a - b; });
+        var m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+      }
+      function anSplit(s) {
+        return String(s || '').split(/[,、\/／|｜]/).map(function (x) { return x.replace(/[:：].*$/, '').trim(); }).filter(Boolean);
+      }
+
+      function anUnitsByTask() {
+        if (AN.data._byTask) return AN.data._byTask;
+        var by = AN.data.tasks.map(function () { return []; });
+        AN.data.units.forEach(function (u) { if (by[u[0]]) by[u[0]].push(u); });
+        AN.data._byTask = by;
+        return by;
+      }
+      function anUnitOk(u, t) {
+        if (!AN.excl || t.k === 'store') return true;
+        var p = AN.data.people[u[1]];
+        return !(p && (AN.data.excludeRoles || []).indexOf(p.r) >= 0);
+      }
+      function anSelectTasks(unit, key) {
+        var out = [];
+        AN.data.tasks.forEach(function (t, i) {
+          if (AN.kind !== 'all' && t.k !== AN.kind) return;
+          if (unit !== 'all' && anKeyOf(unit, new Date(t.c)) !== key) return;
+          out.push(i);
+        });
+        return out;
+      }
+
+      function anAggregate(tis) {
+        var by = anUnitsByTask();
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        var todayStr = today.getFullYear() + '-' + anPad(today.getMonth() + 1) + '-' + anPad(today.getDate());
+        var A = { tasks: tis.length, units: 0, done: 0, onTime: 0, overdueOpen: 0, hours: [], kinds: { employee: 0, store: 0, tf: 0 },
+          requesters: {}, executors: {}, targetsP: {}, perTask: [] };
+        tis.forEach(function (ti) {
+          var t = AN.data.tasks[ti];
+          A.kinds[t.k] = (A.kinds[t.k] || 0) + 1;
+          A.requesters[t.s] = 1;
+          var pastDue = t.d && t.d < todayStr;
+          var tu = 0, td = 0, to = 0;
+          by[ti].forEach(function (u) {
+            if (!anUnitOk(u, t)) return;
+            tu++; td += u[3]; to += u[4];
+            if (u[3] && u[5] != null) A.hours.push(u[5]);
+            if (!u[3] && pastDue) A.overdueOpen++;
+            if (u[3] && u[1] >= 0) A.executors[u[1]] = 1;
+            if (t.k !== 'store' && u[1] >= 0) A.targetsP[u[1]] = 1;
+          });
+          A.units += tu; A.done += td; A.onTime += to;
+          A.perTask.push({ ti: ti, total: tu, done: td, onTime: to, pastDue: pastDue });
+        });
+        A.rate = anPct(A.done, A.units);
+        A.onTimeRate = anPct(A.onTime, A.units);
+        A.medianHours = anMedian(A.hours);
+        A.requesterCount = Object.keys(A.requesters).length;
+        A.executorCount = Object.keys(A.executors).length;
+        A.targetPeopleCount = Object.keys(A.targetsP).length;
+        return A;
+      }
+
+      function anRequesterRows(tis) {
+        var by = anUnitsByTask(), map = {};
+        tis.forEach(function (ti) {
+          var t = AN.data.tasks[ti];
+          var r = map[t.s] || (map[t.s] = { name: t.s, pi: t.sp, tasks: 0, employee: 0, store: 0, tf: 0, units: 0, done: 0, onTime: 0, hours: [] });
+          r.tasks++; r[t.k] = (r[t.k] || 0) + 1;
+          by[ti].forEach(function (u) {
+            if (!anUnitOk(u, t)) return;
+            r.units++; r.done += u[3]; r.onTime += u[4];
+            if (u[3] && u[5] != null) r.hours.push(u[5]);
+          });
+        });
+        return Object.keys(map).map(function (k) {
+          var r = map[k], p = AN.data.people[r.pi];
+          r.team = p ? p.t : ''; r.role = p ? p.r : '';
+          r.rate = anPct(r.done, r.units); r.onTimeRate = anPct(r.onTime, r.units); r.med = anMedian(r.hours);
+          return r;
+        });
+      }
+
+      function anExecutorRows(tis) {
+        var by = anUnitsByTask(), map = {};
+        function rowOf(pi) {
+          var p = AN.data.people[pi] || {};
+          return map[pi] || (map[pi] = { pi: pi, name: p.n || '—', role: p.r || '', team: p.t || '', area: p.a || '', reg: p.reg,
+            targets: 0, done: 0, onTime: 0, storeOps: 0, hours: [] });
+        }
+        tis.forEach(function (ti) {
+          var t = AN.data.tasks[ti];
+          by[ti].forEach(function (u) {
+            if (u[1] < 0 || !anUnitOk(u, t)) return;
+            if (t.k === 'store') {
+              if (u[3]) { var s = rowOf(u[1]); s.storeOps++; if (u[5] != null) s.hours.push(u[5]); }
+            } else {
+              var r = rowOf(u[1]);
+              r.targets++; r.done += u[3]; r.onTime += u[4];
+              if (u[3] && u[5] != null) r.hours.push(u[5]);
+            }
+          });
+        });
+        return Object.keys(map).map(function (k) {
+          var r = map[k];
+          r.handled = r.done + r.storeOps;
+          r.rate = anPct(r.done, r.targets); r.onTimeRate = anPct(r.onTime, r.targets); r.med = anMedian(r.hours);
+          r.pending = r.targets - r.done;
+          return r;
+        });
+      }
+
+      function anSortRows(rows, s) {
+        return rows.slice().sort(function (a, b) {
+          var x = a[s.k], y = b[s.k];
+          if (x == null) x = s.d < 0 ? -Infinity : Infinity;
+          if (y == null) y = s.d < 0 ? -Infinity : Infinity;
+          if (typeof x === 'string') return s.d * String(x).localeCompare(String(y), 'ja');
+          return s.d * (x - y) || String(a.name).localeCompare(String(b.name), 'ja');
+        });
+      }
+
+      function anDelta(cur, prev, unit, invert) {
+        if (cur == null || prev == null) return '';
+        var d = Math.round((cur - prev) * 10) / 10;
+        if (!d) return '<span class="an-delta flat">±0' + unit + '</span>';
+        var good = invert ? d < 0 : d > 0;
+        return '<span class="an-delta ' + (good ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + d + unit + '</span>';
+      }
+
+      function anKpi(label, value, suffix, sub, delta, hero) {
+        return '<div class="an-kpi' + (hero ? ' hero' : '') + '"><span class="k">' + esc(label) + '</span>' +
+          '<span class="v">' + value + (suffix ? '<small>' + suffix + '</small>' : '') + (delta || '') + '</span>' +
+          '<span class="s">' + (sub || '&nbsp;') + '</span></div>';
+      }
+
+      function anTrendSvg() {
+        var by = anUnitsByTask();
+        var months = {};
+        AN.data.tasks.forEach(function (t, ti) {
+          if (AN.kind !== 'all' && t.k !== AN.kind) return;
+          var k = anKeyOf('month', new Date(t.c));
+          var m = months[k] || (months[k] = { employee: 0, store: 0, tf: 0, n: 0, units: 0, done: 0, onTime: 0 });
+          m[t.k]++; m.n++;
+          by[ti].forEach(function (u) { if (anUnitOk(u, t)) { m.units++; m.done += u[3]; m.onTime += u[4]; } });
+        });
+        var keys = Object.keys(months).sort();
+        if (!keys.length) return '<div class="an-empty">データがありません</div>';
+        var first = keys[0].split('-').map(Number), last = anKeyOf('month', new Date()).split('-').map(Number);
+        var lk = keys[keys.length - 1].split('-').map(Number);
+        if (lk[0] * 12 + lk[1] > last[0] * 12 + last[1]) last = lk;
+        var all = [];
+        for (var y = first[0], mo = first[1]; y * 12 + mo <= last[0] * 12 + last[1]; mo++) {
+          if (mo > 12) { mo = 1; y++; }
+          all.push(y + '-' + anPad(mo));
+          if (all.length > 36) break;
+        }
+        if (all.length > 12) all = all.slice(all.length - 12);
+        while (all.length < 6) {
+          var f0 = all[0].split('-').map(Number);
+          all.unshift(f0[1] === 1 ? (f0[0] - 1) + '-12' : f0[0] + '-' + anPad(f0[1] - 1));
+        }
+        var W = 1000, H = 260, L = 36, R = 44, T = 22, B = 34;
+        var max = 1;
+        all.forEach(function (k) { if (months[k] && months[k].n > max) max = months[k].n; });
+        max = Math.ceil(max / 5) * 5 || 5;
+        var cw = (W - L - R) / all.length, bw = Math.min(46, cw * .56);
+        var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="月別推移">';
+        for (var g = 0; g <= 4; g++) {
+          var gy = T + (H - T - B) * g / 4;
+          s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + gy + '" y2="' + gy + '" stroke="#eef2f7"/>';
+          s += '<text x="' + (L - 6) + '" y="' + (gy + 4) + '" font-size="10" fill="#94a3b8" text-anchor="end">' + Math.round(max * (4 - g) / 4) + '</text>';
+          s += '<text x="' + (W - R + 6) + '" y="' + (gy + 4) + '" font-size="10" fill="#94a3b8">' + (100 - g * 25) + '%</text>';
+        }
+        var pts = [];
+        all.forEach(function (k, i) {
+          var m = months[k] || { employee: 0, store: 0, tf: 0, n: 0, units: 0 };
+          var x = L + cw * i + (cw - bw) / 2, yb = H - B;
+          var sel = AN.unit !== 'all' && anKeyOf(AN.unit, new Date(Number(k.split('-')[0]), Number(k.split('-')[1]) - 1, 15)) === AN.key;
+          if (sel) s += '<rect x="' + (L + cw * i + 2) + '" y="' + T + '" width="' + (cw - 4) + '" height="' + (H - T - B) + '" rx="8" fill="var(--acc-50)"/>';
+          ['employee', 'store', 'tf'].forEach(function (kk) {
+            if (!m[kk]) return;
+            var h = (H - T - B) * m[kk] / max;
+            yb -= h;
+            s += '<rect x="' + x + '" y="' + yb + '" width="' + bw + '" height="' + h + '" fill="' + AN_KIND[kk].color + '" opacity=".9"><title>' + k + ' ' + AN_KIND[kk].label + ' ' + m[kk] + '件</title></rect>';
+          });
+          if (m.n) s += '<text x="' + (x + bw / 2) + '" y="' + (H - B - 6) + '" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">' + m.n + '件</text>';
+          var p = k.split('-');
+          s += '<text x="' + (L + cw * i + cw / 2) + '" y="' + (H - B + 16) + '" font-size="10.5" fill="' + (sel ? 'var(--acc-700)' : '#64748b') + '" font-weight="' + (sel ? 800 : 600) + '" text-anchor="middle">' + Number(p[1]) + '月</text>';
+          if (i === 0 || p[1] === '01' || p[1] === '04') s += '<text x="' + (L + cw * i + cw / 2) + '" y="' + (H - B + 29) + '" font-size="9" fill="#94a3b8" text-anchor="middle">' + p[0] + '</text>';
+          if (m.units) pts.push([L + cw * i + cw / 2, T + (H - T - B) * (1 - m.done / m.units), Math.round(m.done / m.units * 100), T + (H - T - B) * (1 - m.onTime / m.units)]);
+        });
+        if (pts.length > 1) {
+          s += '<polyline fill="none" stroke="#0f172a" stroke-width="2" points="' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>';
+          s += '<polyline fill="none" stroke="#ef4444" stroke-width="1.6" stroke-dasharray="4 3" points="' + pts.map(function (p) { return p[0] + ',' + p[3]; }).join(' ') + '"/>';
+        }
+        pts.forEach(function (p) {
+          s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3.5" fill="#fff" stroke="#0f172a" stroke-width="2"/>';
+          s += '<text x="' + p[0] + '" y="' + (p[1] - 8) + '" font-size="9.5" font-weight="800" fill="#0f172a" text-anchor="middle">' + p[2] + '%</text>';
+        });
+        s += '</svg>';
+        return s;
+      }
+
+      function anSortTh(table, key, label, num) {
+        var s = table === 'req' ? AN.reqSort : AN.execSort;
+        var on = s.k === key;
+        return '<th class="' + (num ? 'num ' : '') + (on ? 'on' : '') + '" data-an-sort="' + table + ':' + key + '">' + label + (on ? (s.d < 0 ? ' ▼' : ' ▲') : '') + '</th>';
+      }
+
+      function anBarCell(v, max, text) {
+        var w = max ? Math.max(2, Math.round(v / max * 100)) : 0;
+        return '<div class="an-barcell"><div class="an-bar"><span style="width:' + w + '%"></span></div><strong>' + text + '</strong></div>';
+      }
+
+      function anRequesterTable(rows) {
+        if (!rows.length) return '<div class="an-empty">この期間の依頼はありません</div>';
+        var sorted = anSortRows(rows, AN.reqSort);
+        var max = 0; rows.forEach(function (r) { if (r.tasks > max) max = r.tasks; });
+        var show = AN.reqAll ? sorted : sorted.slice(0, 10);
+        var h = '<div class="an-tablewrap"><table class="an-table"><thead><tr><th class="rk">#</th>' +
+          anSortTh('req', 'name', '依頼者') + anSortTh('req', 'tasks', '依頼数') + anSortTh('req', 'units', '対象（延べ）', true) +
+          anSortTh('req', 'rate', '実施率', true) + anSortTh('req', 'onTimeRate', '期限内', true) + anSortTh('req', 'med', '完了まで（中央値）', true) +
+          '</tr></thead><tbody>';
+        show.forEach(function (r, i) {
+          var mix = ['employee', 'store', 'tf'].filter(function (k) { return r[k]; }).map(function (k) { return AN_KIND[k].label + r[k]; }).join(' / ');
+          h += '<tr><td class="rk">' + (i + 1) + '</td><td><div class="nm">' + esc(r.name) + '</div><div class="sub">' + esc([r.team && r.team + 'チーム', r.role].filter(Boolean).join('・') || '—') + '</div></td>' +
+            '<td>' + anBarCell(r.tasks, max, r.tasks + '件') + '<div class="sub">' + esc(mix) + '</div></td>' +
+            '<td class="num">' + r.units + '</td><td class="num">' + anPill(r.rate) + '</td><td class="num">' + anPill(r.onTimeRate) + '</td>' +
+            '<td class="num">' + anHours(r.med) + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        if (sorted.length > 10) h += '<button type="button" class="an-more" data-an-more="req">' + (AN.reqAll ? '上位10件に戻す' : 'すべて表示（' + sorted.length + '名）') + '</button>';
+        return h;
+      }
+
+      function anExecutorTable(rows) {
+        var q = AN.execQuery.trim();
+        var list = rows.filter(function (r) {
+          if (AN.execRole && r.role !== AN.execRole) return false;
+          if (q && (r.name + ' ' + r.team + ' ' + r.area).indexOf(q) < 0) return false;
+          return true;
+        });
+        if (!list.length) return '<div class="an-empty">該当する実施者はいません</div>';
+        var sorted = anSortRows(list, AN.execSort);
+        var max = 0; list.forEach(function (r) { if (r.handled > max) max = r.handled; });
+        var show = AN.execAll ? sorted : sorted.slice(0, 15);
+        var h = '<div class="an-tablewrap"><table class="an-table"><thead><tr><th class="rk">#</th>' +
+          anSortTh('exec', 'name', '実施者') + anSortTh('exec', 'handled', '対応件数') + anSortTh('exec', 'targets', '依頼された', true) +
+          anSortTh('exec', 'pending', '未実施', true) + anSortTh('exec', 'rate', '実施率', true) + anSortTh('exec', 'onTimeRate', '期限内', true) +
+          anSortTh('exec', 'storeOps', '店舗分の完了', true) + anSortTh('exec', 'med', '完了まで（中央値）', true) + '</tr></thead><tbody>';
+        show.forEach(function (r, i) {
+          h += '<tr><td class="rk">' + (i + 1) + '</td><td><div class="nm">' + esc(r.name) + (r.reg ? '' : ' <span class="sub">（未登録）</span>') + '</div><div class="sub">' +
+            esc([r.role, r.area].filter(Boolean).join('・') || '—') + '</div></td>' +
+            '<td>' + anBarCell(r.handled, max, r.handled + '件') + '</td>' +
+            '<td class="num">' + r.targets + '</td><td class="num">' + (r.pending ? '<strong style="color:#b91c1c">' + r.pending + '</strong>' : '0') + '</td>' +
+            '<td class="num">' + anPill(r.rate) + '</td><td class="num">' + anPill(r.onTimeRate) + '</td>' +
+            '<td class="num">' + r.storeOps + '</td><td class="num">' + anHours(r.med) + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        if (sorted.length > 15) h += '<button type="button" class="an-more" data-an-more="exec">' + (AN.execAll ? '上位15件に戻す' : 'すべて表示（' + sorted.length + '名）') + '</button>';
+        return h;
+      }
+
+      function anHBars(items, colorFn) {
+        if (!items.length) return '<div class="an-empty">データがありません</div>';
+        var max = 0; items.forEach(function (x) { if (x.v > max) max = x.v; });
+        return '<div class="an-hbars">' + items.map(function (x) {
+          var w = max ? Math.max(2, Math.round(x.v / max * 100)) : 0;
+          return '<div class="an-hbar"><span class="nm" title="' + esc(x.name) + '">' + esc(x.name) + '</span>' +
+            '<div class="an-bar" style="height:.65rem"><span style="width:' + w + '%;background:' + (colorFn ? colorFn(x) : 'var(--acc-500)') + '"></span></div>' +
+            '<span class="val">' + x.text + '</span></div>';
+        }).join('') + '</div>';
+      }
+
+      function anRateColor(x) { return x.rate == null ? '#cbd5e1' : x.rate >= 90 ? '#22c55e' : x.rate >= 70 ? '#f59e0b' : '#ef4444'; }
+
+      function renderAnalytics(root) {
+        if (!AN.data) { root.innerHTML = '<div class="loading">分析データを集計中…</div>'; return; }
+        if (AN.unit !== 'all') {
+          var ks = anKeys(AN.unit);
+          if (ks.indexOf(AN.key) < 0) AN.key = anKeyOf(AN.unit, new Date());
+        } else AN.key = 'all';
+        var tis = anSelectTasks(AN.unit, AN.key);
+        var A = anAggregate(tis);
+        var pk = anPrevKey(AN.unit, AN.key);
+        var P = pk ? anAggregate(anSelectTasks(AN.unit, pk)) : null;
+        var reqRows = anRequesterRows(tis);
+        var execRows = anExecutorRows(tis);
+        var periodLabel = anLabel(AN.unit, AN.key);
+        var prevLabel = pk ? '前期間（' + anLabel(AN.unit, pk) + '）比' : '';
+
+        var h = '<div class="an">';
+
+        // ツールバー
+        var keys = anKeys(AN.unit), ki = keys.indexOf(AN.key);
+        h += '<div class="an-card an-toolbar">';
+        h += '<div class="an-row"><span class="an-label">集計期間</span><div class="an-seg">' +
+          [['month', '月'], ['half', '上期・下期'], ['fy', '年度'], ['all', '全期間']].map(function (o) {
+            return '<button type="button" data-an-unit="' + o[0] + '" class="' + (AN.unit === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
+          }).join('') + '</div>';
+        if (AN.unit !== 'all') {
+          h += '<div class="an-period"><button type="button" class="nav" data-an-step="-1"' + (ki <= 0 ? ' disabled' : '') + ' aria-label="前へ">‹</button>' +
+            '<select id="anKeySel">' + keys.slice().reverse().map(function (k) {
+              return '<option value="' + k + '"' + (k === AN.key ? ' selected' : '') + '>' + anLabel(AN.unit, k) + '</option>';
+            }).join('') + '</select>' +
+            '<button type="button" class="nav" data-an-step="1"' + (ki >= keys.length - 1 ? ' disabled' : '') + ' aria-label="次へ">›</button></div>';
+        }
+        h += '</div>';
+        h += '<div class="an-row"><span class="an-label">依頼の種類</span><div class="an-seg">' +
+          [['all', 'すべて'], ['employee', '社員'], ['store', '店舗'], ['tf', 'TF']].map(function (o) {
+            return '<button type="button" data-an-kind="' + o[0] + '" class="' + (AN.kind === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
+          }).join('') + '</div>' +
+          '<label class="an-toggle"><input type="checkbox" id="anExcl"' + (AN.excl ? ' checked' : '') + '/>' +
+          esc((AN.data.excludeRoles || []).join('・')) + ' を実施率の集計から除く</label></div>';
+        h += '</div>';
+
+        // KPI
+        var avgPerReq = A.requesterCount ? Math.round(A.tasks / A.requesterCount * 10) / 10 : null;
+        h += '<div class="an-kpis">';
+        h += anKpi('実施率（' + periodLabel + '）', anPctText(A.rate), '', A.done + ' / ' + A.units + ' 件完了' + (prevLabel ? '・' + esc(prevLabel) : ''), P ? anDelta(A.rate, P.rate, 'pt') : '', true);
+        h += anKpi('依頼数', A.tasks, '件', '社員' + A.kinds.employee + ' / 店舗' + A.kinds.store + ' / TF' + A.kinds.tf, P ? anDelta(A.tasks, P.tasks, '件') : '');
+        h += anKpi('対象（延べ）', A.units, '件', '1依頼あたり ' + (A.tasks ? Math.round(A.units / A.tasks) : 0) + '件', P ? anDelta(A.units, P.units, '件') : '');
+        h += anKpi('期限内に完了', anPctText(A.onTimeRate), '', A.onTime + '件が期限内', P ? anDelta(A.onTimeRate, P.onTimeRate, 'pt') : '');
+        h += anKpi('期限超過で未実施', A.overdueOpen, '件', '期限が過ぎても未完了', P ? anDelta(A.overdueOpen, P.overdueOpen, '件', true) : '');
+        h += anKpi('完了までの時間', anHours(A.medianHours), '', '依頼から完了までの中央値', '');
+        h += anKpi('依頼した人', A.requesterCount, '名', avgPerReq != null ? '1人あたり ' + avgPerReq + '件' : '', P ? anDelta(A.requesterCount, P.requesterCount, '名') : '');
+        h += anKpi('対応した人', A.executorCount, '名', (AN.kind === 'store' ? '店舗依頼で完了操作をした人' : '依頼を受けた人 ' + A.targetPeopleCount + '名'), P ? anDelta(A.executorCount, P.executorCount, '名') : '');
+        h += '</div>';
+
+        // 推移
+        h += '<div class="an-card an-chart"><h3>月別の推移 <span class="tag">直近12か月</span></h3>' +
+          '<p class="an-lead">棒グラフ＝依頼数（種類別）、実線＝実施率、点線＝期限内の完了率。選択中の期間は背景が色付きになります。</p>' +
+          anTrendSvg() +
+          '<div class="an-legend"><span><i style="background:' + AN_KIND.employee.color + '"></i>社員依頼</span><span><i style="background:' + AN_KIND.store.color + '"></i>店舗依頼</span><span><i style="background:' + AN_KIND.tf.color + '"></i>TF依頼</span>' +
+          '<span><i style="background:#0f172a;height:2px;vertical-align:3px"></i>実施率</span><span><i style="background:#ef4444;height:2px;vertical-align:3px"></i>期限内の完了率</span></div></div>';
+
+        // 依頼者目線 vs 実施者目線
+        var execPersonal = execRows.filter(function (r) { return r.targets > 0; });
+        var execTargets = 0, execDone = 0;
+        execPersonal.forEach(function (r) { execTargets += r.targets; execDone += r.done; });
+        var fullDone = execPersonal.filter(function (r) { return r.done === r.targets; }).length;
+        var reqGood = reqRows.filter(function (r) { return r.rate != null && r.rate >= 90; }).length;
+        var reqByPi = {};
+        reqRows.forEach(function (r) { if (r.pi >= 0) reqByPi[r.pi] = r; });
+        var both = execRows.filter(function (r) { return reqByPi[r.pi]; }).length;
+        h += '<div class="an-card"><h3>依頼者目線と実施者目線の比較</h3>' +
+          '<p class="an-lead">同じ期間を「依頼を出した側」と「依頼を受けて対応した側」の両方から見た数字です。</p><div class="an-vs">';
+        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-500)"></span>依頼者目線（依頼した側）</h4><dl>' +
+          '<dt>依頼した人</dt><dd>' + A.requesterCount + '名</dd>' +
+          '<dt>依頼数</dt><dd>' + A.tasks + '件</dd>' +
+          '<dt>1人あたりの依頼数</dt><dd>' + (avgPerReq != null ? avgPerReq + '件' : '—') + '</dd>' +
+          '<dt>1依頼あたりの対象</dt><dd>' + (A.tasks ? Math.round(A.units / A.tasks * 10) / 10 : '—') + '件</dd>' +
+          '<dt>出した依頼の実施率</dt><dd>' + anPill(A.rate) + '</dd>' +
+          '<dt>実施率90%以上の依頼者</dt><dd>' + reqGood + ' / ' + reqRows.length + '名</dd></dl></div>';
+        h += '<div class="an-side"><h4><span class="dot" style="background:#10b981"></span>実施者目線（対応した側）</h4><dl>' +
+          '<dt>依頼を受けた人</dt><dd>' + execPersonal.length + '名</dd>' +
+          '<dt>対応した人（店舗分を含む）</dt><dd>' + A.executorCount + '名</dd>' +
+          '<dt>1人あたりの依頼された数</dt><dd>' + (execPersonal.length ? Math.round(execTargets / execPersonal.length * 10) / 10 : '—') + '件</dd>' +
+          '<dt>個人あての実施率</dt><dd>' + anPill(anPct(execDone, execTargets)) + '</dd>' +
+          '<dt>全件完了した人</dt><dd>' + fullDone + ' / ' + execPersonal.length + '名</dd>' +
+          '<dt>依頼も対応もした人</dt><dd>' + both + '名</dd></dl></div>';
+        h += '</div></div>';
+
+        // ランキング
+        h += '<div class="an-card"><h3>依頼者ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
+          '<p class="an-lead">誰がどれだけ依頼したか、その依頼がどれだけ実施されたか。列名をクリックで並び替えできます。</p>' +
+          '<div id="anReqWrap">' + anRequesterTable(reqRows) + '</div></div>';
+
+        var roles = {};
+        execRows.forEach(function (r) { if (r.role) roles[r.role] = 1; });
+        h += '<div class="an-card"><h3>実施者ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
+          '<p class="an-lead">誰がどれだけ対応したか。「対応件数」＝自分あての依頼の完了数＋店舗依頼で自分が完了操作した数。実施率・期限内は自分あての依頼で計算しています。</p>' +
+          '<div class="an-row" style="margin-bottom:.6rem"><input type="search" class="an-search" id="anExecQ" placeholder="名前・エリアで検索" value="' + esc(AN.execQuery) + '"/>' +
+          '<select class="an-search" id="anExecRole" style="min-width:8rem"><option value="">役職：すべて</option>' +
+          Object.keys(roles).sort().map(function (r) { return '<option' + (AN.execRole === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>' +
+          '<div id="anExecWrap">' + anExecutorTable(execRows) + '</div></div>';
+
+        // チーム・エリア
+        var teamMap = {};
+        reqRows.forEach(function (r) {
+          (anSplit(r.team).length ? anSplit(r.team) : ['チーム未設定']).forEach(function (t) {
+            var x = teamMap[t] || (teamMap[t] = { name: t, v: 0, units: 0, done: 0 });
+            x.v += r.tasks; x.units += r.units; x.done += r.done;
+          });
+        });
+        var teamItems = Object.keys(teamMap).map(function (k) { var x = teamMap[k]; x.rate = anPct(x.done, x.units); x.text = x.v + '件 <span>' + anPctText(x.rate) + '</span>'; return x; })
+          .sort(function (a, b) { return b.v - a.v; });
+        var areaMap = {};
+        execPersonal.forEach(function (r) {
+          (anSplit(r.area).length ? anSplit(r.area) : ['エリア未設定']).forEach(function (a) {
+            var x = areaMap[a] || (areaMap[a] = { name: a, targets: 0, done: 0 });
+            x.targets += r.targets; x.done += r.done;
+          });
+        });
+        var areaItems = Object.keys(areaMap).map(function (k) { var x = areaMap[k]; x.rate = anPct(x.done, x.targets); x.v = x.rate || 0; x.text = anPctText(x.rate) + ' <span>' + x.done + '/' + x.targets + '</span>'; return x; })
+          .sort(function (a, b) { return b.v - a.v; });
+        h += '<div class="an-grid2">';
+        h += '<div class="an-card"><h3>TFチーム別の依頼数</h3><p class="an-lead">依頼者の所属チームごとの依頼数。右の%はその依頼の実施率です（色：緑90%以上／黄70%以上／赤70%未満）。</p>' + anHBars(teamItems, anRateColor) + '</div>';
+        h += '<div class="an-card"><h3>エリア別の実施率</h3><p class="an-lead">依頼を受けた人の現在のエリアごとの実施率（完了/依頼された数）。</p>' + anHBars(areaItems, anRateColor) + '</div>';
+        h += '</div>';
+
+        // 実施率が低い依頼
+        var low = A.perTask.filter(function (x) { return x.pastDue && x.total > 0 && x.done < x.total; })
+          .sort(function (a, b) { return a.done / a.total - b.done / b.total; }).slice(0, 8);
+        h += '<div class="an-card"><h3>期限を過ぎて未完了が残っている依頼</h3><p class="an-lead">実施率が低い順に最大8件。フォローが必要な依頼の目安です。</p>';
+        if (!low.length) h += '<div class="an-empty">該当する依頼はありません</div>';
+        else {
+          h += '<div class="an-tablewrap"><table class="an-table"><thead><tr><th>期限</th><th>種類</th><th>依頼者</th><th>内容</th><th class="num">未実施</th><th class="num">実施率</th></tr></thead><tbody>';
+          low.forEach(function (x) {
+            var t = AN.data.tasks[x.ti];
+            h += '<tr><td style="white-space:nowrap">' + esc(t.d || '—') + '</td><td>' + esc(AN_KIND[t.k] ? AN_KIND[t.k].label : t.k) + '</td><td class="nm">' + esc(t.s) + '</td>' +
+              '<td><div style="max-width:28rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.ct || '—') + '</div><div class="sub">' + esc(t.tg || '') + '</div></td>' +
+              '<td class="num"><strong style="color:#b91c1c">' + (x.total - x.done) + '</strong></td><td class="num">' + anPill(anPct(x.done, x.total)) + '</td></tr>';
+          });
+          h += '</tbody></table></div>';
+        }
+        h += '</div>';
+
+        h += '<p class="an-note">※ 期間は「依頼の投稿日」で区切っています。上期＝4〜9月、下期＝10〜翌3月。期限前の依頼も含むため、直近の期間は実施率が低めに出ます。人の役職・チーム・エリアは現在の従業員データの値です。最終集計: ' +
+          esc(new Date(AN.data.generatedAt).toLocaleString('ja-JP')) + '</p>';
+        h += '</div>';
+        root.innerHTML = h;
+        bindAnalyticsEvents(root, execRows);
+      }
+
+      function bindAnalyticsEvents(root, execRows) {
+        root.querySelectorAll('[data-an-unit]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            AN.unit = el.getAttribute('data-an-unit');
+            AN.key = anKeyOf(AN.unit, new Date());
+            renderAll();
+          });
+        });
+        root.querySelectorAll('[data-an-kind]').forEach(function (el) {
+          el.addEventListener('click', function () { AN.kind = el.getAttribute('data-an-kind'); renderAll(); });
+        });
+        root.querySelectorAll('[data-an-step]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var ks = anKeys(AN.unit), i = ks.indexOf(AN.key) + Number(el.getAttribute('data-an-step'));
+            if (i >= 0 && i < ks.length) { AN.key = ks[i]; renderAll(); }
+          });
+        });
+        var sel = document.getElementById('anKeySel');
+        if (sel) sel.addEventListener('change', function () { AN.key = sel.value; renderAll(); });
+        var ex = document.getElementById('anExcl');
+        if (ex) ex.addEventListener('change', function () { AN.excl = ex.checked; renderAll(); });
+        if (!AN.boundRoot) {
+          AN.boundRoot = true;
+          root.addEventListener('click', onAnalyticsRootClick);
+        }
+        var q = document.getElementById('anExecQ');
+        if (q) q.addEventListener('input', function () {
+          AN.execQuery = q.value;
+          document.getElementById('anExecWrap').innerHTML = anExecutorTable(execRows);
+        });
+        var role = document.getElementById('anExecRole');
+        if (role) role.addEventListener('change', function () {
+          AN.execRole = role.value;
+          document.getElementById('anExecWrap').innerHTML = anExecutorTable(execRows);
+        });
+      }
+
+      function onAnalyticsRootClick(e) {
+          if (mode !== 'analytics' || !e.target.closest) return;
+          var th = e.target.closest('[data-an-sort]');
+          if (th) {
+            var p = th.getAttribute('data-an-sort').split(':');
+            var s = p[0] === 'req' ? AN.reqSort : AN.execSort;
+            if (s.k === p[1]) s.d = -s.d; else { s.k = p[1]; s.d = p[1] === 'name' ? 1 : -1; }
+            renderAll();
+            return;
+          }
+          var more = e.target.closest('[data-an-more]');
+          if (more) {
+            if (more.getAttribute('data-an-more') === 'req') AN.reqAll = !AN.reqAll; else AN.execAll = !AN.execAll;
+            renderAll();
+          }
+      }
+
       function renderRoot() {
         var root = document.getElementById('root');
-        if (mode === 'reminderEffect') {
+        if (mode === 'analytics') {
+          renderAnalytics(root);
+        } else if (mode === 'reminderEffect') {
           root.innerHTML = renderReminderEffects();
           bindPersonFilterEvents();
         } else {
@@ -1436,6 +2086,12 @@
         });
         if (mode === 'reminderEffect' && !reminderEffectsLoaded) {
           ensureReminderEffects(function () { renderAll(); });
+          return;
+        }
+        if (mode === 'analytics' && !AN.data) {
+          document.getElementById('statsBar').style.display = 'none';
+          renderFilters();
+          ensureAnalytics();
           return;
         }
         renderModeBadges();
@@ -1485,11 +2141,13 @@
 
       function load() {
         reminderEffectsLoaded = false;
+        AN.data = null;
         document.getElementById('root').innerHTML = '<div class="loading">読み込み中…</div>';
         if (typeof google === 'undefined' || !google.script || !google.script.run) {
           showError('Google Apps Script の Web アプリとして開いてください。');
           return;
         }
+        if (mode === 'analytics') ensureAnalytics();
         google.script.run.withSuccessHandler(applyData).withFailureHandler(function (e) {
           showError(e && e.message ? e.message : String(e));
         }).getAdminDashboardData();
@@ -1497,7 +2155,7 @@
 
       document.querySelectorAll('.mode-nav-tile[data-mode]').forEach(function (tab) {
         tab.addEventListener('click', function () {
-          mode = tab.getAttribute('data-mode') || 'combined';
+          mode = tab.getAttribute('data-mode') || 'analytics';
           pendingAutoOpen = true;
           filter = 'all';
           typeFilter = 'all';
