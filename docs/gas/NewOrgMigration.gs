@@ -265,7 +265,8 @@ function formatAdminSheets_() {
     styleHeaderAndFreeze_(sh, sh.getLastColumn(), 0);
   });
 
-  var order = ['申請データ', '従業員データ', '店舗データ', '新店舗データ（新組織）', '新組織移行ログ', '訂正履歴', '店舗共有ログ', 'リマインド送信履歴'];
+  var order = ['申請データ', '従業員データ', '店舗データ', '集計_依頼一覧', '集計_社員別', '集計_店舗別', '集計_月別',
+    '新組織移行ログ', '訂正履歴', '店舗共有ログ', '新店舗データ（新組織）', 'リマインド送信履歴'];
   var pos = 1;
   order.forEach(function (name) {
     var sh = ss.getSheetByName(name);
