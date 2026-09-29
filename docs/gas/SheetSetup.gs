@@ -4,7 +4,7 @@
  * - 入力ガード: 従業員データの管轄店舗・役職のプルダウン、店舗名の不一致を赤表示
  * - メニュー「To-Do管理」
  */
-var SHEET_SETUP_VERSION_ = '6';
+var SHEET_SETUP_VERSION_ = '8';
 var ANALYSIS_SHEETS_ = {
   tasks: '集計_依頼一覧',
   people: '集計_社員別',
@@ -89,9 +89,11 @@ function autoRunSheetSetup_() {
     cache.put('sheetSetupRunning', '1', 600);
     step('データ整理', runDataCleanupOnce_);
     step('エリア・テリトリー補正', healEmployeeAreaTerritory_);
+    step('従業員データの並べ替え', sortEmployeeSheet_);
   } finally {
     lock.releaseLock();
   }
+  step('不要シートの削除', deleteObsoleteSheetsOnce_);
   step('集計シート', refreshAnalysisSheets_);
   step('入力ガード', applyInputGuards_);
   step('シートの見た目', formatAdminSheets_);
@@ -154,6 +156,128 @@ function healEmployeeAreaTerritory_() {
   }
   if (fixed.length) writeSystemLog_('エリア・テリトリー補正', fixed.join('\n'));
   return fixed;
+}
+
+function areaRankOf_(areaText) {
+  var s = String(areaText || '').trim();
+  if (!s) return 999;
+  if (isHqAreaName_(s)) return 0;
+  var m = s.match(/第(\d+)エリア/);
+  return m ? parseInt(m[1], 10) : 900;
+}
+
+function territoryRankOf_(t) {
+  var m = String(t || '').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 900;
+}
+
+/**
+ * エリア(E)・テリトリー(F)の表記を 第1→第7エリア、テリトリー1→3 の順に並べ替える（中身は増減させない）。
+ * エリアが1つだけの人の「テリトリー3」のようなエリア名なしの記載は、そのエリアに付け直す。
+ */
+function formatAreaTerritory_(areaText, territoryText) {
+  var areas = [];
+  String(areaText || '').split(/[,，、]/).forEach(function (a) {
+    a = a.trim();
+    if (a && areas.indexOf(a) < 0) areas.push(a);
+  });
+  var terr = {};
+  var terrAreas = [];
+  var loose = [];
+  String(territoryText || '').split(/\s*\/\s*/).forEach(function (part) {
+    part = part.trim();
+    if (!part) return;
+    var idx = part.indexOf(':');
+    var a = idx < 0 ? '' : part.slice(0, idx).trim();
+    var list = idx < 0 ? part : part.slice(idx + 1);
+    if (!a) {
+      if (areas.length === 1) a = areas[0];
+      else { loose.push(part); return; }
+    }
+    if (!terr[a]) { terr[a] = []; terrAreas.push(a); }
+    list.split(/[,，、]/).forEach(function (t) {
+      t = t.trim();
+      if (t && terr[a].indexOf(t) < 0) terr[a].push(t);
+    });
+  });
+  var byArea = function (a, b) { return areaRankOf_(a) - areaRankOf_(b); };
+  areas.sort(byArea);
+  var parts = terrAreas.slice().sort(byArea)
+    .filter(function (a) { return terr[a].length; })
+    .map(function (a) {
+      return a + ': ' + terr[a].slice().sort(function (x, y) { return territoryRankOf_(x) - territoryRankOf_(y); }).join(',');
+    });
+  return { area: areas.join(', '), territory: parts.concat(loose).join(' / ') };
+}
+
+/**
+ * 従業員データの行を エリア→テリトリー→役職→名前 の順に並べ、E/F の表記も整える。
+ * 行番号で書き込む処理と競合しないよう、呼び出し側でスクリプトロックを持つこと。
+ */
+function sortEmployeeSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('従業員データ');
+  if (!sh || sh.getLastRow() < 3) return;
+  var n = sh.getLastRow() - 1;
+  var lastCol = sh.getLastColumn();
+  var range = sh.getRange(2, 1, n, lastCol);
+  var values = range.getValues();
+  var bgs = range.getBackgrounds();
+  var fcs = range.getFontColors();
+  var fws = range.getFontWeights();
+  var notes = range.getNotes();
+
+  var textFixes = [];
+  var items = values.map(function (row, i) {
+    if (String(row[1] || '').trim()) {
+      var f = formatAreaTerritory_(row[4], row[5]);
+      if (f.area !== String(row[4] || '').trim() || f.territory !== String(row[5] || '').trim()) {
+        textFixes.push(String(row[0] || row[1]) + '：' + row[4] + ' / ' + row[5] + ' → ' + f.area + ' / ' + f.territory);
+        row[4] = f.area;
+        row[5] = f.territory;
+      }
+    }
+    var firstTerr = String(row[5] || '').split(' / ')[0];
+    var ti = firstTerr.indexOf(':');
+    var role = ROLE_OPTIONS_.indexOf(String(row[6] || '').trim());
+    return {
+      i: i,
+      empty: !String(row[0] || '').trim() && !String(row[1] || '').trim(),
+      area: areaRankOf_(String(row[4] || '').split(/[,，、]/)[0]),
+      terr: ti < 0 ? 900 : territoryRankOf_(firstTerr.slice(ti + 1).split(',')[0]),
+      role: role < 0 ? 99 : role,
+      name: String(row[0] || '')
+    };
+  });
+  var sorted = items.slice().sort(function (a, b) {
+    if (a.empty !== b.empty) return a.empty ? 1 : -1;
+    return (a.area - b.area) || (a.terr - b.terr) || (a.role - b.role) ||
+      a.name.localeCompare(b.name, 'ja') || (a.i - b.i);
+  });
+  var moved = sorted.some(function (it, k) { return it.i !== k; });
+  if (!moved && !textFixes.length) return;
+  var pick = function (arr) { return sorted.map(function (it) { return arr[it.i]; }); };
+  range.setValues(pick(values));
+  if (moved) {
+    range.setBackgrounds(pick(bgs));
+    range.setFontColors(pick(fcs));
+    range.setFontWeights(pick(fws));
+    range.setNotes(pick(notes));
+  }
+  if (textFixes.length) writeSystemLog_('エリア・テリトリー表記の並べ替え', textFixes.join('\n'));
+  if (moved) writeSystemLog_('従業員データの並べ替え', 'エリア→テリトリー→役職→名前の順に並べ替え（' + n + '行）');
+}
+
+/** 毎朝の処理から呼ぶ。E/F の不足補正と並べ替えをロック内で行う */
+function tidyEmployeeSheet_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+  try {
+    healEmployeeAreaTerritory_();
+    sortEmployeeSheet_();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** 非表示シート「システムログ」に記録（自動処理のエラー確認用） */

@@ -11,6 +11,25 @@ var EMAIL_FIXES_ = {
   'k-odasima@okamoto-group.co.jp': 'k-odajima@okamoto-group.co.jp'
 };
 
+var OBSOLETE_SHEETS_PROP_ = 'OBSOLETE_SHEETS_V1';
+var OBSOLETE_SHEET_NAMES_ = ['26年度EAST10/1', '新店舗データ（新組織）'];
+
+/** 移行が済んで不要になったシートを 1 回だけ削除 */
+function deleteObsoleteSheetsOnce_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(OBSOLETE_SHEETS_PROP_)) return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var deleted = [];
+  ss.getSheets().forEach(function (sh) {
+    var name = String(sh.getName()).trim();
+    if (OBSOLETE_SHEET_NAMES_.indexOf(name) < 0) return;
+    ss.deleteSheet(sh);
+    deleted.push(name);
+  });
+  props.setProperty(OBSOLETE_SHEETS_PROP_, new Date().toISOString());
+  writeSystemLog_('不要シートの削除', deleted.length ? deleted.join('、') + ' を削除' : '対象シートなし');
+}
+
 function runDataCleanupOnce_() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty(DATA_CLEANUP_PROP_)) return null;

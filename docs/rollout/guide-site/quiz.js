@@ -179,6 +179,56 @@
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  var verifiedEmail = '';
+
+  function notListedMessage() {
+    return 'このメールアドレスは理解度チェックの対象者名簿にありません。社内メールアドレス（名前@okamoto-group.co.jp）に間違いがないか確認してください。対象のはずの場合は ' +
+      (cfg.contactLabel || 'DXチーム') + ' までご連絡ください。';
+  }
+
+  function lockQuestions(locked) {
+    $('#questions').classList.toggle('is-locked', locked);
+    Array.prototype.forEach.call(document.querySelectorAll('#questions input'), function (el) { el.disabled = locked; });
+  }
+
+  function verifyEmail() {
+    var emailInput = $('#email');
+    var emailMsg = $('#email-msg');
+    var btn = $('#verify');
+    var email = emailInput.value.trim();
+
+    if (!email || !emailInput.checkValidity()) {
+      setMsg(emailMsg, 'メールアドレスを正しく入力してください。', 'error');
+      emailInput.focus();
+      return Promise.resolve(false);
+    }
+    if (email.toLowerCase() === verifiedEmail) return Promise.resolve(true);
+
+    btn.disabled = true;
+    btn.textContent = '確認中…';
+    setMsg(emailMsg, '名簿を確認しています…');
+    return send({ action: 'verify', email: email }).then(function (res) {
+      if (!res || !res.ok) {
+        verifiedEmail = '';
+        lockQuestions(true);
+        setMsg(emailMsg, /登録されていません/.test((res && res.message) || '') ? notListedMessage() : ((res && res.message) || '確認できませんでした。'), 'error');
+        return false;
+      }
+      verifiedEmail = email.toLowerCase();
+      try { localStorage.setItem(STORAGE_KEY, email); } catch (err) {}
+      lockQuestions(false);
+      setMsg(emailMsg, (res.name ? res.name + ' さんとして' : 'このメールアドレスで') + '結果を記録します。問題に進んでください。', 'ok');
+      return true;
+    }).catch(function (err) {
+      setMsg(emailMsg, (err && err.message) || '確認できませんでした。', 'error');
+      return false;
+    }).then(function (ok) {
+      btn.disabled = false;
+      btn.textContent = '確認';
+      return ok;
+    });
+  }
+
   function onSubmit(e) {
     e.preventDefault();
     var emailInput = $('#email');
@@ -186,12 +236,11 @@
     var submitMsg = $('#submit-msg');
     var email = emailInput.value.trim();
 
-    if (!email || !emailInput.checkValidity()) {
-      setMsg(emailMsg, 'メールアドレスを正しく入力してください。', 'error');
+    if (!verifiedEmail || email.toLowerCase() !== verifiedEmail) {
+      setMsg(submitMsg, '先にメールアドレスの「確認」を押してください。', 'error');
       emailInput.focus();
       return;
     }
-    setMsg(emailMsg, '結果はこのメールアドレスで記録されます。');
 
     var missing = answers.indexOf(null);
     if (missing >= 0) {
@@ -199,8 +248,6 @@
       document.getElementById('q' + missing).scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-
-    try { localStorage.setItem(STORAGE_KEY, email); } catch (err) {}
 
     var details = answers.map(function (oi, qi) {
       var o = QUESTIONS[qi].options[oi];
@@ -224,8 +271,9 @@
       showResult(res);
     }).catch(function (err) {
       var msg = err && err.message ? err.message : '送信できませんでした。';
-      if (/メールアドレス/.test(msg)) {
-        setMsg(emailMsg, msg + ' 入力したアドレスを確認してください。', 'error');
+      if (/登録されていません/.test(msg)) {
+        verifiedEmail = '';
+        setMsg(emailMsg, notListedMessage(), 'error');
         emailInput.focus();
         setMsg(submitMsg, '');
       } else {
@@ -240,9 +288,25 @@
   document.addEventListener('DOMContentLoaded', function () {
     render();
     updateProgress();
+    lockQuestions(true);
+    var emailInput = $('#email');
+    $('#verify').addEventListener('click', verifyEmail);
+    emailInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); verifyEmail(); }
+    });
+    emailInput.addEventListener('input', function () {
+      if (verifiedEmail && emailInput.value.trim().toLowerCase() !== verifiedEmail) {
+        verifiedEmail = '';
+        lockQuestions(true);
+        setMsg($('#email-msg'), 'メールアドレスが変わりました。もう一度「確認」を押してください。');
+      }
+    });
     try {
       var saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) $('#email').value = saved;
+      if (saved) {
+        emailInput.value = saved;
+        verifyEmail();
+      }
     } catch (err) {}
     $('#quiz-form').addEventListener('submit', onSubmit);
   });

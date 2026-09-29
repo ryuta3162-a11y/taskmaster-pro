@@ -256,7 +256,6 @@ function formatAdminSheets_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   formatEmployeeSheet_(ss.getSheetByName('従業員データ'));
   formatStoreSheet_(ss.getSheetByName('店舗データ'));
-  formatStoreSheet_(ss.getSheetByName('新店舗データ（新組織）'));
   formatRequestSheet_(ss.getSheetByName('申請データ'));
 
   ['リマインド送信履歴', '店舗共有ログ', '訂正履歴', '新組織移行ログ'].forEach(function (name) {
@@ -266,7 +265,7 @@ function formatAdminSheets_() {
   });
 
   var order = ['申請データ', '従業員データ', '店舗データ', '集計_依頼一覧', '集計_社員別', '集計_店舗別', '集計_月別',
-    '新組織移行ログ', '訂正履歴', '店舗共有ログ', '新店舗データ（新組織）', 'リマインド送信履歴'];
+    '新組織移行ログ', '訂正履歴', '店舗共有ログ', 'リマインド送信履歴'];
   var pos = 1;
   order.forEach(function (name) {
     var sh = ss.getSheetByName(name);

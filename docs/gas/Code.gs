@@ -538,13 +538,14 @@ function appendStoreShareLog_(row) {
 
 
 function buildEmployeeSheetRow_(empData) {
+  var at = formatAreaTerritory_(empData.area, empData.territory);
   let row = [
     empData.name,
     empData.email,
     empData.team,
     'なし',
-    empData.area,
-    empData.territory,
+    at.area,
+    at.territory,
     empData.role
   ];
   var stores = (empData.stores || []).map(function (s) { return String(s).trim(); }).filter(Boolean);
@@ -572,10 +573,18 @@ function registerEmployee(empData) {
     const sheet = ss.getSheetByName('従業員データ') || ss.insertSheet('従業員データ');
     var built = buildEmployeeSheetRow_(empData);
     if (built.error) return { status: 'error', message: built.error };
-    sheet.appendRow(built.row);
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return { status: 'error', message: EMPLOYEE_BUSY_MESSAGE_ };
+    try {
+      sheet.appendRow(built.row);
+    } finally {
+      lock.releaseLock();
+    }
     return { status: 'success' };
   } catch(e) { return { status: 'error', message: e.toString() }; }
 }
+
+var EMPLOYEE_BUSY_MESSAGE_ = '混み合っています。少し待ってからもう一度保存してください。';
 
 /** 登録済みメールのプロフィール（チーム・エリア・管轄店舗・役職など）を更新 */
 function updateEmployee(empData) {
@@ -590,21 +599,27 @@ function updateEmployee(empData) {
     if (!sheet) return { status: 'error', message: '従業員データがありません' };
     var built = buildEmployeeSheetRow_(empData);
     if (built.error) return { status: 'error', message: built.error };
-    var values = sheet.getDataRange().getValues();
-    for (var i = 1; i < values.length; i++) {
-      if (normalizeTaskEmail(values[i][1]) !== emailNorm) continue;
-      var rowNum = i + 1;
-      var oldRow = values[i];
-      var oldStoreCols = 0;
-      for (var c = 7; c < oldRow.length; c++) {
-        if (String(oldRow[c] || '').trim()) oldStoreCols++;
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return { status: 'error', message: EMPLOYEE_BUSY_MESSAGE_ };
+    try {
+      var values = sheet.getDataRange().getValues();
+      for (var i = 1; i < values.length; i++) {
+        if (normalizeTaskEmail(values[i][1]) !== emailNorm) continue;
+        var rowNum = i + 1;
+        var oldRow = values[i];
+        var oldStoreCols = 0;
+        for (var c = 7; c < oldRow.length; c++) {
+          if (String(oldRow[c] || '').trim()) oldStoreCols++;
+        }
+        sheet.getRange(rowNum, 1, 1, built.row.length).setValues([built.row]);
+        var newStoreCols = Math.max(0, built.row.length - 7);
+        if (oldStoreCols > newStoreCols) {
+          sheet.getRange(rowNum, 8 + newStoreCols, 1, oldStoreCols - newStoreCols).clearContent();
+        }
+        return { status: 'success' };
       }
-      sheet.getRange(rowNum, 1, 1, built.row.length).setValues([built.row]);
-      var newStoreCols = Math.max(0, built.row.length - 7);
-      if (oldStoreCols > newStoreCols) {
-        sheet.getRange(rowNum, 8 + newStoreCols, 1, oldStoreCols - newStoreCols).clearContent();
-      }
-      return { status: 'success' };
+    } finally {
+      lock.releaseLock();
     }
     return { status: 'error', message: '登録情報が見つかりません' };
   } catch (e) {
@@ -2265,7 +2280,7 @@ function processDeadlineRemindersBatch() {
   try { ensureTaskStoreSnapshots_(); } catch (e) {}
   try { autoRunNewOrgMigration_(); } catch (eMig) {}
   try { autoRunSheetSetup_(); } catch (eSetup) {}
-  try { healEmployeeAreaTerritory_(); } catch (eHeal) {}
+  try { tidyEmployeeSheet_(); } catch (eHeal) {}
   try { refreshAnalysisSheets_(); } catch (eAna) {}
   var report = {
     runAt: new Date(),
