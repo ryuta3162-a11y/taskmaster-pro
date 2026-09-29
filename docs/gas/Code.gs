@@ -870,13 +870,11 @@ function getTasksForUser(userEmail) {
           var relevant = myStores.filter(function (s) {
             return taskStores.indexOf(s) >= 0;
           }).concat(myPastStores);
-          if (relevant.length === 0) {
-            isCompleted = false;
-          } else {
-            isCompleted = relevant.every(function (s) {
-              return !!sc[s];
-            });
-          }
+          // 組織変更で担当外になり本人の完了記録もない店舗依頼は、画面に出ないので件数・進捗にも含めない
+          if (relevant.length === 0) return;
+          isCompleted = relevant.every(function (s) {
+            return !!sc[s];
+          });
         } else {
           isCompleted = (payload.people || []).some(function (d) {
             return normalizeTaskEmail(d.email) === userNorm;
@@ -1147,10 +1145,11 @@ function uncompleteTask(taskId, userEmail, optStoreName) {
           if (!pick) {
             return { success: false, message: '取り消す店舗を指定してください' };
           }
-          if (taskStores.indexOf(pick) < 0 || userStores.indexOf(pick) < 0) {
+          var ownRecord = !!stores[pick] && normalizeTaskEmail(stores[pick].by) === userNorm;
+          if (taskStores.indexOf(pick) < 0 || (userStores.indexOf(pick) < 0 && !ownRecord)) {
             return { success: false, message: '対象店舗が無効です' };
           }
-          if (!stores[pick] || normalizeTaskEmail(stores[pick].by) !== userNorm) {
+          if (!ownRecord) {
             return { success: false, message: 'この店舗のあなたの完了記録がありません' };
           }
           delete stores[pick];
