@@ -10,6 +10,7 @@ const CHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAuU_-lwY/mess
 const UPLOAD_FOLDER_NAME = 'TaskMaster_アップロード画像';
 
 function doGet(e) {
+  try { ensureTaskStoreSnapshots_(); } catch (eSnap) {}
   var page = e && e.parameter && e.parameter.page;
   var execBase = ScriptApp.getService().getUrl();
   var execBoot = '<script>window.__TM_EXEC_BASE__=' + JSON.stringify(execBase) + ';</script>';
