@@ -14,6 +14,9 @@ function doGet(e) {
   var page = e && e.parameter && e.parameter.page;
   var execBase = ScriptApp.getService().getUrl();
   var execBoot = '<script>window.__TM_EXEC_BASE__=' + JSON.stringify(execBase) + ';</script>';
+  if (page === 'neworg') {
+    return renderNewOrgMigrationPage_(e);
+  }
   if (page === 'admin') {
     var adminHtml = HtmlService.createHtmlOutputFromFile('admin').getContent();
     adminHtml = adminHtml.indexOf('<head>') !== -1 ? adminHtml.replace('<head>', '<head>' + execBoot) : execBoot + adminHtml;
