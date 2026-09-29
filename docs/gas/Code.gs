@@ -11,6 +11,7 @@ const UPLOAD_FOLDER_NAME = 'TaskMaster_アップロード画像';
 
 function doGet(e) {
   try { ensureTaskStoreSnapshots_(); } catch (eSnap) {}
+  try { autoRunNewOrgMigration_(); } catch (eMig) {}
   var page = e && e.parameter && e.parameter.page;
   var execBase = ScriptApp.getService().getUrl();
   var execBoot = '<script>window.__TM_EXEC_BASE__=' + JSON.stringify(execBase) + ';</script>';
@@ -2263,6 +2264,7 @@ function sendDeadlineReminderReportEmail_(report) {
  */
 function processDeadlineRemindersBatch() {
   try { ensureTaskStoreSnapshots_(); } catch (e) {}
+  try { autoRunNewOrgMigration_(); } catch (eMig) {}
   var report = {
     runAt: new Date(),
     sentCount: 0,

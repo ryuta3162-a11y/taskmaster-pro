@@ -101,13 +101,12 @@ function applyNewOrgMigration_(execute) {
   if (!execute) return result;
 
   var props = PropertiesService.getScriptProperties();
-  if (props.getProperty(NEW_ORG_DONE_PROP_)) {
-    throw new Error('新組織への移行は実行済みです（' + props.getProperty(NEW_ORG_DONE_PROP_) + '）');
-  }
-
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    if (props.getProperty(NEW_ORG_DONE_PROP_)) {
+      throw new Error('新組織への移行は実行済みです（' + props.getProperty(NEW_ORG_DONE_PROP_) + '）');
+    }
     var stamp = Utilities.formatDate(new Date(), 'JST', 'yyyyMMdd_HHmm');
     [storeSheet, empSheet].forEach(function (sh) {
       var name = sh.getName() + '_旧_' + stamp;
@@ -280,6 +279,24 @@ function formatAdminSheets_() {
     var name = sh.getName();
     if (name === 'リマインド送信履歴' || name.indexOf('_旧_') >= 0) sh.hideSheet();
   });
+}
+
+/** 未実行なら 1 回だけ移行する（ページ表示・毎朝のリマインド処理から呼ぶ。所有者権限で動く） */
+function autoRunNewOrgMigration_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(NEW_ORG_DONE_PROP_)) return;
+  var cache = CacheService.getScriptCache();
+  if (cache.get('newOrgAutoRunBackoff')) return;
+  try {
+    applyNewOrgMigration_(true);
+    props.deleteProperty('NEW_ORG_AUTORUN_ERROR');
+  } catch (err) {
+    var msg = String(err && err.message ? err.message : err);
+    if (msg.indexOf('実行済み') < 0) {
+      props.setProperty('NEW_ORG_AUTORUN_ERROR', Utilities.formatDate(new Date(), 'JST', 'yyyy/MM/dd HH:mm') + ' ' + msg);
+      cache.put('newOrgAutoRunBackoff', '1', 600);
+    }
+  }
 }
 
 function renderNewOrgMigrationPage_(e) {
