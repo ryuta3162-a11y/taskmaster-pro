@@ -4,7 +4,7 @@
  * - 入力ガード: 従業員データの管轄店舗・役職のプルダウン、店舗名の不一致を赤表示
  * - メニュー「To-Do管理」
  */
-var SHEET_SETUP_VERSION_ = '5';
+var SHEET_SETUP_VERSION_ = '6';
 var ANALYSIS_SHEETS_ = {
   tasks: '集計_依頼一覧',
   people: '集計_社員別',
@@ -55,6 +55,15 @@ function runSheetSetupJob() {
     if (t.getHandlerFunction() === 'runSheetSetupJob') ScriptApp.deleteTrigger(t);
   });
   autoRunSheetSetup_();
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SHEET_SETUP_VERSION') !== SHEET_SETUP_VERSION_) {
+    var cache = CacheService.getScriptCache();
+    var tries = Number(cache.get('sheetSetupRetries') || 0);
+    if (tries < 5) {
+      cache.put('sheetSetupRetries', String(tries + 1), 21600);
+      ScriptApp.newTrigger('runSheetSetupJob').timeBased().after(2 * 60 * 1000).create();
+    }
+  }
 }
 
 /** 未実施のバージョンなら 1 回だけ整備する。失敗しても再試行ループにせず、システムログに残す */
@@ -62,28 +71,38 @@ function autoRunSheetSetup_() {
   var props = PropertiesService.getScriptProperties();
   if (!props.getProperty(NEW_ORG_DONE_PROP_)) return;
   if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
+  var cache = CacheService.getScriptCache();
+  if (cache.get('sheetSetupRunning')) return;
+  var errors = [];
+  var step = function (label, fn) {
+    try {
+      fn();
+    } catch (err) {
+      errors.push(label + ': ' + String(err && err.stack ? err.stack : err));
+    }
+  };
+  // データを書き換える処理だけロックを持つ（書式や集計の間、利用者の完了操作を待たせない）
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return;
+  if (!lock.tryLock(20000)) return;
   try {
     if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
-    var errors = [];
-    [['エリア・テリトリー補正', healEmployeeAreaTerritory_], ['集計シート', refreshAnalysisSheets_], ['入力ガード', applyInputGuards_], ['シートの見た目', formatAdminSheets_]].forEach(function (step) {
-      try {
-        step[1]();
-      } catch (err) {
-        errors.push(step[0] + ': ' + String(err && err.stack ? err.stack : err));
-      }
-    });
-    props.setProperty('SHEET_SETUP_VERSION', SHEET_SETUP_VERSION_);
-    if (errors.length) {
-      props.setProperty('SHEET_SETUP_ERROR', errors.join('\n').substring(0, 8000));
-      writeSystemLog_('シート整備 v' + SHEET_SETUP_VERSION_, errors.join('\n'));
-    } else {
-      props.deleteProperty('SHEET_SETUP_ERROR');
-      writeSystemLog_('シート整備 v' + SHEET_SETUP_VERSION_, 'OK');
-    }
+    cache.put('sheetSetupRunning', '1', 600);
+    step('データ整理', runDataCleanupOnce_);
+    step('エリア・テリトリー補正', healEmployeeAreaTerritory_);
   } finally {
     lock.releaseLock();
+  }
+  step('集計シート', refreshAnalysisSheets_);
+  step('入力ガード', applyInputGuards_);
+  step('シートの見た目', formatAdminSheets_);
+  props.setProperty('SHEET_SETUP_VERSION', SHEET_SETUP_VERSION_);
+  cache.remove('sheetSetupRunning');
+  if (errors.length) {
+    props.setProperty('SHEET_SETUP_ERROR', errors.join('\n').substring(0, 8000));
+    writeSystemLog_('シート整備 v' + SHEET_SETUP_VERSION_, errors.join('\n'));
+  } else {
+    props.deleteProperty('SHEET_SETUP_ERROR');
+    writeSystemLog_('シート整備 v' + SHEET_SETUP_VERSION_, 'OK');
   }
 }
 
