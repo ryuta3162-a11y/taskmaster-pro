@@ -4,7 +4,7 @@
  * - 入力ガード: 従業員データの管轄店舗・役職のプルダウン、店舗名の不一致を赤表示
  * - メニュー「To-Do管理」
  */
-var SHEET_SETUP_VERSION_ = '2';
+var SHEET_SETUP_VERSION_ = '3';
 var ANALYSIS_SHEETS_ = {
   tasks: '集計_依頼一覧',
   people: '集計_社員別',
@@ -133,7 +133,7 @@ function computeAnalysisData_(requestRows, employees, allStores, today) {
     var refDate = created || today;
     var onTimeCount = 0;
 
-    var mKey = created ? Utilities.formatDate(created, 'JST', 'yyyy-MM') : '不明';
+    var mKey = created ? Utilities.formatDate(created, 'JST', 'yyyy年MM月') : '不明';
     var mon = monthOf(mKey);
     mon.tasks++;
     if (kind === 'store') mon.storeTasks++;
