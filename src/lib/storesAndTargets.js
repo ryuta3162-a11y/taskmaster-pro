@@ -340,11 +340,12 @@ export function taskMatchesChecklistStoreSelection(task, selectedStores, allStor
   });
 }
 
-/** 店舗依頼: 自分の管轄店舗のうち、この依頼に含まれる店舗名 */
+/** 店舗依頼: 自分の管轄店舗＋管轄から外れたが自分が完了した店舗のうち、この依頼に含まれる店舗名 */
 export function getMyRelevantStoreNamesForTask(task, myStores) {
   const safeMyStores = asUserStoreList(myStores);
+  const pastStores = Array.isArray(task?.myPastStores) ? task.myPastStores : [];
   const targets = getTaskTargetStoreNames(task);
-  return targets.filter((s) => safeMyStores.indexOf(s) >= 0);
+  return targets.filter((s) => safeMyStores.indexOf(s) >= 0 || pastStores.indexOf(s) >= 0);
 }
 
 /** 店舗依頼: 自分の担当分がすべて完了済みか（リストの未実施/実施済み判定用） */
