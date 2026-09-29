@@ -4,7 +4,7 @@
  * - 入力ガード: 従業員データの管轄店舗・役職のプルダウン、店舗名の不一致を赤表示
  * - メニュー「To-Do管理」
  */
-var SHEET_SETUP_VERSION_ = '3';
+var SHEET_SETUP_VERSION_ = '5';
 var ANALYSIS_SHEETS_ = {
   tasks: '集計_依頼一覧',
   people: '集計_社員別',
@@ -32,28 +32,123 @@ function menuFormatSheets() {
   SpreadsheetApp.getActiveSpreadsheet().toast('見た目と入力ガードを整えました', 'To-Do管理', 5);
 }
 
-/** 未実施のバージョンなら 1 回だけ整備する（ページ表示・毎朝の処理から呼ぶ） */
+/**
+ * ページ表示から呼ぶ。重い整備はその場で行わず、約1分後に裏で動くジョブを予約するだけ
+ * （利用者の表示を待たせない）。
+ */
+function scheduleSheetSetupIfNeeded_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
+  var cache = CacheService.getScriptCache();
+  var key = 'sheetSetupScheduled_v' + SHEET_SETUP_VERSION_;
+  if (cache.get(key)) return;
+  cache.put(key, '1', 21600);
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'runSheetSetupJob';
+  });
+  if (!exists) ScriptApp.newTrigger('runSheetSetupJob').timeBased().after(60 * 1000).create();
+}
+
+/** 時間主導トリガーから 1 回だけ実行される */
+function runSheetSetupJob() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'runSheetSetupJob') ScriptApp.deleteTrigger(t);
+  });
+  autoRunSheetSetup_();
+}
+
+/** 未実施のバージョンなら 1 回だけ整備する。失敗しても再試行ループにせず、システムログに残す */
 function autoRunSheetSetup_() {
   var props = PropertiesService.getScriptProperties();
   if (!props.getProperty(NEW_ORG_DONE_PROP_)) return;
   if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
-  var cache = CacheService.getScriptCache();
-  if (cache.get('sheetSetupBackoff')) return;
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
   try {
     if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
-    refreshAnalysisSheets_();
-    applyInputGuards_();
-    formatAdminSheets_();
+    var errors = [];
+    [['エリア・テリトリー補正', healEmployeeAreaTerritory_], ['集計シート', refreshAnalysisSheets_], ['入力ガード', applyInputGuards_], ['シートの見た目', formatAdminSheets_]].forEach(function (step) {
+      try {
+        step[1]();
+      } catch (err) {
+        errors.push(step[0] + ': ' + String(err && err.stack ? err.stack : err));
+      }
+    });
     props.setProperty('SHEET_SETUP_VERSION', SHEET_SETUP_VERSION_);
-    props.deleteProperty('SHEET_SETUP_ERROR');
-  } catch (err) {
-    props.setProperty('SHEET_SETUP_ERROR', Utilities.formatDate(new Date(), 'JST', 'yyyy/MM/dd HH:mm') + ' ' + String(err && err.stack ? err.stack : err));
-    cache.put('sheetSetupBackoff', '1', 600);
+    if (errors.length) {
+      props.setProperty('SHEET_SETUP_ERROR', errors.join('\n').substring(0, 8000));
+      writeSystemLog_('シート整備 v' + SHEET_SETUP_VERSION_, errors.join('\n'));
+    } else {
+      props.deleteProperty('SHEET_SETUP_ERROR');
+      writeSystemLog_('シート整備 v' + SHEET_SETUP_VERSION_, 'OK');
+    }
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 管轄店舗（H列〜）がエリア(E)・テリトリー(F)の範囲外の人は、E/F に不足分を足す（削らない）。
+ * プロフィール編集の保存時に、範囲外の店舗が外れてしまうのを防ぐ。
+ */
+function healEmployeeAreaTerritory_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('従業員データ');
+  if (!sh || sh.getLastRow() < 2) return [];
+  var values = sh.getDataRange().getValues();
+  var meta = {};
+  getStoreData().forEach(function (s) { meta[s.storeName] = s; });
+  var areaNum = function (a) { var m = String(a).match(/第(\d+)エリア/); return m ? parseInt(m[1], 10) : 99; };
+  var fixed = [];
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (!String(row[1] || '').trim()) continue;
+    var stores = parseEmployeeStoresFromRow_(row).filter(function (s) { return !isHqStoreName_(s); });
+    if (!stores.length || isHqAreaName_(row[4])) continue;
+    var areas = String(row[4] || '').split(/[,，]/).map(function (a) { return a.trim(); }).filter(Boolean);
+    var terr = {};
+    var terrOrder = [];
+    String(row[5] || '').split(' / ').forEach(function (part) {
+      var idx = part.indexOf(':');
+      if (idx < 0) return;
+      var a = part.slice(0, idx).trim();
+      if (!a) return;
+      if (!terr[a]) { terr[a] = []; terrOrder.push(a); }
+      part.slice(idx + 1).split(/,\s*/).forEach(function (t) { t = t.trim(); if (t && terr[a].indexOf(t) < 0) terr[a].push(t); });
+    });
+    var changed = false;
+    stores.forEach(function (s) {
+      var m = meta[s];
+      if (!m || !m.area || isHqAreaName_(m.area)) return;
+      if (areas.indexOf(m.area) < 0) { areas.push(m.area); changed = true; }
+      if (!terr[m.area]) { terr[m.area] = []; terrOrder.push(m.area); }
+      if (m.territory && terr[m.area].indexOf(m.territory) < 0) { terr[m.area].push(m.territory); changed = true; }
+    });
+    if (!changed) continue;
+    areas.sort(function (a, b) { return areaNum(a) - areaNum(b); });
+    var newE = areas.join(', ');
+    var newF = terrOrder.slice().sort(function (a, b) { return areaNum(a) - areaNum(b); })
+      .filter(function (a) { return terr[a].length; })
+      .map(function (a) { return a + ': ' + terr[a].slice().sort().join(','); }).join(' / ');
+    sh.getRange(i + 1, 5, 1, 2).setValues([[newE, newF]]);
+    fixed.push(String(row[0] || row[1]) + '：' + String(row[4] || '') + ' / ' + String(row[5] || '') + ' → ' + newE + ' / ' + newF);
+  }
+  if (fixed.length) writeSystemLog_('エリア・テリトリー補正', fixed.join('\n'));
+  return fixed;
+}
+
+/** 非表示シート「システムログ」に記録（自動処理のエラー確認用） */
+function writeSystemLog_(where, message) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName('システムログ');
+    if (!sh) {
+      sh = ss.insertSheet('システムログ');
+      sh.appendRow(['日時', '処理', '内容']);
+      sh.hideSheet();
+    }
+    sh.appendRow([new Date(), where, String(message || '').substring(0, 45000)]);
+  } catch (e) {}
 }
 
 // ---------------------------------------------------------------

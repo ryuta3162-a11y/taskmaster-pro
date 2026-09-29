@@ -11,8 +11,7 @@ const UPLOAD_FOLDER_NAME = 'TaskMaster_アップロード画像';
 
 function doGet(e) {
   try { ensureTaskStoreSnapshots_(); } catch (eSnap) {}
-  try { autoRunNewOrgMigration_(); } catch (eMig) {}
-  try { autoRunSheetSetup_(); } catch (eSetup) {}
+  try { scheduleSheetSetupIfNeeded_(); } catch (eSetup) {}
   var page = e && e.parameter && e.parameter.page;
   var execBase = ScriptApp.getService().getUrl();
   var execBoot = '<script>window.__TM_EXEC_BASE__=' + JSON.stringify(execBase) + ';</script>';
@@ -721,7 +720,7 @@ function ensureTaskStoreSnapshots_() {
   var cache = CacheService.getScriptCache();
   if (cache.get('taskStoreSnapV1')) return 0;
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return 0;
+  if (!lock.tryLock(300)) return 0;
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('申請データ');
     if (!sheet) return 0;
@@ -2266,6 +2265,7 @@ function processDeadlineRemindersBatch() {
   try { ensureTaskStoreSnapshots_(); } catch (e) {}
   try { autoRunNewOrgMigration_(); } catch (eMig) {}
   try { autoRunSheetSetup_(); } catch (eSetup) {}
+  try { healEmployeeAreaTerritory_(); } catch (eHeal) {}
   try { refreshAnalysisSheets_(); } catch (eAna) {}
   var report = {
     runAt: new Date(),
