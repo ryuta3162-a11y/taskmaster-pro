@@ -681,6 +681,14 @@
     .an-grid2 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     @media (min-width: 1100px) { .an-grid2 { grid-template-columns: 1fr 1fr; } }
     .an-chart svg { width: 100%; height: auto; display: block; }
+    .an-tip {
+      position: fixed; z-index: 1000; pointer-events: none; max-width: 22rem;
+      background: #0f172a; color: #fff; border-radius: .6rem; padding: .6rem .8rem;
+      font-size: .76rem; font-weight: 600; line-height: 1.6; white-space: pre-line;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    }
+    [data-tip] { cursor: help; }
+    .an-side dt[data-tip] { text-decoration: underline dotted #cbd5e1; text-underline-offset: 3px; }
     .an-trend { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.5rem; }
     @media (max-width: 760px) { .an-trend { grid-template-columns: 1fr; } }
     .an-trend-pane { border: 1px solid #eef2f7; border-radius: .9rem; padding: .8rem .9rem .7rem; }
@@ -1782,12 +1790,21 @@
       function anTrendSvg() {
         var by = anUnitsByTask();
         var months = {};
+        var today = new Date();
+        var todayStr = today.getFullYear() + '-' + anPad(today.getMonth() + 1) + '-' + anPad(today.getDate());
         AN.data.tasks.forEach(function (t, ti) {
           if (AN.kind !== 'all' && t.k !== AN.kind) return;
           var k = anKeyOf('month', new Date(t.c));
-          var m = months[k] || (months[k] = { employee: 0, store: 0, tf: 0, n: 0, units: 0, done: 0, onTime: 0 });
+          var m = months[k] || (months[k] = { employee: 0, store: 0, tf: 0, n: 0, units: 0, done: 0, onTime: 0, notDueTasks: 0, notDueOpen: 0, dueUnits: 0, dueDone: 0 });
           m[t.k]++; m.n++;
-          by[ti].forEach(function (u) { if (anUnitOk(u, t)) { m.units++; m.done += u[3]; m.onTime += u[4]; } });
+          var pastDue = !t.d || t.d < todayStr;
+          if (!pastDue) m.notDueTasks++;
+          by[ti].forEach(function (u) {
+            if (!anUnitOk(u, t)) return;
+            m.units++; m.done += u[3]; m.onTime += u[4];
+            if (pastDue) { m.dueUnits++; m.dueDone += u[3]; }
+            else if (!u[3]) m.notDueOpen++;
+          });
         });
         var keys = Object.keys(months).sort();
         if (!keys.length) return '<div class="an-empty">データがありません</div>';
@@ -1805,8 +1822,58 @@
           '<div class="an-trend-pane"><h4>依頼数</h4>' + anCountSvg(all, months) +
           '<div class="an-legend"><span><i style="background:' + AN_KIND.employee.color + '"></i>社員依頼</span><span><i style="background:' + AN_KIND.store.color + '"></i>店舗依頼</span><span><i style="background:' + AN_KIND.tf.color + '"></i>TF依頼</span></div></div>' +
           '<div class="an-trend-pane"><h4>実施率</h4>' + anRateSvg(all, months) +
-          '<div class="an-legend"><span><i style="background:#0f172a;height:3px;vertical-align:3px"></i>実施率（完了した割合）</span><span><i style="background:#94a3b8;height:3px;vertical-align:3px"></i>期限内に完了した割合</span></div></div>' +
+          '<div class="an-legend"><span><i style="background:#0f172a;height:3px;vertical-align:3px"></i>実施率（完了した割合）</span><span><i style="background:#94a3b8;height:3px;vertical-align:3px"></i>期限内に完了した割合</span>' +
+          '<span>＊＝期限がまだ来ていない依頼を含む（これから上がります）</span></div></div>' +
           '</div>';
+      }
+
+      (function initTips() {
+        var tip = document.createElement('div');
+        tip.className = 'an-tip';
+        tip.hidden = true;
+        document.body.appendChild(tip);
+        var place = function (e) {
+          var x = e.clientX + 14, y = e.clientY + 14;
+          var w = tip.offsetWidth, h = tip.offsetHeight;
+          if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
+          if (y + h > window.innerHeight - 8) y = e.clientY - h - 14;
+          tip.style.left = Math.max(8, x) + 'px';
+          tip.style.top = Math.max(8, y) + 'px';
+        };
+        document.addEventListener('mouseover', function (e) {
+          var el = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+          if (!el) { tip.hidden = true; return; }
+          tip.textContent = el.getAttribute('data-tip');
+          tip.hidden = false;
+          place(e);
+        });
+        document.addEventListener('mousemove', function (e) { if (!tip.hidden) place(e); });
+        document.addEventListener('scroll', function () { tip.hidden = true; }, true);
+      })();
+
+      function anMonthName(k) {
+        var p = k.split('-');
+        return p[0] + '年' + Number(p[1]) + '月';
+      }
+
+      function anRateTip(k, m) {
+        var pct = function (a, b) { return b ? Math.round(a / b * 100) + '%' : '—'; };
+        var lines = [
+          anMonthName(k) + 'に出した依頼（' + m.n + '件）',
+          '',
+          '実施率 ' + pct(m.done, m.units),
+          '＝ 完了 ' + m.done + ' ÷ 依頼先 ' + m.units + '（人・店舗ののべ数）',
+          '',
+          '期限内に完了した割合 ' + pct(m.onTime, m.units),
+          '＝ 期限内に完了 ' + m.onTime + ' ÷ 依頼先 ' + m.units,
+          '',
+          '未完了 ' + (m.units - m.done)
+        ];
+        if (m.notDueTasks) {
+          lines.push('うち期限がまだ来ていない依頼の分 ' + m.notDueOpen + '（' + m.notDueTasks + '件の依頼）');
+          lines.push('期限が過ぎた依頼だけで見た実施率 ' + pct(m.dueDone, m.dueUnits) + '（' + m.dueDone + ' ÷ ' + m.dueUnits + '）');
+        }
+        return lines.join('\n');
       }
 
       function anMonthSelected(k) {
@@ -1840,6 +1907,10 @@
           });
           if (m.n) s += '<text x="' + cx + '" y="' + (yb - 7) + '" font-size="13" font-weight="800" fill="#0f172a" text-anchor="middle">' + m.n + '件</text>';
           s += anMonthAxis(all, i, cx, H - B + 17);
+          if (m.n) {
+            var tip = anMonthName(k) + 'の依頼数 ' + m.n + '件\n社員依頼 ' + m.employee + '件 ／ 店舗依頼 ' + m.store + '件 ／ TF依頼 ' + m.tf + '件';
+            s += '<rect x="' + (L + cw * i) + '" y="0" width="' + cw + '" height="' + H + '" fill="transparent" data-tip="' + esc(tip) + '"/>';
+          }
         });
         return s + '</svg>';
       }
@@ -1859,10 +1930,15 @@
           var cx = L + cw * i + cw / 2;
           if (anMonthSelected(k)) s += '<rect x="' + (L + cw * i + 2) + '" y="4" width="' + (cw - 4) + '" height="' + (H - 8) + '" rx="8" fill="#f1f5f9"/>';
           if (m && m.units) {
-            done.push([cx, Math.round(m.done / m.units * 100)]);
+            done.push([cx, Math.round(m.done / m.units * 100), m.notDueTasks ? '＊' : '']);
             onTime.push([cx, Math.round(m.onTime / m.units * 100)]);
           }
           s += anMonthAxis(all, i, cx, H - B + 17);
+        });
+        var hover = '';
+        all.forEach(function (k, i) {
+          var m = months[k];
+          if (m && m.units) hover += '<rect x="' + (L + cw * i) + '" y="0" width="' + cw + '" height="' + H + '" fill="transparent" data-tip="' + esc(anRateTip(k, m)) + '"/>';
         });
         var line = function (pts, color, width) {
           if (pts.length > 1) s += '<polyline fill="none" stroke="' + color + '" stroke-width="' + width + '" stroke-linejoin="round" points="' + pts.map(function (p) { return p[0] + ',' + yOf(p[1]); }).join(' ') + '"/>';
@@ -1877,9 +1953,9 @@
         done.forEach(function (p, i) {
           var above = p[1] >= onTime[i][1];
           s += '<circle cx="' + p[0] + '" cy="' + yOf(p[1]) + '" r="4" fill="#0f172a"/>';
-          s += '<text x="' + p[0] + '" y="' + (yOf(p[1]) + (above ? -10 : 17)) + '" font-size="12.5" font-weight="800" fill="#0f172a" text-anchor="middle">' + p[1] + '%</text>';
+          s += '<text x="' + p[0] + '" y="' + (yOf(p[1]) + (above ? -10 : 17)) + '" font-size="12.5" font-weight="800" fill="#0f172a" text-anchor="middle">' + p[1] + '%' + p[2] + '</text>';
         });
-        return s + '</svg>';
+        return s + hover + '</svg>';
       }
 
       function anSortTh(table, key, label, num) {
@@ -1899,8 +1975,8 @@
         var max = 0; rows.forEach(function (r) { if (r.tasks > max) max = r.tasks; });
         var show = AN.reqAll ? sorted : sorted.slice(0, 10);
         var h = '<div class="an-tablewrap"><table class="an-table"><thead><tr><th class="rk">#</th>' +
-          anSortTh('req', 'name', '依頼者') + anSortTh('req', 'tasks', '依頼数') + anSortTh('req', 'units', '対象（延べ）', true) +
-          anSortTh('req', 'rate', '実施率', true) + anSortTh('req', 'onTimeRate', '期限内', true) + anSortTh('req', 'med', '完了まで（中央値）', true) +
+          anSortTh('req', 'name', '投稿者') + anSortTh('req', 'tasks', '投稿数') + anSortTh('req', 'units', '届け先（のべ）', true) +
+          anSortTh('req', 'rate', '完了率', true) + anSortTh('req', 'onTimeRate', '期限内', true) + anSortTh('req', 'med', '完了まで（中央値）', true) +
           '</tr></thead><tbody>';
         show.forEach(function (r, i) {
           var mix = ['employee', 'store', 'tf'].filter(function (k) { return r[k]; }).map(function (k) { return AN_KIND[k].label + r[k]; }).join(' / ');
@@ -1921,13 +1997,13 @@
           if (q && (r.name + ' ' + r.team + ' ' + r.area).indexOf(q) < 0) return false;
           return true;
         });
-        if (!list.length) return '<div class="an-empty">該当する実施者はいません</div>';
+        if (!list.length) return '<div class="an-empty">該当するリストチェック者はいません</div>';
         var sorted = anSortRows(list, AN.execSort);
         var max = 0; list.forEach(function (r) { if (r.handled > max) max = r.handled; });
         var show = AN.execAll ? sorted : sorted.slice(0, 15);
         var h = '<div class="an-tablewrap"><table class="an-table"><thead><tr><th class="rk">#</th>' +
-          anSortTh('exec', 'name', '実施者') + anSortTh('exec', 'handled', '対応件数') + anSortTh('exec', 'targets', '依頼された', true) +
-          anSortTh('exec', 'pending', '未実施', true) + anSortTh('exec', 'rate', '実施率', true) + anSortTh('exec', 'onTimeRate', '期限内', true) +
+          anSortTh('exec', 'name', 'リストチェック者') + anSortTh('exec', 'handled', 'チェック数') + anSortTh('exec', 'targets', '届いた依頼', true) +
+          anSortTh('exec', 'pending', '未実施', true) + anSortTh('exec', 'rate', '完了率', true) + anSortTh('exec', 'onTimeRate', '期限内', true) +
           anSortTh('exec', 'storeOps', '店舗分の完了', true) + anSortTh('exec', 'med', '完了まで（中央値）', true) + '</tr></thead><tbody>';
         show.forEach(function (r, i) {
           h += '<tr><td class="rk">' + (i + 1) + '</td><td><div class="nm">' + esc(r.name) + (r.reg ? '' : ' <span class="sub">（未登録）</span>') + '</div><div class="sub">' +
@@ -2010,7 +2086,7 @@
 
         // 推移
         h += '<div class="an-card an-chart"><h3>月別の推移 <span class="tag">直近12か月</span></h3>' +
-          '<p class="an-lead">左は月ごとの依頼数、右はその月の依頼がどれだけ完了したかです。選択中の月は背景がグレーになります。</p>' +
+          '<p class="an-lead">左は月ごとの依頼数、右はその月に出した依頼がどれだけ完了したかです。グラフにカーソルを合わせると、計算式と内訳が出ます。</p>' +
           anTrendSvg() + '</div>';
 
         // 依頼者目線 vs 実施者目線
@@ -2022,33 +2098,36 @@
         var reqByPi = {};
         reqRows.forEach(function (r) { if (r.pi >= 0) reqByPi[r.pi] = r; });
         var both = execRows.filter(function (r) { return reqByPi[r.pi]; }).length;
-        h += '<div class="an-card"><h3>依頼者目線と実施者目線の比較</h3>' +
-          '<p class="an-lead">同じ期間を「依頼を出した側」と「依頼を受けて対応した側」の両方から見た数字です。</p><div class="an-vs">';
-        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-500)"></span>依頼者目線（依頼した側）</h4><dl>' +
-          '<dt>依頼した人</dt><dd>' + A.requesterCount + '名</dd>' +
-          '<dt>依頼数</dt><dd>' + A.tasks + '件</dd>' +
-          '<dt>1人あたりの依頼数</dt><dd>' + (avgPerReq != null ? avgPerReq + '件' : '—') + '</dd>' +
-          '<dt>1依頼あたりの対象</dt><dd>' + (A.tasks ? Math.round(A.units / A.tasks * 10) / 10 : '—') + '件</dd>' +
-          '<dt>出した依頼の実施率</dt><dd>' + anPill(A.rate) + '</dd>' +
-          '<dt>実施率90%以上の依頼者</dt><dd>' + reqGood + ' / ' + reqRows.length + '名</dd></dl></div>';
-        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-300)"></span>実施者目線（対応した側）</h4><dl>' +
-          '<dt>依頼を受けた人</dt><dd>' + execPersonal.length + '名</dd>' +
-          '<dt>対応した人（店舗分を含む）</dt><dd>' + A.executorCount + '名</dd>' +
-          '<dt>1人あたりの依頼された数</dt><dd>' + (execPersonal.length ? Math.round(execTargets / execPersonal.length * 10) / 10 : '—') + '件</dd>' +
-          '<dt>個人あての実施率</dt><dd>' + anPill(anPct(execDone, execTargets)) + '</dd>' +
-          '<dt>全件完了した人</dt><dd>' + fullDone + ' / ' + execPersonal.length + '名</dd>' +
-          '<dt>依頼も対応もした人</dt><dd>' + both + '名</dd></dl></div>';
+        var perTaskUnits = A.tasks ? Math.round(A.units / A.tasks * 10) / 10 : null;
+        var perExec = execPersonal.length ? Math.round(execTargets / execPersonal.length * 10) / 10 : null;
+        var dtTip = function (label, tip) { return '<dt data-tip="' + esc(tip) + '">' + label + '</dt>'; };
+        h += '<div class="an-card"><h3>投稿した側・チェックした側の数字</h3>' +
+          '<p class="an-lead">同じ期間を、依頼を「投稿した側」と、届いた依頼を「チェックした側」から見た数字です。項目名にカーソルを合わせると計算方法が出ます。</p><div class="an-vs">';
+        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-700)"></span>投稿した側</h4><dl>' +
+          dtTip('投稿した人', 'この期間に依頼を1件以上投稿した人の数') + '<dd>' + A.requesterCount + '名</dd>' +
+          dtTip('投稿数', '社員依頼 ' + A.kinds.employee + '件 ＋ 店舗依頼 ' + A.kinds.store + '件 ＋ TF依頼 ' + A.kinds.tf + '件') + '<dd>' + A.tasks + '件</dd>' +
+          dtTip('1人あたりの投稿数', '投稿数 ' + A.tasks + '件 ÷ 投稿した人 ' + A.requesterCount + '名') + '<dd>' + (avgPerReq != null ? avgPerReq + '件' : '—') + '</dd>' +
+          dtTip('1投稿あたりの届け先', '届け先ののべ数 ' + A.units + '（人・店舗）÷ 投稿数 ' + A.tasks + '件') + '<dd>' + (perTaskUnits != null ? perTaskUnits : '—') + '</dd>' +
+          dtTip('投稿の完了率', '完了 ' + A.done + ' ÷ 届け先ののべ数 ' + A.units) + '<dd>' + anPill(A.rate) + '</dd>' +
+          dtTip('完了率90%以上の投稿者', '自分の投稿の完了率が90%以上の人 ' + reqGood + '名 ÷ 投稿した人 ' + reqRows.length + '名') + '<dd>' + reqGood + ' / ' + reqRows.length + '名</dd></dl></div>';
+        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-300)"></span>チェックした側</h4><dl>' +
+          dtTip('依頼が届いた人', '社員依頼・TF依頼で、自分あてに依頼が届いた人の数（店舗依頼は含みません）') + '<dd>' + execPersonal.length + '名</dd>' +
+          dtTip('リストチェックした人', '1件以上「完了」を押した人の数（店舗依頼で店舗分を完了にした人も含む）') + '<dd>' + A.executorCount + '名</dd>' +
+          dtTip('1人あたりに届いた依頼', '自分あてに届いた依頼ののべ数 ' + execTargets + '件 ÷ 依頼が届いた人 ' + execPersonal.length + '名') + '<dd>' + (perExec != null ? perExec + '件' : '—') + '</dd>' +
+          dtTip('自分あての依頼の完了率', '完了 ' + execDone + '件 ÷ 自分あてに届いた依頼ののべ数 ' + execTargets + '件') + '<dd>' + anPill(anPct(execDone, execTargets)) + '</dd>' +
+          dtTip('すべて完了した人', '届いた依頼をすべて完了にした人 ' + fullDone + '名 ÷ 依頼が届いた人 ' + execPersonal.length + '名') + '<dd>' + fullDone + ' / ' + execPersonal.length + '名</dd>' +
+          dtTip('投稿もチェックもした人', '投稿した人のうち、リストチェックもした人の数') + '<dd>' + both + '名</dd></dl></div>';
         h += '</div></div>';
 
         // ランキング
-        h += '<div class="an-card"><h3>依頼者ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
-          '<p class="an-lead">誰がどれだけ依頼したか、その依頼がどれだけ実施されたか。列名をクリックで並び替えできます。</p>' +
+        h += '<div class="an-card"><h3>投稿数ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
+          '<p class="an-lead">誰がどれだけ投稿したか、その投稿がどれだけ完了したか。列名を押すと並び替えできます。</p>' +
           '<div id="anReqWrap">' + anRequesterTable(reqRows) + '</div></div>';
 
         var roles = {};
         execRows.forEach(function (r) { if (r.role) roles[r.role] = 1; });
-        h += '<div class="an-card"><h3>実施者ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
-          '<p class="an-lead">誰がどれだけ対応したか。「対応件数」＝自分あての依頼の完了数＋店舗依頼で自分が完了操作した数。実施率・期限内は自分あての依頼で計算しています。</p>' +
+        h += '<div class="an-card"><h3>チェック数ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
+          '<p class="an-lead">誰がどれだけリストチェックしたか。「チェック数」＝自分あての依頼で完了を押した数＋店舗依頼で自分が完了にした店舗数。完了率・期限内は自分あての依頼で計算しています。</p>' +
           '<div class="an-row" style="margin-bottom:.6rem"><input type="search" class="an-search" id="anExecQ" placeholder="名前・エリアで検索" value="' + esc(AN.execQuery) + '"/>' +
           '<select class="an-search" id="anExecRole" style="min-width:8rem"><option value="">役職：すべて</option>' +
           Object.keys(roles).sort().map(function (r) { return '<option' + (AN.execRole === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>' +
