@@ -605,6 +605,7 @@ function updateEmployee(empData) {
     if (built.error) return { status: 'error', message: built.error };
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(20000)) return { status: 'error', message: EMPLOYEE_BUSY_MESSAGE_ };
+    var changeLog = null;
     try {
       var values = sheet.getDataRange().getValues();
       for (var i = 1; i < values.length; i++) {
@@ -620,15 +621,37 @@ function updateEmployee(empData) {
         if (oldStoreCols > newStoreCols) {
           sheet.getRange(rowNum, 8 + newStoreCols, 1, oldStoreCols - newStoreCols).clearContent();
         }
-        return { status: 'success' };
+        changeLog = describeEmployeeChange_(oldRow, built.row);
+        break;
       }
     } finally {
       lock.releaseLock();
     }
-    return { status: 'error', message: '登録情報が見つかりません' };
+    if (changeLog === null) return { status: 'error', message: '登録情報が見つかりません' };
+    writeSystemLog_('登録内容の変更', changeLog);
+    return { status: 'success' };
   } catch (e) {
     return { status: 'error', message: e.toString() };
   }
+}
+
+/** 登録内容の変更を「名前（メール）: 項目 旧 → 新」の形で残す（変更なしで保存した場合もその旨を残す） */
+function describeEmployeeChange_(oldRow, newRow) {
+  var who = String(newRow[0] || '') + '（' + String(newRow[1] || '') + '）';
+  var labels = { 2: 'チーム', 4: 'エリア', 5: 'テリトリー', 6: '役職' };
+  var diffs = [];
+  Object.keys(labels).forEach(function (k) {
+    var a = String(oldRow[k] || '').trim();
+    var b = String(newRow[k] || '').trim();
+    if (a !== b) diffs.push(labels[k] + ': ' + (a || '（空）') + ' → ' + (b || '（空）'));
+  });
+  var oldStores = parseEmployeeStoresFromRow_(oldRow);
+  var newStores = newRow.slice(EMPLOYEE_STORE_COL_START).map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+  var added = newStores.filter(function (s) { return oldStores.indexOf(s) < 0; });
+  var removed = oldStores.filter(function (s) { return newStores.indexOf(s) < 0; });
+  if (added.length) diffs.push('管轄店舗 追加: ' + added.join('、'));
+  if (removed.length) diffs.push('管轄店舗 削除: ' + removed.join('、'));
+  return who + '\n' + (diffs.length ? diffs.join('\n') : '変更なしで保存');
 }
 
 // ==============================================================
