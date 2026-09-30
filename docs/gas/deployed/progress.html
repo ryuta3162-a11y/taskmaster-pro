@@ -163,7 +163,7 @@
     }
     .panel-frame::after {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-      background: linear-gradient(to bottom, #34d399, var(--acc-500), var(--acc-700));
+      background: linear-gradient(to bottom, var(--acc-300), var(--acc-500), var(--acc-700));
     }
     .panel-inner { position: relative; padding: 1rem 1rem 1rem 1.35rem; }
     .team-row {
@@ -226,7 +226,7 @@
     }
     .badge-run { background: var(--acc-50); color: var(--acc-900); border: 1px solid var(--acc-200); }
     .badge-ok { background: #f1f5f9; color: #475569; }
-    .badge-late { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .badge-late { background: #0f172a; color: #fff; border: 1px solid #0f172a; }
     .badge-kind-tf { background: linear-gradient(to right, var(--acc-600), var(--acc-700)); color: #fff; }
     .task-title { font-size: var(--tm-title); font-weight: 700; line-height: 1.55; margin: 0 0 .25rem; word-break: break-word; white-space: pre-wrap; color: #0f172a; }
     .task-meta { font-size: var(--tm-meta); color: #64748b; font-weight: 500; }
@@ -283,8 +283,8 @@
     .recipient-name { font-size: var(--tm-body); font-weight: 600; }
     .recipient-sub { font-size: .68rem; color: #64748b; margin-top: .15rem; }
     .status-pill { font-size: var(--tm-badge); font-weight: 700; padding: .15rem .45rem; border-radius: .35rem; flex-shrink: 0; }
-    .status-pill.ok { background: #ecfdf5; color: #047857; }
-    .status-pill.ng { background: #fff1f2; color: #be123c; }
+    .status-pill.ok { background: #f1f5f9; color: #0f172a; }
+    .status-pill.ng { background: #0f172a; color: #fff; }
 
     .expand-toolbar {
       display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem;
@@ -335,7 +335,7 @@
     .loading { color: var(--acc-600); }
     .err {
       padding: 1.5rem; text-align: center; font-weight: 600; color: #e11d48;
-      background: #fff; border-radius: 1rem; border: 1px solid #fecaca;
+      background: #fff; border-radius: 1rem; border: 1px solid #cbd5e1;
     }
   </style>
 </head>

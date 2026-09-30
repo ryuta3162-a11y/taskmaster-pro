@@ -239,7 +239,7 @@
     }
     .panel-frame::after {
       content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-      background: linear-gradient(to bottom, #34d399, var(--acc-500), var(--acc-700));
+      background: linear-gradient(to bottom, var(--acc-300), var(--acc-500), var(--acc-700));
     }
     .panel-inner { position: relative; padding: 1rem 1rem 1rem 1.35rem; }
     .chip-arena {
@@ -370,13 +370,13 @@
     .done-rank {
       display: flex; align-items: center; gap: .55rem;
       padding: .5rem .7rem; border-radius: .65rem;
-      background: #f0fdf4; border: 1px solid #bbf7d0;
+      background: #f8fafc; border: 1px solid #e2e8f0;
       font-size: .88rem; font-weight: 700; color: #0f172a; line-height: 1.35;
     }
     .done-rank-no {
       flex-shrink: 0; min-width: 1.9rem; height: 1.9rem; padding: 0 .3rem; border-radius: 999px;
       display: inline-flex; align-items: center; justify-content: center;
-      background: #16a34a; color: #fff; font-size: .78rem; font-weight: 800;
+      background: var(--acc-700); color: #fff; font-size: .78rem; font-weight: 800;
     }
     .done-rank-body { min-width: 0; display: flex; flex-direction: column; }
     .done-rank-name { word-break: break-word; }
@@ -465,10 +465,10 @@
       text-align: center;
     }
     .effect-stage.is-overdue {
-      background: #fff1f2;
-      border-color: #fecdd3;
+      background: #f1f5f9;
+      border-color: #cbd5e1;
     }
-    .effect-stage.is-overdue .pct { color: #be123c; }
+    .effect-stage.is-overdue .pct { color: #0f172a; }
     .effect-stage.is-na .pct { color: #94a3b8; font-size: 1.35rem; }
     .effect-stage .lbl {
       display: block; font-size: .68rem; font-weight: 800;
@@ -508,8 +508,8 @@
     .person-table td.num {
       font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
     }
-    .person-table td.num.over { color: #be123c; }
-    .person-table td.num.ok { color: #047857; }
+    .person-table td.num.over { color: #0f172a; font-weight: 800; }
+    .person-table td.num.ok { color: #64748b; }
     .overdue-list {
       margin: 0; padding: 0; list-style: none;
       display: grid; gap: .35rem;
@@ -518,7 +518,7 @@
     .overdue-list li {
       display: flex; flex-wrap: wrap; gap: .25rem .75rem;
       padding: .4rem .55rem; border-radius: .55rem;
-      background: #fff7f7; border: 1px solid #fecaca;
+      background: #f8fafc; border: 1px solid #e2e8f0;
       font-size: .78rem;
     }
     .overdue-list .nm { font-weight: 800; color: #0f172a; }
@@ -552,7 +552,7 @@
     }
     .filter-actions .btn-link { font-size: .72rem; }
     .person-table td.meta { font-size: .7rem; color: #64748b; font-weight: 600; }
-    .effect-stage.lift .pct { color: #047857; }
+    .effect-stage.lift .pct { color: #0f172a; }
     .effect-meta-row {
       display: flex; flex-wrap: wrap; gap: .35rem .75rem;
       margin-top: .85rem; font-size: .72rem; font-weight: 700; color: #64748b;
@@ -577,10 +577,10 @@
     }
     .lift-pill {
       font-size: .7rem; font-weight: 800; padding: .25rem .55rem;
-      border-radius: .5rem; background: #ecfdf5; color: #047857;
+      border-radius: .5rem; background: #f1f5f9; color: #0f172a;
     }
     .lift-pill.flat { background: #f1f5f9; color: #64748b; }
-    .lift-pill.down { background: #fff1f2; color: #be123c; }
+    .lift-pill.down { background: #334155; color: #fff; }
     .effect-wave-list {
       margin: .55rem 0 0; padding: 0; list-style: none;
       display: flex; flex-wrap: wrap; gap: .35rem;
@@ -614,9 +614,9 @@
     }
     .attach-link-url:hover { background: var(--acc-100); }
     .attach-link-file {
-      background: #fffbeb; color: #92400e; border-color: #fde68a;
+      background: #f8fafc; color: #334155; border-color: #e2e8f0;
     }
-    .attach-link-file:hover { background: #fef3c7; }
+    .attach-link-file:hover { background: #f1f5f9; }
     .attach-thumb {
       display: flex; flex-direction: column; align-items: center; gap: .35rem;
       width: 5.5rem; padding: .35rem; border-radius: .75rem;
@@ -674,13 +674,17 @@
     .an-kpi .v small { font-size: .8rem; font-weight: 700; margin-left: .15rem; opacity: .7; }
     .an-kpi .s { font-size: .7rem; color: #94a3b8; font-weight: 600; }
     .an-delta { display: inline-block; font-size: .68rem; font-weight: 800; padding: .05rem .4rem; border-radius: 999px; margin-left: .3rem; vertical-align: middle; }
-    .an-delta.up { background: #dcfce7; color: #166534; }
-    .an-delta.down { background: #fee2e2; color: #991b1b; }
+    .an-delta.up { background: #f1f5f9; color: #0f172a; }
+    .an-delta.down { background: #334155; color: #fff; }
     .an-delta.flat { background: #f1f5f9; color: #64748b; }
     .an-kpi.hero .an-delta { background: rgba(255,255,255,.2); color: #fff; }
     .an-grid2 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     @media (min-width: 1100px) { .an-grid2 { grid-template-columns: 1fr 1fr; } }
     .an-chart svg { width: 100%; height: auto; display: block; }
+    .an-trend { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.5rem; }
+    @media (max-width: 760px) { .an-trend { grid-template-columns: 1fr; } }
+    .an-trend-pane { border: 1px solid #eef2f7; border-radius: .9rem; padding: .8rem .9rem .7rem; }
+    .an-trend-pane h4 { margin: 0 0 .3rem; font-size: .82rem; font-weight: 800; color: #334155; }
     .an-legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .72rem; color: #475569; font-weight: 600; margin-top: .5rem; }
     .an-legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: .2rem; margin-right: .3rem; vertical-align: -1px; }
     .an-vs { display: grid; grid-template-columns: 1fr; gap: .75rem; }
@@ -708,9 +712,9 @@
     .an-bar { flex: 1; height: .45rem; background: #f1f5f9; border-radius: 999px; overflow: hidden; min-width: 3rem; }
     .an-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--acc-500); }
     .an-pill { display: inline-block; min-width: 3.2rem; text-align: center; padding: .12rem .45rem; border-radius: 999px; font-weight: 800; font-size: .74rem; }
-    .an-pill.g { background: #dcfce7; color: #166534; }
-    .an-pill.y { background: #fef3c7; color: #92400e; }
-    .an-pill.r { background: #fee2e2; color: #991b1b; }
+    .an-pill.g { background: #e2e8f0; color: #0f172a; }
+    .an-pill.y { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+    .an-pill.r { background: #0f172a; color: #fff; }
     .an-pill.n { background: #f1f5f9; color: #94a3b8; }
     .an-more { margin-top: .6rem; border: none; background: transparent; color: var(--acc-700); font: inherit; font-size: .8rem; font-weight: 800; cursor: pointer; }
     .an-search { height: 2.1rem; border-radius: .6rem; border: 1px solid #e2e8f0; padding: 0 .7rem; font: inherit; font-size: .8rem; min-width: 10rem; }
@@ -1580,7 +1584,7 @@
         reqSort: { k: 'tasks', d: -1 }, execSort: { k: 'handled', d: -1 },
         reqAll: false, execAll: false, execQuery: '', execRole: ''
       };
-      var AN_KIND = { employee: { label: '社員', color: 'var(--acc-500)' }, store: { label: '店舗', color: '#f59e0b' }, tf: { label: 'TF', color: '#10b981' } };
+      var AN_KIND = { employee: { label: '社員', color: 'var(--acc-700)' }, store: { label: '店舗', color: 'var(--acc-400)' }, tf: { label: 'TF', color: 'var(--acc-200)' } };
 
       function ensureAnalytics() {
         if (AN.data || AN.loading) return;
@@ -1797,50 +1801,85 @@
           if (all.length > 36) break;
         }
         if (all.length > 12) all = all.slice(all.length - 12);
-        while (all.length < 6) {
-          var f0 = all[0].split('-').map(Number);
-          all.unshift(f0[1] === 1 ? (f0[0] - 1) + '-12' : f0[0] + '-' + anPad(f0[1] - 1));
-        }
-        var W = 1000, H = 260, L = 36, R = 44, T = 22, B = 34;
+        return '<div class="an-trend">' +
+          '<div class="an-trend-pane"><h4>依頼数</h4>' + anCountSvg(all, months) +
+          '<div class="an-legend"><span><i style="background:' + AN_KIND.employee.color + '"></i>社員依頼</span><span><i style="background:' + AN_KIND.store.color + '"></i>店舗依頼</span><span><i style="background:' + AN_KIND.tf.color + '"></i>TF依頼</span></div></div>' +
+          '<div class="an-trend-pane"><h4>実施率</h4>' + anRateSvg(all, months) +
+          '<div class="an-legend"><span><i style="background:#0f172a;height:3px;vertical-align:3px"></i>実施率（完了した割合）</span><span><i style="background:#94a3b8;height:3px;vertical-align:3px"></i>期限内に完了した割合</span></div></div>' +
+          '</div>';
+      }
+
+      function anMonthSelected(k) {
+        return AN.unit !== 'all' && anKeyOf(AN.unit, new Date(Number(k.split('-')[0]), Number(k.split('-')[1]) - 1, 15)) === AN.key;
+      }
+
+      function anMonthAxis(all, i, x, y) {
+        var p = all[i].split('-');
+        var sel = anMonthSelected(all[i]);
+        var s = '<text x="' + x + '" y="' + y + '" font-size="12" fill="' + (sel ? '#0f172a' : '#64748b') + '" font-weight="' + (sel ? 800 : 600) + '" text-anchor="middle">' + Number(p[1]) + '月</text>';
+        if (i === 0 || p[1] === '01') s += '<text x="' + x + '" y="' + (y + 14) + '" font-size="10" fill="#94a3b8" text-anchor="middle">' + p[0] + '年</text>';
+        return s;
+      }
+
+      function anCountSvg(all, months) {
+        var W = 480, H = 240, L = 12, R = 12, T = 26, B = 40;
         var max = 1;
         all.forEach(function (k) { if (months[k] && months[k].n > max) max = months[k].n; });
-        max = Math.ceil(max / 5) * 5 || 5;
-        var cw = (W - L - R) / all.length, bw = Math.min(46, cw * .56);
-        var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="月別推移">';
-        for (var g = 0; g <= 4; g++) {
-          var gy = T + (H - T - B) * g / 4;
-          s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + gy + '" y2="' + gy + '" stroke="#eef2f7"/>';
-          s += '<text x="' + (L - 6) + '" y="' + (gy + 4) + '" font-size="10" fill="#94a3b8" text-anchor="end">' + Math.round(max * (4 - g) / 4) + '</text>';
-          s += '<text x="' + (W - R + 6) + '" y="' + (gy + 4) + '" font-size="10" fill="#94a3b8">' + (100 - g * 25) + '%</text>';
-        }
-        var pts = [];
+        var cw = (W - L - R) / all.length, bw = Math.min(44, cw * .6);
+        var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="月別の依頼数">';
+        s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + (H - B) + '" y2="' + (H - B) + '" stroke="#e2e8f0"/>';
         all.forEach(function (k, i) {
-          var m = months[k] || { employee: 0, store: 0, tf: 0, n: 0, units: 0 };
-          var x = L + cw * i + (cw - bw) / 2, yb = H - B;
-          var sel = AN.unit !== 'all' && anKeyOf(AN.unit, new Date(Number(k.split('-')[0]), Number(k.split('-')[1]) - 1, 15)) === AN.key;
-          if (sel) s += '<rect x="' + (L + cw * i + 2) + '" y="' + T + '" width="' + (cw - 4) + '" height="' + (H - T - B) + '" rx="8" fill="var(--acc-50)"/>';
+          var m = months[k] || { employee: 0, store: 0, tf: 0, n: 0 };
+          var cx = L + cw * i + cw / 2, x = cx - bw / 2, yb = H - B;
+          if (anMonthSelected(k)) s += '<rect x="' + (L + cw * i + 2) + '" y="4" width="' + (cw - 4) + '" height="' + (H - 8) + '" rx="8" fill="#f1f5f9"/>';
           ['employee', 'store', 'tf'].forEach(function (kk) {
             if (!m[kk]) return;
             var h = (H - T - B) * m[kk] / max;
             yb -= h;
-            s += '<rect x="' + x + '" y="' + yb + '" width="' + bw + '" height="' + h + '" fill="' + AN_KIND[kk].color + '" opacity=".9"><title>' + k + ' ' + AN_KIND[kk].label + ' ' + m[kk] + '件</title></rect>';
+            s += '<rect x="' + x + '" y="' + yb + '" width="' + bw + '" height="' + h + '" fill="' + AN_KIND[kk].color + '"><title>' + k + ' ' + AN_KIND[kk].label + ' ' + m[kk] + '件</title></rect>';
           });
-          if (m.n) s += '<text x="' + (x + bw / 2) + '" y="' + (H - B - 6) + '" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">' + m.n + '件</text>';
-          var p = k.split('-');
-          s += '<text x="' + (L + cw * i + cw / 2) + '" y="' + (H - B + 16) + '" font-size="10.5" fill="' + (sel ? 'var(--acc-700)' : '#64748b') + '" font-weight="' + (sel ? 800 : 600) + '" text-anchor="middle">' + Number(p[1]) + '月</text>';
-          if (i === 0 || p[1] === '01' || p[1] === '04') s += '<text x="' + (L + cw * i + cw / 2) + '" y="' + (H - B + 29) + '" font-size="9" fill="#94a3b8" text-anchor="middle">' + p[0] + '</text>';
-          if (m.units) pts.push([L + cw * i + cw / 2, T + (H - T - B) * (1 - m.done / m.units), Math.round(m.done / m.units * 100), T + (H - T - B) * (1 - m.onTime / m.units)]);
+          if (m.n) s += '<text x="' + cx + '" y="' + (yb - 7) + '" font-size="13" font-weight="800" fill="#0f172a" text-anchor="middle">' + m.n + '件</text>';
+          s += anMonthAxis(all, i, cx, H - B + 17);
         });
-        if (pts.length > 1) {
-          s += '<polyline fill="none" stroke="#0f172a" stroke-width="2" points="' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>';
-          s += '<polyline fill="none" stroke="#ef4444" stroke-width="1.6" stroke-dasharray="4 3" points="' + pts.map(function (p) { return p[0] + ',' + p[3]; }).join(' ') + '"/>';
-        }
-        pts.forEach(function (p) {
-          s += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3.5" fill="#fff" stroke="#0f172a" stroke-width="2"/>';
-          s += '<text x="' + p[0] + '" y="' + (p[1] - 8) + '" font-size="9.5" font-weight="800" fill="#0f172a" text-anchor="middle">' + p[2] + '%</text>';
+        return s + '</svg>';
+      }
+
+      function anRateSvg(all, months) {
+        var W = 480, H = 240, L = 36, R = 16, T = 24, B = 40;
+        var cw = (W - L - R) / all.length;
+        var yOf = function (pct) { return T + (H - T - B) * (1 - pct / 100); };
+        var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="月別の実施率">';
+        [0, 50, 100].forEach(function (g) {
+          s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yOf(g) + '" y2="' + yOf(g) + '" stroke="' + (g ? '#f1f5f9' : '#e2e8f0') + '"/>';
+          s += '<text x="' + (L - 6) + '" y="' + (yOf(g) + 4) + '" font-size="10" fill="#94a3b8" text-anchor="end">' + g + '%</text>';
         });
-        s += '</svg>';
-        return s;
+        var done = [], onTime = [];
+        all.forEach(function (k, i) {
+          var m = months[k];
+          var cx = L + cw * i + cw / 2;
+          if (anMonthSelected(k)) s += '<rect x="' + (L + cw * i + 2) + '" y="4" width="' + (cw - 4) + '" height="' + (H - 8) + '" rx="8" fill="#f1f5f9"/>';
+          if (m && m.units) {
+            done.push([cx, Math.round(m.done / m.units * 100)]);
+            onTime.push([cx, Math.round(m.onTime / m.units * 100)]);
+          }
+          s += anMonthAxis(all, i, cx, H - B + 17);
+        });
+        var line = function (pts, color, width) {
+          if (pts.length > 1) s += '<polyline fill="none" stroke="' + color + '" stroke-width="' + width + '" stroke-linejoin="round" points="' + pts.map(function (p) { return p[0] + ',' + yOf(p[1]); }).join(' ') + '"/>';
+        };
+        line(onTime, '#94a3b8', 2);
+        line(done, '#0f172a', 2.5);
+        onTime.forEach(function (p, i) {
+          var below = p[1] <= done[i][1] && p[1] > 12;
+          s += '<circle cx="' + p[0] + '" cy="' + yOf(p[1]) + '" r="3.5" fill="#fff" stroke="#94a3b8" stroke-width="2"/>';
+          s += '<text x="' + p[0] + '" y="' + (yOf(p[1]) + (below ? 16 : -9)) + '" font-size="11" font-weight="700" fill="#64748b" text-anchor="middle">' + p[1] + '%</text>';
+        });
+        done.forEach(function (p, i) {
+          var above = p[1] >= onTime[i][1];
+          s += '<circle cx="' + p[0] + '" cy="' + yOf(p[1]) + '" r="4" fill="#0f172a"/>';
+          s += '<text x="' + p[0] + '" y="' + (yOf(p[1]) + (above ? -10 : 17)) + '" font-size="12.5" font-weight="800" fill="#0f172a" text-anchor="middle">' + p[1] + '%</text>';
+        });
+        return s + '</svg>';
       }
 
       function anSortTh(table, key, label, num) {
@@ -1894,7 +1933,7 @@
           h += '<tr><td class="rk">' + (i + 1) + '</td><td><div class="nm">' + esc(r.name) + (r.reg ? '' : ' <span class="sub">（未登録）</span>') + '</div><div class="sub">' +
             esc([r.role, r.area].filter(Boolean).join('・') || '—') + '</div></td>' +
             '<td>' + anBarCell(r.handled, max, r.handled + '件') + '</td>' +
-            '<td class="num">' + r.targets + '</td><td class="num">' + (r.pending ? '<strong style="color:#b91c1c">' + r.pending + '</strong>' : '0') + '</td>' +
+            '<td class="num">' + r.targets + '</td><td class="num">' + (r.pending ? '<strong style="color:#0f172a">' + r.pending + '</strong>' : '0') + '</td>' +
             '<td class="num">' + anPill(r.rate) + '</td><td class="num">' + anPill(r.onTimeRate) + '</td>' +
             '<td class="num">' + r.storeOps + '</td><td class="num">' + anHours(r.med) + '</td></tr>';
         });
@@ -1914,7 +1953,7 @@
         }).join('') + '</div>';
       }
 
-      function anRateColor(x) { return x.rate == null ? '#cbd5e1' : x.rate >= 90 ? '#22c55e' : x.rate >= 70 ? '#f59e0b' : '#ef4444'; }
+      function anRateColor(x) { return x.rate == null ? '#e2e8f0' : 'var(--acc-600)'; }
 
       function renderAnalytics(root) {
         if (!AN.data) { root.innerHTML = '<div class="loading">分析データを集計中…</div>'; return; }
@@ -1971,10 +2010,8 @@
 
         // 推移
         h += '<div class="an-card an-chart"><h3>月別の推移 <span class="tag">直近12か月</span></h3>' +
-          '<p class="an-lead">棒グラフ＝依頼数（種類別）、実線＝実施率、点線＝期限内の完了率。選択中の期間は背景が色付きになります。</p>' +
-          anTrendSvg() +
-          '<div class="an-legend"><span><i style="background:' + AN_KIND.employee.color + '"></i>社員依頼</span><span><i style="background:' + AN_KIND.store.color + '"></i>店舗依頼</span><span><i style="background:' + AN_KIND.tf.color + '"></i>TF依頼</span>' +
-          '<span><i style="background:#0f172a;height:2px;vertical-align:3px"></i>実施率</span><span><i style="background:#ef4444;height:2px;vertical-align:3px"></i>期限内の完了率</span></div></div>';
+          '<p class="an-lead">左は月ごとの依頼数、右はその月の依頼がどれだけ完了したかです。選択中の月は背景がグレーになります。</p>' +
+          anTrendSvg() + '</div>';
 
         // 依頼者目線 vs 実施者目線
         var execPersonal = execRows.filter(function (r) { return r.targets > 0; });
@@ -1994,7 +2031,7 @@
           '<dt>1依頼あたりの対象</dt><dd>' + (A.tasks ? Math.round(A.units / A.tasks * 10) / 10 : '—') + '件</dd>' +
           '<dt>出した依頼の実施率</dt><dd>' + anPill(A.rate) + '</dd>' +
           '<dt>実施率90%以上の依頼者</dt><dd>' + reqGood + ' / ' + reqRows.length + '名</dd></dl></div>';
-        h += '<div class="an-side"><h4><span class="dot" style="background:#10b981"></span>実施者目線（対応した側）</h4><dl>' +
+        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-300)"></span>実施者目線（対応した側）</h4><dl>' +
           '<dt>依頼を受けた人</dt><dd>' + execPersonal.length + '名</dd>' +
           '<dt>対応した人（店舗分を含む）</dt><dd>' + A.executorCount + '名</dd>' +
           '<dt>1人あたりの依頼された数</dt><dd>' + (execPersonal.length ? Math.round(execTargets / execPersonal.length * 10) / 10 : '—') + '件</dd>' +
@@ -2052,7 +2089,7 @@
             var t = AN.data.tasks[x.ti];
             h += '<tr><td style="white-space:nowrap">' + esc(t.d || '—') + '</td><td>' + esc(AN_KIND[t.k] ? AN_KIND[t.k].label : t.k) + '</td><td class="nm">' + esc(t.s) + '</td>' +
               '<td><div style="max-width:28rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.ct || '—') + '</div><div class="sub">' + esc(t.tg || '') + '</div></td>' +
-              '<td class="num"><strong style="color:#b91c1c">' + (x.total - x.done) + '</strong></td><td class="num">' + anPill(anPct(x.done, x.total)) + '</td></tr>';
+              '<td class="num"><strong style="color:#0f172a">' + (x.total - x.done) + '</strong></td><td class="num">' + anPill(anPct(x.done, x.total)) + '</td></tr>';
           });
           h += '</tbody></table></div>';
         }
