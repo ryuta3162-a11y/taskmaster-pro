@@ -182,8 +182,8 @@
   var verifiedEmail = '';
 
   function notListedMessage() {
-    return 'このメールアドレスは理解度チェックの対象者名簿にありません。社内メールアドレス（名前@okamoto-group.co.jp）に間違いがないか確認してください。対象のはずの場合は ' +
-      (cfg.contactLabel || 'DXチーム') + ' までご連絡ください。';
+    return 'このメールアドレスは理解度チェックの対象者名簿にありません。社内メールアドレス（名前@okamoto-group.co.jp）に間違いがないか確認してください。対象のはずの場合は、チャットで ' +
+      (cfg.contactLabel || 'DXチーム') + ' までメッセージを送ってください。';
   }
 
   function lockQuestions(locked) {
