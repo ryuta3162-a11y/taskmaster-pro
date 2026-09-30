@@ -2697,21 +2697,27 @@ function buildEmployeeRecipientsAdmin_(row, employees) {
   var empMap = getEmployeesByEmailMap_(employees);
   var targets = parseTargetEmails(String(row[13] || ''));
   var payload = parseCompletionPayload_(String(row[14] || '[]'));
+  var refDate = toDateOrNull_(row[1]) || new Date();
   var doneSet = {};
-  (payload.people || []).forEach(function (p) {
-    doneSet[normalizeTaskEmail(p.email)] = true;
+  (payload.people || []).forEach(function (p, i) {
+    doneSet[normalizeTaskEmail(p.email)] = { time: String(p.time || p.at || ''), order: i };
   });
   return targets.map(function (email) {
     var emp = empMap[email];
     var raw = emp ? String(emp.email || '').trim() : email;
     var name = emp ? String(emp.name || '').trim() || raw : email;
+    var rec = doneSet[email];
+    var at = rec ? parseLooseCompletionDate_(rec.time, refDate) : null;
     return {
       key: email,
       email: raw,
       name: name,
       label: name,
       role: emp ? String(emp.role || '').trim() : '',
-      done: !!doneSet[email],
+      done: !!rec,
+      doneAt: at ? at.getTime() : null,
+      doneAtLabel: rec ? rec.time : '',
+      doneOrder: rec ? rec.order : null,
       itemType: 'person'
     };
   });
@@ -2735,8 +2741,13 @@ function buildStoreAssigneesIndex_(employees) {
 function buildStoreRecipientsAdmin_(row, employees, allStores, areasList, storeAssigneesIndex) {
   var taskStores = getTaskStoresForRow_(row, allStores, areasList);
   var payload = parseCompletionPayload_(String(row[14] || '[]'));
+  var refDate = toDateOrNull_(row[1]) || new Date();
+  var empMap = getEmployeesByEmailMap_(employees);
   return taskStores.map(function (storeName) {
-    var done = !!(payload.stores && payload.stores[storeName]);
+    var rec = payload.stores && payload.stores[storeName];
+    var done = !!rec;
+    var at = rec ? parseLooseCompletionDate_(rec.at || '', refDate) : null;
+    var byEmp = rec ? empMap[normalizeTaskEmail(rec.by)] : null;
     var assignees;
     if (storeAssigneesIndex) {
       assignees = (storeAssigneesIndex[storeName] || []).slice();
@@ -2756,6 +2767,9 @@ function buildStoreRecipientsAdmin_(row, employees, allStores, areasList, storeA
       storeName: storeName,
       label: storeName,
       done: done,
+      doneAt: at ? at.getTime() : null,
+      doneAtLabel: rec ? String(rec.at || '') : '',
+      doneByName: byEmp ? String(byEmp.name || '').trim() : (rec ? String(rec.by || '') : ''),
       assignees: assignees,
       itemType: 'store'
     };

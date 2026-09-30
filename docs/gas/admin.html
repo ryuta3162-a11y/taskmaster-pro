@@ -362,6 +362,35 @@
       border: 1px solid color-mix(in oklch, var(--acc-200) 55%, transparent);
       font-size: .88rem; font-weight: 700; color: var(--acc-800, var(--acc-700));
     }
+    .done-rank-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+      gap: .45rem .55rem;
+    }
+    .done-rank {
+      display: flex; align-items: center; gap: .55rem;
+      padding: .5rem .7rem; border-radius: .65rem;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      font-size: .88rem; font-weight: 700; color: #0f172a; line-height: 1.35;
+    }
+    .done-rank-no {
+      flex-shrink: 0; min-width: 1.9rem; height: 1.9rem; padding: 0 .3rem; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #16a34a; color: #fff; font-size: .78rem; font-weight: 800;
+    }
+    .done-rank-body { min-width: 0; display: flex; flex-direction: column; }
+    .done-rank-name { word-break: break-word; }
+    .done-rank-time { font-size: .72rem; font-weight: 600; color: #64748b; }
+    .pending-toggle { margin-top: .2rem; }
+    .pending-toggle > summary {
+      display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; list-style: none;
+      padding: .5rem .9rem; border-radius: .65rem; border: 1px solid #e2e8f0; background: #fff;
+      font-size: .82rem; font-weight: 800; color: #334155;
+    }
+    .pending-toggle > summary::-webkit-details-marker { display: none; }
+    .pending-toggle > summary::after { content: '▼'; font-size: .6rem; color: #94a3b8; }
+    .pending-toggle[open] > summary::after { content: '▲'; }
+    .pending-toggle[open] > summary { margin-bottom: .6rem; }
 
     .empty, .loading {
       text-align: center; padding: 3rem 1rem; font-weight: 600; font-size: .9rem; color: #94a3b8;
@@ -1481,23 +1510,56 @@
             h += '</div>';
           }
 
+          var doneList = recipients.filter(function (r) { return r.done; });
+          doneList.sort(function (a, b) {
+            var ka = a.doneAt == null ? Infinity : a.doneAt;
+            var kb = b.doneAt == null ? Infinity : b.doneAt;
+            if (ka !== kb) return ka - kb;
+            return (a.doneOrder == null ? 0 : a.doneOrder) - (b.doneOrder == null ? 0 : b.doneOrder);
+          });
+          var doneLabel = t.requestKind === 'store' ? '完了した店舗（早い順）' : '実施者（早い順）';
+
           h += '<div class="detail-block">';
-          h += '<span class="detail-label">' + pendingLabel + excludedNote + '</span>';
           if (!recipients.length) {
+            h += '<span class="detail-label">' + doneLabel + '</span>';
             h += '<p class="hint">対象データがありません</p>';
-          } else if (!pending.length) {
-            h += '<div class="pending-empty">全員完了しています</div>';
           } else {
-            pending.sort(function (a, b) {
-              return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
-            });
-            h += '<div class="pending-name-grid">';
-            pending.forEach(function (r) {
-              h += '<div class="pending-name">' + esc(r.label || r.name || r.storeName || '—') + '</div>';
-            });
-            h += '</div>';
+            h += '<span class="detail-label">' + doneLabel + ' ' + doneList.length + unit + excludedNote + '</span>';
+            if (!doneList.length) {
+              h += '<p class="hint">まだ実施者はいません</p>';
+            } else {
+              h += '<div class="done-rank-grid">';
+              doneList.forEach(function (r, i) {
+                var name = r.label || r.name || r.storeName || '—';
+                var sub = r.doneAtLabel || '';
+                if (r.itemType === 'store' && r.doneByName) sub = (sub ? sub + ' · ' : '') + r.doneByName;
+                h += '<div class="done-rank"><span class="done-rank-no">' + (i + 1) + '</span>';
+                h += '<span class="done-rank-body"><span class="done-rank-name">' + esc(name) + '</span>';
+                if (sub) h += '<span class="done-rank-time">' + esc(sub) + '</span>';
+                h += '</span></div>';
+              });
+              h += '</div>';
+            }
           }
           h += '</div>';
+
+          if (recipients.length) {
+            h += '<div class="detail-block">';
+            if (!pending.length) {
+              h += '<div class="pending-empty">全員完了しています</div>';
+            } else {
+              pending.sort(function (a, b) {
+                return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
+              });
+              h += '<details class="pending-toggle"><summary>' + pendingLabel + 'を表示（' + pending.length + unit + '）</summary>';
+              h += '<div class="pending-name-grid">';
+              pending.forEach(function (r) {
+                h += '<div class="pending-name">' + esc(r.label || r.name || r.storeName || '—') + '</div>';
+              });
+              h += '</div></details>';
+            }
+            h += '</div>';
+          }
 
           h += '</article>';
         });
