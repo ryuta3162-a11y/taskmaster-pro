@@ -1,4 +1,4 @@
-# To Do List 引き継ぎメモ（2026年9月29日 時点）
+# To Do List 引き継ぎメモ（2026年9月30日 時点）
 
 別のパソコンで作業を再開するためのメモです。まずこのファイルを読んでから始めてください。
 
@@ -9,7 +9,7 @@
 | To Do List 本番（利用者用） | https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec |
 | リストチェック直リンク | 上のURL + `?page=checklist` |
 | 本番 GAS スクリプトID | `1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS`（https://script.google.com/d/1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS/edit） |
-| 本番デプロイID（固定・変更しない） | `AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw`（9/29 時点の最新バージョン **@139**） |
+| 本番デプロイID（固定・変更しない） | `AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw`（9/30 時点の最新バージョン **@144**） |
 | To Do List データのスプレッドシート | https://docs.google.com/spreadsheets/d/1-ww_0rDYxmA6Mlrl1GUJtG_agE2z760cdvQ7oMIQqkc/edit |
 | ヘルプセンター（マニュアル） | https://todo-list-guide.vercel.app/ |
 | 理解度チェック | https://todo-list-guide.vercel.app/quiz |
@@ -69,6 +69,15 @@ clasp clone 1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS
 - **Gmail ラベルの正しいフィルタ**：`subject:"To-Do List"`（「受信トレイをスキップ」は付けない）。
 - **理解度チェックを択一式（全6問）に変更**。最初にメールアドレスを「確認」し、集計表の名簿にある人だけ回答できる。
 
+- **9/30 追加分**
+  - ヘルプセンターの問い合わせ先を「チャットで DXチーム（日下）までメッセージ」に統一。
+  - 社員向けに To Do List で「管轄店舗・所属の登録確認」依頼を配信（期限 10/2）。
+  - **登録内容の変更を記録**：アプリで「変更を保存」すると システムログ に「登録内容の変更」（名前・変わった項目・管轄店舗の追加/削除）が1行残る。9/30 夕方より前の変更は記録なし（スプレッドシートの変更履歴で確認）。
+  - **起動時間の計測**：本番URLの末尾に `?perf=1` を付けると右下に所要時間が出る（通常時は表示なし）。まだ実測値は未取得。
+  - **admin の依頼カード**：実施者を完了の早い順に番号付きで表示（完了時刻・店舗依頼は完了者名も）。未実施者は「未実施者を表示」ボタンで開く。
+  - **admin の分析サマリー**：月別推移を「依頼数」「実施率」の2グラフに分割。カーソルで計算式が出る。期限前の依頼を含む月は「＊」。比較欄を「投稿した側・チェックした側」、ランキングを「投稿数ランキング」「チェック数ランキング」に改称。
+  - **配色をモノトーンに**（admin・チーム進捗ビュー）。アクセントカラー「ブラック」で白・グレー・黒のみになる。
+  - 案内メール下書き用の単独 GAS「To Do List ガイド案内メール」（docs/rollout/gas-rollout-email/GuideRenewalMail.gs、https://script.google.com/d/1tyy4IMiGwjAvBfSoMP0anGrzBEuY__mPH-ucLO60G-A56gXNep7ytnj8/edit）。未実行・未使用。
 ## 5. 残っている課題・今後やること
 
 | 状況 | 内容 |
@@ -79,6 +88,9 @@ clasp clone 1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS
 | 10月末まで | `新組織移行ログ` シートは残しておく。 |
 | 必要なら | 理解度チェックを自分（r-kusaka）で試すときは、集計表「テスト」シートに名前・メールアドレスの行を追加する（名簿にない人は回答できない仕様）。 |
 | 運用 | 管轄店舗を変えたい人は、本人がアプリで「ログアウト → メール入力 → ログイン情報を変更 → 変更を保存」。 |
+| 確認待ち | 起動時間の実測（`?perf=1` のスクリーンショット）。結果を見て、起動時の通信回数削減・申請データの読み込みまとめを行うか判断。 |
+| 確認待ち | 9月の実施率が低い理由：期限前の依頼を含むため。admin で「期限が過ぎた依頼だけで見た実施率」を確認。 |
+| 検討中 | admin 上部の数字カード（依頼数・対象（延べ）・対応した人）の表記を「投稿」「チェック」にそろえるか。To Do List 本体もモノトーンにするか。 |
 
 ## 6. 仕様メモ（よく聞かれること）
 
