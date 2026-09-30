@@ -25,6 +25,7 @@ import {
   applyAppEntry,
   fetchAppEntryFromGas,
 } from './lib/appEntry.js';
+import { perfEnabled, perfMark, perfTime, subscribePerf } from './lib/perf.js';
 import {
   getFieldStores,
   getFieldStoreNames,
@@ -453,6 +454,37 @@ function parseTaskCreatedSort_(task) {
 }
 
 /** タスク完了などの短いフィードバック（画面下部・数秒で消える） */
+function PerfPanel() {
+  const [m, setM] = useState({});
+  useEffect(() => subscribePerf(setM), []);
+  if (!perfEnabled()) return null;
+  const sec = (ms) => (ms == null ? '…' : (ms / 1000).toFixed(2) + '秒');
+  const server = m.tasksReady?.extra || {};
+  const rows = [
+    ['ページ生成（サーバー）', typeof window !== 'undefined' ? window.__TM_DOGET_MS__ : null],
+    ['画面の読み込み', m.appStart?.at],
+    ['従業員データ取得', m.employees?.extra?.ms],
+    ['店舗データ取得', m.stores?.extra?.ms],
+    ['起動画面が消えるまで', m.bootReady?.at],
+    ['依頼一覧の取得', m.appData?.extra?.ms],
+    ['　うちサーバー処理', server.total],
+    ['　　受け取った依頼', server.tasks],
+    ['　　送った依頼', server.sent],
+    ['一覧が出るまで（合計）', m.tasksReady?.at],
+  ];
+  return (
+    <div className="fixed bottom-3 right-3 z-[9999] rounded-xl bg-slate-900/90 text-white text-xs px-4 py-3 shadow-lg leading-relaxed">
+      <p className="font-bold mb-1">起動時間の計測</p>
+      {rows.map(([label, ms]) => (
+        <p key={label} className="flex justify-between gap-6">
+          <span>{label}</span>
+          <span className="tabular-nums">{sec(ms)}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function ActionToast({ toast }) {
   if (!toast) return null;
   return (
@@ -857,7 +889,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    Promise.all([api.fetchEmployees(), api.fetchStoreData()]).then(([employees, stores]) => {
+    perfMark('appStart');
+    Promise.all([
+      perfTime('employees', api.fetchEmployees()),
+      perfTime('stores', api.fetchStoreData()),
+    ]).then(([employees, stores]) => {
+      perfMark('bootReady');
       const emps = Array.isArray(employees) ? employees : [];
       setAllEmployees(emps);
       const strData = Array.isArray(stores) ? stores : [];
@@ -903,9 +940,9 @@ export default function App() {
   const refreshAllAppData = useCallback(() => {
     if (!currentUser?.email) return;
     setTasksLoading(true);
-    api
-      .fetchAppDataForUser(currentUser.email, currentUser.name)
+    perfTime('appData', api.fetchAppDataForUser(currentUser.email, currentUser.name))
       .then((data) => {
+        perfMark('tasksReady', data?._perf || null);
         setTasks(Array.isArray(data?.tasks) ? data.tasks : []);
         setSentTasks(Array.isArray(data?.sentTasks) ? data.sentTasks : []);
         setTasksLoading(false);
@@ -1979,12 +2016,14 @@ export default function App() {
     <div className="h-screen flex items-center justify-center bg-slate-50 flex-col gap-4 text-black">
       <div className="text-[var(--acc-600)] scale-150"><Icon name="loader" /></div>
       <p className="font-black tracking-widest text-sm uppercase animate-pulse mt-4">システムを起動しています...</p>
+      <PerfPanel />
     </div>
   );
 
   return (
     <Fragment>
       <ActionToast toast={actionToast} />
+      <PerfPanel />
       {/* --- モーダル群 --- */}
       {confirmModal.isOpen && confirmModal.task && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

@@ -10,6 +10,7 @@ const CHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAuU_-lwY/mess
 const UPLOAD_FOLDER_NAME = 'TaskMaster_アップロード画像';
 
 function doGet(e) {
+  var doGetStart = Date.now();
   try { ensureTaskStoreSnapshots_(); } catch (eSnap) {}
   try { scheduleSheetSetupIfNeeded_(); } catch (eSetup) {}
   var page = e && e.parameter && e.parameter.page;
@@ -41,6 +42,9 @@ function doGet(e) {
   var title = page === 'checklist' ? 'リストチェック' : 'ToDo List';
   var html = HtmlService.createHtmlOutputFromFile('index').getContent();
   var boot = execBoot + (page === 'checklist' ? '<script>window.__TM_ENTRY_PAGE__="checklist";</script>' : '');
+  if (e && e.parameter && e.parameter.perf === '1') {
+    boot += '<script>window.__TM_PERF__=true;window.__TM_DOGET_MS__=' + (Date.now() - doGetStart) + ';</script>';
+  }
   html = html.indexOf('<head>') !== -1 ? html.replace('<head>', '<head>' + boot) : boot + html;
   return HtmlService.createHtmlOutput(html)
     .setTitle(title)
@@ -959,11 +963,20 @@ function getTasksForUser(userEmail) {
 /** 初回表示用：リスト・再投稿・定期を1回の呼び出しで取得（往復を減らす） */
 function getAppDataForUser(userEmail, senderName) {
   var name = String(senderName || '').trim();
+  var t0 = Date.now();
   try { ensureTaskStoreSnapshots_(); } catch (e) {}
+  var t1 = Date.now();
+  var tasks = getTasksForUser(userEmail);
+  var t2 = Date.now();
+  var sentTasks = getSentTasks(name);
+  var t3 = Date.now();
+  var scheduledTasks = getScheduledTasks(name);
+  var t4 = Date.now();
   return {
-    tasks: getTasksForUser(userEmail),
-    sentTasks: getSentTasks(name),
-    scheduledTasks: getScheduledTasks(name)
+    tasks: tasks,
+    sentTasks: sentTasks,
+    scheduledTasks: scheduledTasks,
+    _perf: { snapshot: t1 - t0, tasks: t2 - t1, sent: t3 - t2, scheduled: t4 - t3, total: t4 - t0 }
   };
 }
 
