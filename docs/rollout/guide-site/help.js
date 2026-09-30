@@ -14,6 +14,20 @@
     progress: 'q-progress-open',
     logout: 'q-change-profile',
     quiz: 'top',
+    'q-what': 'top',
+    'q-store-mail': 'q-login',
+    'q-filter-store': 'q-where',
+    'q-search-done': 'q-where',
+    'q-card': 'q-where',
+    'q-deadline': 'q-how-to-request',
+    'q-who-not-done': 'q-remind',
+    'q-auto-remind': 'q-mails',
+    'q-my-profile': 'q-change-profile',
+    'q-accent': 'q-change-profile',
+    'q-progress-what': 'q-progress-open',
+    'q-glossary': 'top',
+    'c-progress': 'q-progress-open',
+    'c-glossary': 'top',
   };
 
   function $(sel, root) { return (root || document).querySelector(sel); }

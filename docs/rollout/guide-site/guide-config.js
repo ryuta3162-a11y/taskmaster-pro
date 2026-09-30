@@ -3,7 +3,7 @@
  */
 window.GUIDE_CONFIG = {
   siteTitle: 'To Do List ヘルプセンター',
-  updatedAt: '2026年9月29日',
+  updatedAt: '2026年9月30日',
 
   appUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec',
   checklistUrl: 'https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec?page=checklist',
