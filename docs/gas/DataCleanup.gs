@@ -11,6 +11,12 @@ var EMAIL_FIXES_ = {
   'k-odasima@okamoto-group.co.jp': 'k-odajima@okamoto-group.co.jp'
 };
 
+/** 本人申告でアドレスを変えた人：旧アドレスの記録を新アドレスへ寄せ、旧アドレスの行を削除（新アドレスの行の内容は本人入力のまま） */
+var EMAIL_MERGE_PROP_ = 'EMAIL_MERGE_V2';
+var EMAIL_MERGES_ = {
+  'k-odajima@okamoto-group.co.jp': 'k-odasima@okamoto-group.co.jp'
+};
+
 var OBSOLETE_SHEETS_PROP_ = 'OBSOLETE_SHEETS_V1';
 var OBSOLETE_SHEET_NAMES_ = ['26年度EAST10/1', '新店舗データ（新組織）'];
 
@@ -28,6 +34,130 @@ function deleteObsoleteSheetsOnce_() {
   });
   props.setProperty(OBSOLETE_SHEETS_PROP_, new Date().toISOString());
   writeSystemLog_('不要シートの削除', deleted.length ? deleted.join('、') + ' を削除' : '対象シートなし');
+}
+
+function runEmailMergeOnce_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(EMAIL_MERGE_PROP_)) return null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var mapEmail = function (em) {
+    var n = normalizeTaskEmail(em);
+    return EMAIL_MERGES_[n] || n;
+  };
+  var nm = function (s) { return String(s || '').replace(/[\s\u3000]+/g, ''); };
+  var report = [];
+
+  // ---- 検証（ここで失敗したら何も変更しない） ----
+  var emp = ss.getSheetByName('従業員データ');
+  var req = ss.getSheetByName('申請データ');
+  if (!emp || !req) throw new Error('従業員データ または 申請データ がありません');
+  var ev = emp.getDataRange().getValues();
+  var delRows = [];
+  Object.keys(EMAIL_MERGES_).forEach(function (oldEm) {
+    var newEm = EMAIL_MERGES_[oldEm];
+    var oi = -1, ni = -1;
+    for (var i = 1; i < ev.length; i++) {
+      var n = normalizeTaskEmail(ev[i][1]);
+      if (n === oldEm) oi = i;
+      if (n === newEm) ni = i;
+    }
+    if (oi < 0) return;
+    if (ni < 0) throw new Error('新しいアドレスの行が見つかりません: ' + newEm);
+    if (nm(ev[oi][0]) !== nm(ev[ni][0])) throw new Error('名前が一致しません: ' + ev[oi][0] + ' / ' + ev[ni][0]);
+    delRows.push(oi + 1);
+    report.push('従業員データ: ' + ev[ni][0] + ' の旧アドレスの行（' + oldEm + '）を削除。' + newEm + ' の行は本人入力のまま');
+  });
+
+  // ---- バックアップ ----
+  var stamp = Utilities.formatDate(new Date(), 'JST', 'yyyyMMdd_HHmm');
+  ['申請データ', '従業員データ', 'リマインド送信履歴', '訂正履歴', '店舗共有ログ'].forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) return;
+    var copy = sh.copyTo(ss);
+    copy.setName(name + '_旧_' + stamp);
+    copy.hideSheet();
+  });
+
+  // ---- 従業員データ ----
+  delRows.sort(function (a, b) { return b - a; }).forEach(function (r) { emp.deleteRow(r); });
+
+  // ---- 申請データ（N: 対象者一覧 / O: 完了記録） ----
+  var last = req.getLastRow();
+  if (last >= 2) {
+    var block = req.getRange(2, 14, last - 1, 2).getValues();
+    var changedRows = 0, remappedTargets = 0, remappedDone = 0;
+    block.forEach(function (cells) {
+      var rowChanged = false;
+      var before = parseTargetEmails(cells[0]);
+      var after = [];
+      before.forEach(function (em) {
+        var m = mapEmail(em);
+        if (m !== em) remappedTargets++;
+        if (after.indexOf(m) < 0) after.push(m);
+      });
+      if (after.join(',') !== before.join(',')) { cells[0] = after.join(','); rowChanged = true; }
+
+      var rawO = String(cells[1] || '').trim();
+      var j = null;
+      try { j = rawO ? JSON.parse(rawO) : null; } catch (e) { j = null; }
+      if (Array.isArray(j)) {
+        var seen = {};
+        var arr = [];
+        var oChanged = false;
+        j.forEach(function (d) {
+          var orig = normalizeTaskEmail(d && d.email);
+          var m = mapEmail(orig);
+          if (seen[m]) { oChanged = true; return; }
+          seen[m] = true;
+          var c = {};
+          Object.keys(d).forEach(function (k) { c[k] = d[k]; });
+          if (m !== orig) { c.email = m; oChanged = true; remappedDone++; }
+          arr.push(c);
+        });
+        if (oChanged) { cells[1] = serializeEmployeeCompletion_(arr); rowChanged = true; }
+      } else if (j && j.v === 2 && j.mode === 'store' && j.stores) {
+        var sChanged = false;
+        Object.keys(j.stores).forEach(function (s) {
+          var rec = j.stores[s] || {};
+          var by = normalizeTaskEmail(rec.by);
+          if (EMAIL_MERGES_[by]) { rec.by = EMAIL_MERGES_[by]; sChanged = true; remappedDone++; }
+        });
+        if (sChanged) { cells[1] = JSON.stringify(j); rowChanged = true; }
+      }
+      if (rowChanged) changedRows++;
+    });
+    req.getRange(2, 14, last - 1, 2).setValues(block);
+    report.push('申請データ: ' + changedRows + '件の依頼で旧アドレスを新アドレスへ（対象 ' + remappedTargets + '件・完了記録 ' + remappedDone + '件）');
+  }
+
+  // ---- ログ系シート（行は消さずにアドレスだけ置き換え） ----
+  var listRe = /^[^\s,]+@[^\s,]+(\s*,\s*[^\s,]+@[^\s,]+)*$/;
+  ['リマインド送信履歴', '訂正履歴', '店舗共有ログ'].forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return;
+    var range = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn());
+    var vals = range.getValues();
+    var edited = 0;
+    vals.forEach(function (r) {
+      var hit = false;
+      for (var c = 0; c < r.length; c++) {
+        var s = String(r[c] || '').trim();
+        if (!s || !listRe.test(s)) continue;
+        var list = parseTargetEmails(s);
+        var out = [];
+        list.forEach(function (em) { var m = mapEmail(em); if (out.indexOf(m) < 0) out.push(m); });
+        if (out.join(',') !== list.join(',')) { r[c] = out.join(','); hit = true; }
+      }
+      if (hit) edited++;
+    });
+    if (!edited) return;
+    range.setValues(vals);
+    report.push(name + ': ' + edited + '行のアドレスを置き換え');
+  });
+
+  props.setProperty(EMAIL_MERGE_PROP_, new Date().toISOString());
+  writeSystemLog_('アドレス統合（本人申告）', report.join('\n') + '\nバックアップ: 各シート名_旧_' + stamp);
+  return report;
 }
 
 function runDataCleanupOnce_() {
