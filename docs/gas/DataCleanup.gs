@@ -160,6 +160,72 @@ function runEmailMergeOnce_() {
   return report;
 }
 
+/**
+ * 10月の本番開始に合わせた整理（1回だけ）
+ * - 従業員データ: 新組織移行で付けた色（変更＝緑・要確認＝オレンジ）を外す
+ * - 申請データ: 期限が今日以降の店舗依頼から、店舗データに無くなった店舗（未完了分のみ）を対象から外す
+ */
+var OCTOBER_START_PROP_ = 'OCTOBER_START_V1';
+
+function runOctoberStartOnce_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(OCTOBER_START_PROP_)) return null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var report = [];
+
+  var emp = ss.getSheetByName('従業員データ');
+  if (emp && emp.getLastRow() >= 2) {
+    var migrationColors = [NEW_ORG_CHANGED_BG_, NEW_ORG_REVIEW_BG_].map(function (c) { return c.toLowerCase(); });
+    var range = emp.getRange(2, 1, emp.getLastRow() - 1, emp.getLastColumn());
+    var bgs = range.getBackgrounds();
+    var cleared = 0;
+    bgs.forEach(function (row) {
+      for (var c = 0; c < row.length; c++) {
+        if (migrationColors.indexOf(String(row[c]).toLowerCase()) >= 0) { row[c] = null; cleared++; }
+      }
+    });
+    if (cleared) range.setBackgrounds(bgs);
+    report.push('従業員データ: 移行時の色分けを ' + cleared + 'セル解除');
+  }
+
+  var req = ss.getSheetByName('申請データ');
+  if (req && req.getLastRow() >= 2) {
+    var storeNames = {};
+    getStoreData().forEach(function (s) { storeNames[s.storeName] = true; });
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var last = req.getLastRow();
+    var vals = req.getRange(2, 1, last - 1, TASK_STORE_SNAPSHOT_COL_).getValues();
+    var outQ = vals.map(function (r) { return [r[TASK_STORE_SNAPSHOT_COL_ - 1]]; });
+    var touched = [];
+    vals.forEach(function (r, i) {
+      if (!String(r[0] || '').trim() || getRequestKindFromRow_(r) !== 'store') return;
+      if (!isDeadlineTodayOrLater_(r[3], today)) return;
+      var snap = parseTaskStoreSnapshot_(r[TASK_STORE_SNAPSHOT_COL_ - 1]);
+      if (!snap) return;
+      var done = parseCompletionPayload_(String(r[14] || '')).stores || {};
+      var removed = snap.filter(function (s) { return !storeNames[s] && !done[s]; });
+      if (!removed.length) return;
+      outQ[i][0] = JSON.stringify(snap.filter(function (s) { return removed.indexOf(s) < 0; }));
+      touched.push(String(r[0]) + '（' + removed.join('、') + '）');
+    });
+    if (touched.length) {
+      var stamp = Utilities.formatDate(new Date(), 'JST', 'yyyyMMdd_HHmm');
+      var copy = req.copyTo(ss);
+      copy.setName('申請データ_旧_' + stamp);
+      copy.hideSheet();
+      req.getRange(2, TASK_STORE_SNAPSHOT_COL_, last - 1, 1).setValues(outQ);
+      report.push('申請データ: 店舗データに無い店舗を対象から外した依頼 ' + touched.length + '件 ' + touched.join(' / ') + '\nバックアップ: 申請データ_旧_' + stamp);
+    } else {
+      report.push('申請データ: 対象なし');
+    }
+  }
+
+  props.setProperty(OCTOBER_START_PROP_, new Date().toISOString());
+  writeSystemLog_('10月スタートの整理', report.join('\n'));
+  return report;
+}
+
 function runDataCleanupOnce_() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty(DATA_CLEANUP_PROP_)) return null;
