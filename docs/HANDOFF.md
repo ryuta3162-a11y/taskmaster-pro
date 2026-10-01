@@ -78,6 +78,11 @@ clasp clone 1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS
   - **admin の分析サマリー**：月別推移を「依頼数」「実施率」の2グラフに分割。カーソルで計算式が出る。期限前の依頼を含む月は「＊」。比較欄を「投稿した側・チェックした側」、ランキングを「投稿数ランキング」「チェック数ランキング」に改称。
   - **配色をモノトーンに**（admin・チーム進捗ビュー）。アクセントカラー「ブラック」で白・グレー・黒のみになる。
   - 案内メール下書き用の単独 GAS「To Do List ガイド案内メール」（docs/rollout/gas-rollout-email/GuideRenewalMail.gs、https://script.google.com/d/1tyy4IMiGwjAvBfSoMP0anGrzBEuY__mPH-ucLO60G-A56gXNep7ytnj8/edit）。未実行・未使用。
+- **10/1 追加分**（最新 **@146**、シート整備 v10）
+  - 小田島海斗さん：本人申告で `k-odasima@` が正。`k-odajima@` の行を削除し、依頼・完了・各ログの記録を `k-odasima@` へ統合（`runEmailMergeOnce_`、バックアップ `_旧_20261001_1430`）。
+  - 10月スタートの整理（`runOctoberStartOnce_`）：従業員データの移行時の色分け（緑・オレンジ）308セルを解除。進行中の店舗依頼2件から、店舗データに無い店舗（北浦和・FIT365戸田・田無・船橋）を外した（バックアップ `申請データ_旧_20261001_1449`）。
+  - 健全性チェック（10/1）：従業員79名・店舗99店で、役職・チーム・エリアの空欄、重複、店舗名の不一致、担当者のいない店舗はなし。
+
 ## 5. 残っている課題・今後やること
 
 | 状況 | 内容 |
