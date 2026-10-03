@@ -2291,6 +2291,14 @@ function sendDeadlineReminderReportEmail_(report) {
     lines.push('');
   }
 
+  if (report.posterFollowups && report.posterFollowups.length) {
+    lines.push('期限超過のお知らせ（投稿者あて）: ' + report.posterFollowups.length + ' 件');
+    report.posterFollowups.forEach(function (f) {
+      lines.push('  - ' + f.sender + ' / ' + f.taskId + ' / 未実施 ' + f.pending + ' / ' + f.total);
+    });
+    lines.push('');
+  }
+
   if (report.errors && report.errors.length) {
     lines.push('エラー詳細:');
     report.errors.forEach(function (err) {
@@ -2325,6 +2333,7 @@ function processDeadlineRemindersBatch() {
     tasksInWindow: 0,
     taskSummaries: [],
     sentEmails: [],
+    posterFollowups: [],
     errors: []
   };
 
@@ -2403,9 +2412,166 @@ function processDeadlineRemindersBatch() {
     });
   });
 
-  if (report.sentCount > 0 || report.errors.length > 0 || report.tasksInWindow > 0) {
+  try {
+    processPosterOverdueFollowups_(values, today, allStores, areasList, employees, report);
+  } catch (followErr) {
+    report.errors.push('投稿者フォロー: ' + String(followErr));
+  }
+
+  if (report.sentCount > 0 || report.errors.length > 0 || report.tasksInWindow > 0 || report.posterFollowups.length > 0) {
     sendDeadlineReminderReportEmail_(report);
   }
+}
+
+var POSTER_OVERDUE_LOG_TYPE_ = 'poster_overdue';
+
+function normalizePersonName_(s) {
+  return String(s || '').replace(/[\s\u3000]/g, '');
+}
+
+function findEmployeeByName_(employees, name) {
+  var key = normalizePersonName_(name);
+  if (!key) return null;
+  for (var i = 0; i < (employees || []).length; i++) {
+    if (normalizePersonName_(employees[i].name) === key) return employees[i];
+  }
+  return null;
+}
+
+/**
+ * 期限の翌朝だけ、未完了の依頼を投稿者に知らせる（実施数・未実施の人/店舗・リマインドの案内）。
+ * 期限翌日（daysRemaining === -1）以外は送らないので、過去に期限が切れた依頼には遡って送らない。
+ */
+function processPosterOverdueFollowups_(values, today, allStores, areasList, employees, report) {
+  var appUrl = getTaskWebAppUrl_();
+  var storeAssigneesIndex = buildStoreAssigneesIndex_(employees);
+  values.forEach(function (row) {
+    var taskId = String(row[0] || '').trim();
+    if (!taskId) return;
+    if (calcDaysUntilDeadline_(row[3], today) !== -1) return;
+
+    var progress = computeTaskProgressAdmin_(row, allStores, areasList);
+    if (progress.complete) return;
+
+    var senderName = String(row[4] || '').trim();
+    var poster = findEmployeeByName_(employees, senderName);
+    var posterEmail = poster ? String(poster.email || '').trim() : '';
+    if (!posterEmail) {
+      report.errors.push('投稿者フォロー: ' + taskId + ' / 投稿者「' + senderName + '」のメールが見つかりません');
+      return;
+    }
+    if (hasDeadlineReminderBeenSent_(taskId, posterEmail, POSTER_OVERDUE_LOG_TYPE_)) return;
+
+    var requestKind = getRequestKindFromRow_(row);
+    var isStore = requestKind === 'store';
+    var recipients = buildAdminTaskRecipients_(row, requestKind, employees, allStores, areasList, storeAssigneesIndex);
+    var pending = recipients.filter(function (r) { return !r.done; });
+    if (!pending.length) return;
+
+    var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
+    var bodies = buildPosterOverdueBodies_(String(poster.name || senderName), taskItem, recipients, pending, isStore, appUrl);
+    try {
+      sendBrandedEmail_(posterEmail, '【To-Do List】期限を過ぎた依頼の実施状況のお知らせ', bodies.plain, bodies.html, {
+        name: 'To-Do List（自動お知らせ）'
+      });
+      logDeadlineReminderSend_(taskId, posterEmail, POSTER_OVERDUE_LOG_TYPE_);
+      report.posterFollowups.push({
+        taskId: taskId,
+        sender: senderName,
+        pending: pending.length,
+        total: recipients.length
+      });
+    } catch (mailErr) {
+      report.errors.push('投稿者フォロー: ' + taskId + ' / ' + posterEmail + ': ' + String(mailErr));
+    }
+  });
+}
+
+function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, isStore, appUrl) {
+  var unit = isStore ? '店舗' : '名';
+  var total = recipients.length;
+  var doneCount = total - pending.length;
+  var rate = total ? Math.round((doneCount / total) * 100) : 0;
+  var kindLabel = String(taskItem.requestKindLabel || '');
+  var preview = String(taskItem.contentPreview || '').replace(/\n/g, ' ');
+  var deadline = String(taskItem.deadline || '—');
+  var pendingTitle = isStore ? '未実施の店舗（' + pending.length + '）' : '未実施の方（' + pending.length + '名）';
+
+  var pendingLabels = pending.map(function (r) {
+    if (isStore) {
+      var names = (r.assignees || []).map(function (a) { return a.name; }).filter(Boolean);
+      return r.storeName + (names.length ? '（担当: ' + names.join('、') + '）' : '（担当者未登録）');
+    }
+    return r.name + (r.role ? '（' + r.role + '）' : '');
+  });
+
+  var lead = posterName + ' さんが投稿した依頼の期限（' + deadline + '）が過ぎました。実施状況をお知らせします。';
+  var statusLine = '実施済み: ' + doneCount + ' / ' + total + ' ' + unit + '（' + rate + '%）';
+  var howTo = [
+    '未実施の方だけにもう一度お願いするときは「リマインド」がおすすめです。',
+    'To-Do List のホーム →「リマインド」→ この依頼の「この内容でリマインド」から送れます。',
+    '新しい期限を決めてから送ってください。'
+  ];
+
+  var lines = [];
+  lines.push('お元気様です。');
+  lines.push(lead);
+  lines.push('');
+  lines.push('▼ 対象の依頼');
+  lines.push('[' + kindLabel + '] ' + preview);
+  lines.push('期限: ' + deadline);
+  lines.push('');
+  lines.push('▼ 実施状況');
+  lines.push(statusLine);
+  lines.push('');
+  lines.push('▼ ' + pendingTitle);
+  pendingLabels.forEach(function (s) { lines.push('・' + s); });
+  lines.push('');
+  lines.push('▼ もう一度お願いするとき');
+  howTo.forEach(function (s) { lines.push(s); });
+  if (appUrl) {
+    lines.push('');
+    lines.push(String(appUrl));
+  }
+  lines.push('');
+  lines.push('※ このメールは期限の翌朝に自動で送っています。');
+
+  var sectionTitle = function (t) {
+    return '<p style="margin:16px 0 6px;font-size:12px;font-weight:700;color:#0f172a;">' + escapeHtmlEmail_(t) + '</p>';
+  };
+  var listHtml = '<ul style="margin:0;padding-left:20px;">';
+  pendingLabels.forEach(function (s) {
+    listHtml += '<li style="margin:3px 0;font-size:14px;color:#0f172a;">' + escapeHtmlEmail_(s) + '</li>';
+  });
+  listHtml += '</ul>';
+
+  var extraHtml =
+    sectionTitle('▼ 実施状況') +
+    '<p style="margin:0;font-size:15px;font-weight:700;color:#0f172a;">' + escapeHtmlEmail_(statusLine) + '</p>' +
+    sectionTitle('▼ ' + pendingTitle) +
+    listHtml +
+    sectionTitle('▼ もう一度お願いするとき') +
+    '<p style="margin:0;font-size:14px;line-height:1.7;color:#475569;">' +
+    howTo.map(escapeHtmlEmail_).join('<br>') +
+    '</p>' +
+    '<p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">※ このメールは期限の翌朝に自動で送っています。</p>';
+
+  var html = buildTodoEmailShellHtml_({
+    intro: 'お元気様です。<br>' + escapeHtmlEmail_(lead),
+    taskItem: {
+      requestKindLabel: kindLabel,
+      contentPreview: preview,
+      contentFull: '[' + kindLabel + '] ' + String(taskItem.contentFull || preview),
+      deadline: deadline,
+      sender: String(taskItem.sender || ''),
+      overdue: true
+    },
+    extraHtml: extraHtml,
+    ctaUrl: appUrl,
+    ctaLabel: 'To-Do List を開く'
+  });
+
+  return { plain: lines.join('\n'), html: html };
 }
 
 /** GAS エディタで1回実行して、毎日8:00（JST）の時間主導トリガーを登録 */

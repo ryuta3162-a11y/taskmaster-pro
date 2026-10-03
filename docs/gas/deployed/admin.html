@@ -1781,8 +1781,8 @@
         return '<span class="an-delta ' + (good ? 'up' : 'down') + '">' + (d > 0 ? '+' : '') + d + unit + '</span>';
       }
 
-      function anKpi(label, value, suffix, sub, delta, hero) {
-        return '<div class="an-kpi' + (hero ? ' hero' : '') + '"><span class="k">' + esc(label) + '</span>' +
+      function anKpi(label, value, suffix, sub, delta, hero, tip) {
+        return '<div class="an-kpi' + (hero ? ' hero' : '') + '"' + (tip ? ' data-tip="' + esc(tip) + '"' : '') + '><span class="k">' + esc(label) + '</span>' +
           '<span class="v">' + value + (suffix ? '<small>' + suffix + '</small>' : '') + (delta || '') + '</span>' +
           '<span class="s">' + (sub || '&nbsp;') + '</span></div>';
       }
@@ -2074,14 +2074,23 @@
         // KPI
         var avgPerReq = A.requesterCount ? Math.round(A.tasks / A.requesterCount * 10) / 10 : null;
         h += '<div class="an-kpis">';
-        h += anKpi('実施率（' + periodLabel + '）', anPctText(A.rate), '', A.done + ' / ' + A.units + ' 件完了' + (prevLabel ? '・' + esc(prevLabel) : ''), P ? anDelta(A.rate, P.rate, 'pt') : '', true);
-        h += anKpi('依頼数', A.tasks, '件', '社員' + A.kinds.employee + ' / 店舗' + A.kinds.store + ' / TF' + A.kinds.tf, P ? anDelta(A.tasks, P.tasks, '件') : '');
-        h += anKpi('対象（延べ）', A.units, '件', '1依頼あたり ' + (A.tasks ? Math.round(A.units / A.tasks) : 0) + '件', P ? anDelta(A.units, P.units, '件') : '');
-        h += anKpi('期限内に完了', anPctText(A.onTimeRate), '', A.onTime + '件が期限内', P ? anDelta(A.onTimeRate, P.onTimeRate, 'pt') : '');
-        h += anKpi('期限超過で未実施', A.overdueOpen, '件', '期限が過ぎても未完了', P ? anDelta(A.overdueOpen, P.overdueOpen, '件', true) : '');
-        h += anKpi('完了までの時間', anHours(A.medianHours), '', '依頼から完了までの中央値', '');
-        h += anKpi('依頼した人', A.requesterCount, '名', avgPerReq != null ? '1人あたり ' + avgPerReq + '件' : '', P ? anDelta(A.requesterCount, P.requesterCount, '名') : '');
-        h += anKpi('対応した人', A.executorCount, '名', (AN.kind === 'store' ? '店舗依頼で完了操作をした人' : '依頼を受けた人 ' + A.targetPeopleCount + '名'), P ? anDelta(A.executorCount, P.executorCount, '名') : '');
+        var cmpTip = prevLabel ? '\n右上の数字は' + prevLabel.replace(/比$/, '') + 'との差です。' : '';
+        h += anKpi('実施率（' + periodLabel + '）', anPctText(A.rate), '', A.done + ' / ' + A.units + ' 件完了' + (prevLabel ? '・' + esc(prevLabel) : ''), P ? anDelta(A.rate, P.rate, 'pt') : '', true,
+          '完了 ' + A.done + ' ÷ 届け先ののべ数 ' + A.units + '（人・店舗）' + '\nまだ期限前の依頼も含みます。' + cmpTip);
+        h += anKpi('投稿数', A.tasks, '件', '社員' + A.kinds.employee + ' / 店舗' + A.kinds.store + ' / TF' + A.kinds.tf, P ? anDelta(A.tasks, P.tasks, '件') : '', false,
+          'この期間に投稿された依頼の数（再投稿・リマインドも1件と数えます）' + cmpTip);
+        h += anKpi('届け先（のべ）', A.units, '件', '1投稿あたり ' + (A.tasks ? Math.round(A.units / A.tasks) : 0) + '件', P ? anDelta(A.units, P.units, '件') : '', false,
+          '各投稿の届け先（社員依頼は人、店舗依頼は店舗）を足した数\n1投稿あたり ＝ 届け先（のべ）' + A.units + ' ÷ 投稿数 ' + A.tasks + cmpTip);
+        h += anKpi('期限内に完了', anPctText(A.onTimeRate), '', A.onTime + '件が期限内', P ? anDelta(A.onTimeRate, P.onTimeRate, 'pt') : '', false,
+          '期限の日までに完了 ' + A.onTime + ' ÷ 届け先ののべ数 ' + A.units + cmpTip);
+        h += anKpi('期限超過で未実施', A.overdueOpen, '件', '期限が過ぎても未完了', P ? anDelta(A.overdueOpen, P.overdueOpen, '件', true) : '', false,
+          '期限が過ぎたのに、まだ完了していない届け先（人・店舗）の数' + cmpTip);
+        h += anKpi('完了までの時間', anHours(A.medianHours), '', '投稿から完了までの中央値', '', false,
+          '投稿されてから「完了」が押されるまでの時間を短い順に並べたときの、真ん中の値');
+        h += anKpi('投稿した人', A.requesterCount, '名', avgPerReq != null ? '1人あたり ' + avgPerReq + '件' : '', P ? anDelta(A.requesterCount, P.requesterCount, '名') : '', false,
+          'この期間に依頼を1件以上投稿した人の数\n1人あたり ＝ 投稿数 ' + A.tasks + ' ÷ 投稿した人 ' + A.requesterCount + cmpTip);
+        h += anKpi('リストチェックした人', A.executorCount, '名', (AN.kind === 'store' ? '店舗依頼で完了を押した人' : '依頼が届いた人 ' + A.targetPeopleCount + '名'), P ? anDelta(A.executorCount, P.executorCount, '名') : '', false,
+          '1件以上「完了」を押した人の数（店舗依頼で店舗分を完了にした人も含む）' + cmpTip);
         h += '</div>';
 
         // 推移
