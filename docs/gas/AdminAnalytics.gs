@@ -26,6 +26,7 @@ function buildAdminAnalytics_(requestRows, employees, allStores, now) {
         r: emp ? emp.role : '',
         t: emp ? emp.team : '',
         a: emp ? emp.area : '',
+        st: emp && emp.stores ? emp.stores.filter(Boolean) : [],
         reg: emp ? 1 : 0
       });
     }

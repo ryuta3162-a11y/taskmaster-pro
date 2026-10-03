@@ -735,6 +735,50 @@
     .an-stack > span { display: block; height: 100%; }
     .an-note { font-size: .7rem; color: #94a3b8; margin-top: .6rem; line-height: 1.6; }
     .an-empty { padding: 1.5rem; text-align: center; color: #94a3b8; font-weight: 700; font-size: .85rem; }
+
+    /* --- 人で検索 --- */
+    .ps-open {
+      display: inline-flex; align-items: center; gap: .4rem; height: 2.25rem; padding: 0 .85rem; margin-right: .6rem;
+      border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; color: #334155; cursor: pointer;
+      font: inherit; font-size: .8rem; font-weight: 700; flex-shrink: 0;
+    }
+    .ps-open:hover { border-color: var(--acc-300); color: var(--acc-700); }
+    .ps-open svg { width: 1.05rem; height: 1.05rem; }
+    @media (max-width: 639px) { .ps-open span { display: none; } .ps-open { padding: 0; width: 2.25rem; justify-content: center; } }
+    .ps-overlay { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.35); backdrop-filter: blur(3px); }
+    .ps-overlay.open { display: block; }
+    .ps-panel {
+      position: absolute; left: 50%; top: 4vh; transform: translateX(-50%);
+      width: min(60rem, 96vw); max-height: 92vh; overflow-y: auto;
+      background: #f8fafc; border-radius: 1.2rem; box-shadow: 0 24px 60px rgba(0,0,0,.25);
+    }
+    .ps-head { position: sticky; top: 0; z-index: 2; background: #fff; border-bottom: 1px solid #eef2f7; padding: .9rem 1rem; }
+    .ps-bar { display: flex; align-items: center; gap: .5rem; }
+    .ps-field { flex: 1; display: flex; align-items: center; gap: .5rem; height: 2.6rem; padding: 0 .8rem; border: 1px solid #e2e8f0; border-radius: .8rem; background: #f8fafc; }
+    .ps-field:focus-within { border-color: var(--acc-400); background: #fff; }
+    .ps-field svg { width: 1.1rem; height: 1.1rem; color: #94a3b8; flex-shrink: 0; }
+    .ps-field input { flex: 1; border: none; background: transparent; font: inherit; font-size: .95rem; outline: none; min-width: 0; }
+    .ps-close { width: 2.4rem; height: 2.4rem; border-radius: .8rem; border: none; background: #f1f5f9; color: #334155; font-size: 1.2rem; cursor: pointer; }
+    .ps-sugg { margin-top: .5rem; display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
+    .ps-sugg button {
+      display: flex; justify-content: space-between; align-items: center; gap: .75rem; text-align: left;
+      padding: .55rem .7rem; border: none; border-radius: .6rem; background: transparent; cursor: pointer; font: inherit;
+    }
+    .ps-sugg button:hover, .ps-sugg button.on { background: var(--acc-50); }
+    .ps-sugg .nm { font-weight: 800; color: #0f172a; font-size: .9rem; }
+    .ps-sugg .sub { font-size: .72rem; color: #94a3b8; font-weight: 600; }
+    .ps-body { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+    .ps-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; }
+    .ps-who .nm { font-size: 1.25rem; font-weight: 900; color: #0f172a; }
+    .ps-who .sub { font-size: .78rem; color: #64748b; font-weight: 600; }
+    .ps-body .an-kpis { grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr)); }
+    .ps-table td.ct { max-width: 22rem; }
+    .ps-table td.ct .t { font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22rem; }
+    .ps-st { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-weight: 800; font-size: .72rem; white-space: nowrap; }
+    .ps-st.ok { background: #e2e8f0; color: #0f172a; }
+    .ps-st.late { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+    .ps-st.ng { background: #0f172a; color: #fff; }
+    .ps-st.wait { background: #f1f5f9; color: #94a3b8; }
   </style>
 </head>
 <body>
@@ -751,6 +795,10 @@
         <h1 class="sm-only" style="margin:0;font-size:.95rem;font-weight:700;">To-Do List</h1>
         <span class="page-title">管理</span>
       </div>
+      <button type="button" class="ps-open" id="btnPersonSearch" aria-label="人で検索" title="人で検索">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span>人で検索</span>
+      </button>
       <div class="account-wrap">
         <button type="button" class="account-btn" id="btnAccount" aria-label="メニュー">管</button>
         <div class="menu-backdrop" id="menuBackdrop"></div>
@@ -826,6 +874,22 @@
         <div id="root"><div class="loading">読み込み中…</div></div>
       </div>
     </main>
+  </div>
+
+  <div class="ps-overlay" id="psOverlay">
+    <div class="ps-panel" role="dialog" aria-label="人で検索">
+      <div class="ps-head">
+        <div class="ps-bar">
+          <label class="ps-field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" id="psInput" placeholder="名前・メール・チーム・店舗名で検索" autocomplete="off" />
+          </label>
+          <button type="button" class="ps-close" id="psClose" aria-label="閉じる">×</button>
+        </div>
+        <div class="ps-sugg" id="psSugg"></div>
+      </div>
+      <div class="ps-body" id="psBody"><div class="an-empty">名前を入力すると、その人あての依頼をどれだけ期限どおりに完了しているかを確認できます。</div></div>
+    </div>
   </div>
 
   <script>
@@ -1849,6 +1913,246 @@
         });
         document.addEventListener('mousemove', function (e) { if (!tip.hidden) place(e); });
         document.addEventListener('scroll', function () { tip.hidden = true; }, true);
+      })();
+
+      /* ================= 人で検索 ================= */
+      var PS = { pi: null, range: 'all', filter: 'all', loading: false, cursor: 0 };
+
+      function psNorm(s) { return String(s || '').replace(/[\s\u3000]/g, '').toLowerCase(); }
+
+      function psEnsureData(cb) {
+        if (AN.data) { cb(); return; }
+        if (PS.loading) return;
+        PS.loading = true;
+        document.getElementById('psBody').innerHTML = '<div class="loading">データを読み込み中…</div>';
+        google.script.run
+          .withSuccessHandler(function (d) {
+            PS.loading = false;
+            if (!d || !d.ok) { document.getElementById('psBody').innerHTML = '<div class="err">' + esc((d && d.message) || '読み込みに失敗しました') + '</div>'; return; }
+            AN.data = d;
+            cb();
+          })
+          .withFailureHandler(function (e) {
+            PS.loading = false;
+            document.getElementById('psBody').innerHTML = '<div class="err">' + esc(e && e.message ? e.message : String(e)) + '</div>';
+          })
+          .getAdminAnalyticsData();
+      }
+
+      function psOpen() {
+        document.getElementById('psOverlay').classList.add('open');
+        var input = document.getElementById('psInput');
+        setTimeout(function () { input.focus(); input.select(); }, 0);
+        psEnsureData(function () {
+          if (PS.pi == null) document.getElementById('psBody').innerHTML = '<div class="an-empty">名前を入力すると、その人あての依頼をどれだけ期限どおりに完了しているかを確認できます。</div>';
+          psRenderSugg();
+          if (PS.pi != null) psRenderPerson();
+        });
+      }
+      function psClose() { document.getElementById('psOverlay').classList.remove('open'); }
+
+      function psMatches() {
+        if (!AN.data) return [];
+        var q = psNorm(document.getElementById('psInput').value);
+        var out = [];
+        AN.data.people.forEach(function (p, i) {
+          if (!p.reg) return;
+          if (q && psNorm([p.n, p.e, p.t, p.a, p.r, (p.st || []).join(' ')].join(' ')).indexOf(q) < 0) return;
+          out.push(i);
+        });
+        out.sort(function (a, b) { return String(AN.data.people[a].n).localeCompare(String(AN.data.people[b].n), 'ja'); });
+        return out;
+      }
+
+      function psRenderSugg() {
+        var box = document.getElementById('psSugg');
+        var q = document.getElementById('psInput').value.trim();
+        if (PS.pi != null && !q) { box.innerHTML = ''; return; }
+        var list = psMatches();
+        PS.cursor = Math.min(PS.cursor, Math.max(0, list.length - 1));
+        if (!list.length) { box.innerHTML = '<div class="an-empty" style="padding:.8rem">該当する人がいません</div>'; return; }
+        box.innerHTML = list.slice(0, 40).map(function (pi, i) {
+          var p = AN.data.people[pi];
+          var sub = [p.t && p.t + 'チーム', p.r, p.a].filter(Boolean).join('・');
+          return '<button type="button" data-ps-pi="' + pi + '" class="' + (i === PS.cursor ? 'on' : '') + '">' +
+            '<span><span class="nm">' + esc(p.n) + '</span> <span class="sub">' + esc(sub) + '</span></span>' +
+            '<span class="sub">' + esc(p.e) + '</span></button>';
+        }).join('');
+      }
+
+      function psSelect(pi) {
+        PS.pi = pi; PS.filter = 'all';
+        document.getElementById('psInput').value = '';
+        document.getElementById('psSugg').innerHTML = '';
+        psRenderPerson();
+      }
+
+      function psFmtTime(ms) {
+        var d = new Date(ms);
+        return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + anPad(d.getHours()) + ':' + anPad(d.getMinutes());
+      }
+      function psFmtDate(ms) { var d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate(); }
+      function psFmtDl(s) { if (!s) return '—'; var p = s.split('-'); return Number(p[1]) + '/' + Number(p[2]); }
+
+      function psInRange(t) {
+        if (PS.range === 'all') return true;
+        if (PS.range === '90') return t.c >= Date.now() - 90 * 864e5;
+        return anKeyOf('half', new Date(t.c)) === anKeyOf('half', new Date());
+      }
+
+      /** その人に関係する依頼を1行ずつ。status: ok=期限内に完了 / late=期限後に完了 / ng=期限超過で未実施 / wait=期限前で未実施 */
+      function psCollect(pi) {
+        var p = AN.data.people[pi];
+        var myStores = {};
+        (p.st || []).forEach(function (s) { myStores[s] = 1; });
+        var by = anUnitsByTask();
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        var todayStr = today.getFullYear() + '-' + anPad(today.getMonth() + 1) + '-' + anPad(today.getDate());
+        var rows = [], posts = 0;
+        var S = {
+          person: { total: 0, done: 0, onTime: 0, late: 0, ng: 0, wait: 0, hours: [] },
+          store: { total: 0, done: 0, onTime: 0, late: 0, ng: 0, wait: 0, hours: [], self: 0 }
+        };
+        function statusOf(u, pastDue) {
+          if (u[3]) return u[4] ? 'ok' : 'late';
+          return pastDue ? 'ng' : 'wait';
+        }
+        function add(agg, st, u) {
+          agg.total++;
+          if (st === 'ok') { agg.done++; agg.onTime++; }
+          else if (st === 'late') { agg.done++; agg.late++; }
+          else agg[st]++;
+          if (u[3] && u[5] != null) agg.hours.push(u[5]);
+        }
+        AN.data.tasks.forEach(function (t, ti) {
+          if (!psInRange(t)) return;
+          if (t.sp === pi) posts++;
+          var pastDue = !!(t.d && t.d < todayStr);
+          if (t.k !== 'store') {
+            by[ti].forEach(function (u) {
+              if (u[1] !== pi) return;
+              var st = statusOf(u, pastDue);
+              add(S.person, st, u);
+              rows.push({ t: t, st: st, doneAt: u[3] && u[5] != null ? t.c + u[5] * 36e5 : null, hours: u[3] ? u[5] : null });
+            });
+            return;
+          }
+          var mine = by[ti].filter(function (u) { return myStores[u[2]] || (u[3] && u[1] === pi); });
+          if (!mine.length) return;
+          var cnt = { ok: 0, late: 0, ng: 0, wait: 0 }, pendingNames = [], lateNames = [], self = 0;
+          mine.forEach(function (u) {
+            var st = statusOf(u, pastDue);
+            cnt[st]++;
+            add(S.store, st, u);
+            if (u[3] && u[1] === pi) { self++; S.store.self++; }
+            if (!u[3]) pendingNames.push(u[2]);
+            if (st === 'late') lateNames.push(u[2]);
+          });
+          var st = cnt.ng ? 'ng' : cnt.wait ? 'wait' : cnt.late ? 'late' : 'ok';
+          rows.push({ t: t, st: st, stores: mine.length, done: cnt.ok + cnt.late, self: self, pendingNames: pendingNames, lateNames: lateNames });
+        });
+        rows.sort(function (a, b) { return b.t.c - a.t.c; });
+        return { p: p, rows: rows, S: S, posts: posts };
+      }
+
+      var PS_ST = { ok: ['ok', '期限内に完了'], late: ['late', '期限後に完了'], ng: ['ng', '期限超過で未実施'], wait: ['wait', '期限前・未実施'] };
+
+      function psKpis(title, agg, unitLabel, extra) {
+        var base = agg.total - agg.wait;
+        var onTimeRate = anPct(agg.onTime, base), doneRate = anPct(agg.done, base);
+        var h = '<div class="an-card"><h3>' + esc(title) + '</h3>';
+        if (!agg.total) return h + '<div class="an-empty">この期間の対象はありません</div></div>';
+        h += '<div class="an-kpis" style="margin-top:.7rem">';
+        h += anKpi('期限内に完了', anPctText(onTimeRate), '', agg.onTime + ' / ' + base + unitLabel, '', true,
+          '期限の日までに完了 ' + agg.onTime + ' ÷ 期限が来た対象 ' + base + unitLabel + '\n期限前でまだ未実施の ' + agg.wait + unitLabel + 'は数えていません。');
+        h += anKpi('完了率', anPctText(doneRate), '', agg.done + ' / ' + base + unitLabel, '', false,
+          '完了（期限後も含む）' + agg.done + ' ÷ 期限が来た対象 ' + base + unitLabel);
+        h += anKpi('期限後に完了', agg.late, unitLabel, '遅れて完了', '', false, '期限の日を過ぎてから「完了」を押した数');
+        h += anKpi('期限超過で未実施', agg.ng, unitLabel, '期限が過ぎても未完了', '', false, '期限が過ぎたのに、まだ完了していない数');
+        h += anKpi('完了までの時間', anHours(anMedian(agg.hours)), '', '中央値', '', false, '投稿されてから「完了」を押すまでの時間を短い順に並べたときの真ん中の値');
+        h += anKpi('届いた数', agg.total, unitLabel, agg.wait ? 'うち期限前 ' + agg.wait + unitLabel : '&nbsp;', '', false, 'この期間に届いた対象の数（期限前のものも含む）');
+        if (extra) h += extra;
+        return h + '</div></div>';
+      }
+
+      function psRenderPerson() {
+        if (PS.pi == null || !AN.data) return;
+        var R = psCollect(PS.pi), p = R.p;
+        var h = '';
+        h += '<div class="an-card"><div class="ps-who"><span class="nm">' + esc(p.n) + '</span>' +
+          '<span class="sub">' + esc([p.t && p.t + 'チーム', p.r, p.a].filter(Boolean).join('・')) + '</span>' +
+          '<span class="sub">' + esc(p.e) + '</span></div>' +
+          ((p.st || []).length ? '<p class="an-lead" style="margin-bottom:0">担当店舗（' + p.st.length + '）：' + esc(p.st.join('、')) + '</p>' : '') +
+          '<div class="an-row" style="margin-top:.7rem"><span class="an-label">期間</span><div class="an-seg">' +
+          [['all', '全期間'], ['half', '今の半期'], ['90', '直近90日']].map(function (o) {
+            return '<button type="button" data-ps-range="' + o[0] + '" class="' + (PS.range === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
+          }).join('') + '</div><span class="sub" style="font-size:.75rem;color:#64748b;font-weight:600">この期間の投稿 ' + R.posts + '件</span></div></div>';
+
+        h += psKpis('自分あての依頼（社員依頼・TF依頼）', R.S.person, '件');
+        h += psKpis('担当店舗の依頼（店舗依頼）', R.S.store, '店舗',
+          anKpi('本人が完了', R.S.store.self, '店舗', '担当店舗以外も含む', '', false, 'この人が「完了」を押した店舗の数'));
+
+        var counts = { all: R.rows.length, ng: 0, late: 0, wait: 0, ok: 0 };
+        R.rows.forEach(function (r) { counts[r.st]++; });
+        var rows = PS.filter === 'all' ? R.rows : R.rows.filter(function (r) { return r.st === PS.filter; });
+        h += '<div class="an-card"><h3>依頼ごとの結果 <span class="tag">新しい順</span></h3>' +
+          '<p class="an-lead">店舗依頼は、今の担当店舗の分（と本人が完了した店舗）で判定しています。担当が途中で変わった依頼は、前の担当者の分も含まれることがあります。</p>' +
+          '<div class="an-seg" style="margin-bottom:.7rem;flex-wrap:wrap">' +
+          [['all', 'すべて'], ['ng', '期限超過で未実施'], ['late', '期限後に完了'], ['wait', '期限前'], ['ok', '期限内に完了']].map(function (o) {
+            return '<button type="button" data-ps-filter="' + o[0] + '" class="' + (PS.filter === o[0] ? 'on' : '') + '">' + o[1] + '（' + counts[o[0]] + '）</button>';
+          }).join('') + '</div>';
+        if (!rows.length) {
+          h += '<div class="an-empty">該当する依頼はありません</div>';
+        } else {
+          h += '<div class="an-tablewrap"><table class="an-table ps-table"><thead><tr><th>投稿日</th><th>依頼</th><th>DL</th><th>結果</th><th class="num">完了</th></tr></thead><tbody>';
+          rows.forEach(function (r) {
+            var t = r.t, s = PS_ST[r.st];
+            var kind = (AN_KIND[t.k] || {}).label || t.k;
+            var doneCell, detail = '';
+            if (t.k === 'store') {
+              doneCell = r.done + ' / ' + r.stores + '店舗' + (r.self ? '<div class="sub">本人 ' + r.self + '店舗</div>' : '');
+              if (r.pendingNames.length) detail += '<div class="sub">未実施：' + esc(r.pendingNames.join('、')) + '</div>';
+              if (r.lateNames.length) detail += '<div class="sub">期限後：' + esc(r.lateNames.join('、')) + '</div>';
+            } else {
+              doneCell = r.doneAt ? psFmtTime(r.doneAt) + '<div class="sub">' + anHours(r.hours) + '</div>' : (r.st === 'ok' || r.st === 'late' ? '完了' : '—');
+            }
+            h += '<tr><td class="nm">' + psFmtDate(t.c) + '</td>' +
+              '<td class="ct"><div class="t" title="' + esc(t.ct) + '">[' + esc(kind) + '] ' + esc(t.ct || '（本文なし）') + '</div>' +
+              '<div class="sub">投稿：' + esc(t.s) + (t.ty && t.ty !== '新規投稿' ? '・' + esc(t.ty) : '') + '</div>' + detail + '</td>' +
+              '<td class="nm">' + psFmtDl(t.d) + '</td>' +
+              '<td><span class="ps-st ' + s[0] + '">' + s[1] + '</span></td>' +
+              '<td class="num">' + doneCell + '</td></tr>';
+          });
+          h += '</tbody></table></div>';
+        }
+        h += '</div>';
+        document.getElementById('psBody').innerHTML = h;
+      }
+
+      (function initPersonSearch() {
+        var input = document.getElementById('psInput');
+        document.getElementById('btnPersonSearch').addEventListener('click', psOpen);
+        document.getElementById('psClose').addEventListener('click', psClose);
+        document.getElementById('psOverlay').addEventListener('click', function (e) {
+          if (e.target.id === 'psOverlay') { psClose(); return; }
+          var b = e.target.closest('[data-ps-pi]');
+          if (b) { psSelect(Number(b.getAttribute('data-ps-pi'))); return; }
+          var r = e.target.closest('[data-ps-range]');
+          if (r) { PS.range = r.getAttribute('data-ps-range'); psRenderPerson(); return; }
+          var f = e.target.closest('[data-ps-filter]');
+          if (f) { PS.filter = f.getAttribute('data-ps-filter'); psRenderPerson(); }
+        });
+        input.addEventListener('input', function () { PS.cursor = 0; psRenderSugg(); });
+        input.addEventListener('focus', psRenderSugg);
+        input.addEventListener('keydown', function (e) {
+          var list = psMatches();
+          if (e.key === 'ArrowDown') { e.preventDefault(); PS.cursor = Math.min(PS.cursor + 1, list.length - 1); psRenderSugg(); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); PS.cursor = Math.max(PS.cursor - 1, 0); psRenderSugg(); }
+          else if (e.key === 'Enter') { e.preventDefault(); if (list[PS.cursor] != null) psSelect(list[PS.cursor]); }
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && document.getElementById('psOverlay').classList.contains('open')) psClose();
+        });
       })();
 
       function anMonthName(k) {
