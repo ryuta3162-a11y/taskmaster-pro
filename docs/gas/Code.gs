@@ -2471,7 +2471,7 @@ function processPosterOverdueFollowups_(values, today, allStores, areasList, emp
     var taskItem = buildIncompleteTaskItemForEmail_(row, allStores, areasList);
     var bodies = buildPosterOverdueBodies_(String(poster.name || senderName), taskItem, recipients, pending, isStore, appUrl);
     try {
-      sendBrandedEmail_(posterEmail, '【To-Do List】期限を過ぎた依頼の実施状況のお知らせ', bodies.plain, bodies.html, {
+      sendBrandedEmail_(posterEmail, '【To-Do List】依頼したTo-DoのDLが過ぎました', bodies.plain, bodies.html, {
         name: 'To-Do List（自動お知らせ）'
       });
       logDeadlineReminderSend_(taskId, posterEmail, POSTER_OVERDUE_LOG_TYPE_);
@@ -2495,22 +2495,21 @@ function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, is
   var kindLabel = String(taskItem.requestKindLabel || '');
   var preview = String(taskItem.contentPreview || '').replace(/\n/g, ' ');
   var deadline = String(taskItem.deadline || '—');
-  var pendingTitle = isStore ? '未実施の店舗（' + pending.length + '）' : '未実施の方（' + pending.length + '名）';
+  var pendingTitle = isStore ? '未実施の店舗（' + pending.length + '店舗）' : '未実施の方（' + pending.length + '名）';
 
   var pendingLabels = pending.map(function (r) {
     if (isStore) {
       var names = (r.assignees || []).map(function (a) { return a.name; }).filter(Boolean);
-      return r.storeName + (names.length ? '（担当: ' + names.join('、') + '）' : '（担当者未登録）');
+      return r.storeName + (names.length ? '（担当：' + names.join('、') + '）' : '（担当者未登録）');
     }
     return r.name + (r.role ? '（' + r.role + '）' : '');
   });
 
-  var lead = posterName + ' さんが投稿した依頼の期限（' + deadline + '）が過ぎました。実施状況をお知らせします。';
-  var statusLine = '実施済み: ' + doneCount + ' / ' + total + ' ' + unit + '（' + rate + '%）';
+  var lead = posterName + 'さんが投稿したTo-DoのDL（' + deadline + '）が過ぎましたので、実施状況をお知らせします。';
+  var statusLine = '実施済み：' + doneCount + ' / ' + total + unit + '（' + rate + '%）';
   var howTo = [
-    '未実施の方だけにもう一度お願いするときは「リマインド」がおすすめです。',
-    'To-Do List のホーム →「リマインド」→ この依頼の「この内容でリマインド」から送れます。',
-    '新しい期限を決めてから送ってください。'
+    '未実施の方だけに送れる「リマインド」がおすすめです。',
+    'To-Do List のホーム →「リマインド」→ 該当の依頼の「この内容でリマインド」から送信できます。'
   ];
 
   var lines = [];
@@ -2519,7 +2518,7 @@ function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, is
   lines.push('');
   lines.push('▼ 対象の依頼');
   lines.push('[' + kindLabel + '] ' + preview);
-  lines.push('期限: ' + deadline);
+  lines.push('DL：' + deadline);
   lines.push('');
   lines.push('▼ 実施状況');
   lines.push(statusLine);
@@ -2527,14 +2526,14 @@ function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, is
   lines.push('▼ ' + pendingTitle);
   pendingLabels.forEach(function (s) { lines.push('・' + s); });
   lines.push('');
-  lines.push('▼ もう一度お願いするとき');
+  lines.push('▼ 再度お願いする場合');
   howTo.forEach(function (s) { lines.push(s); });
   if (appUrl) {
     lines.push('');
     lines.push(String(appUrl));
   }
   lines.push('');
-  lines.push('※ このメールは期限の翌朝に自動で送っています。');
+  lines.push('※ このメールは自動送信です。');
 
   var sectionTitle = function (t) {
     return '<p style="margin:16px 0 6px;font-size:12px;font-weight:700;color:#0f172a;">' + escapeHtmlEmail_(t) + '</p>';
@@ -2550,11 +2549,11 @@ function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, is
     '<p style="margin:0;font-size:15px;font-weight:700;color:#0f172a;">' + escapeHtmlEmail_(statusLine) + '</p>' +
     sectionTitle('▼ ' + pendingTitle) +
     listHtml +
-    sectionTitle('▼ もう一度お願いするとき') +
+    sectionTitle('▼ 再度お願いする場合') +
     '<p style="margin:0;font-size:14px;line-height:1.7;color:#475569;">' +
     howTo.map(escapeHtmlEmail_).join('<br>') +
     '</p>' +
-    '<p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">※ このメールは期限の翌朝に自動で送っています。</p>';
+    '<p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">※ このメールは自動送信です。</p>';
 
   var html = buildTodoEmailShellHtml_({
     intro: 'お元気様です。<br>' + escapeHtmlEmail_(lead),
