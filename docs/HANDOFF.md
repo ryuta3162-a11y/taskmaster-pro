@@ -1,4 +1,4 @@
-# To Do List 引き継ぎメモ（2026年9月30日 時点）
+# To Do List 引き継ぎメモ（2026年10月3日 時点）
 
 別のパソコンで作業を再開するためのメモです。まずこのファイルを読んでから始めてください。
 
@@ -9,7 +9,7 @@
 | To Do List 本番（利用者用） | https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec |
 | リストチェック直リンク | 上のURL + `?page=checklist` |
 | 本番 GAS スクリプトID | `1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS`（https://script.google.com/d/1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS/edit） |
-| 本番デプロイID（固定・変更しない） | `AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw`（9/30 時点の最新バージョン **@144**） |
+| 本番デプロイID（固定・変更しない） | `AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw`（10/3 時点の最新バージョン **@151**） |
 | To Do List データのスプレッドシート | https://docs.google.com/spreadsheets/d/1-ww_0rDYxmA6Mlrl1GUJtG_agE2z760cdvQ7oMIQqkc/edit |
 | ヘルプセンター（マニュアル） | https://todo-list-guide.vercel.app/ |
 | 理解度チェック | https://todo-list-guide.vercel.app/quiz |
@@ -23,7 +23,7 @@
 
 | 内容 | 場所 |
 |------|------|
-| 本番 GAS のサーバー側コード（正本） | `docs/gas/Code.gs`, `SheetSetup.gs`, `DataCleanup.gs`, `NewOrgMigration.gs`, `NewOrgMigrationData.gs`, `AdminAnalytics.gs`, `RenameStoreIono.gs` |
+| 本番 GAS のサーバー側コード（正本） | `docs/gas/Code.gs`, `SheetSetup.gs`, `AdminAnalytics.gs`（移行用の DataCleanup / NewOrgMigration* / RenameStoreIono は 10/3 に削除。必要なら Git 履歴から） |
 | 本番 GAS の画面（正本） | `docs/gas/deployed/index.html`, `docs/gas/deployed/admin.html`, `docs/gas/progress.html` |
 | clasp 作業フォルダ（Git 管理外） | `docs/rollout/gas-rollout-email/.clasp-workdir/`（`Code.gs` → `code.js`、他の `.gs` → `.js` にコピーして push） |
 | ヘルプセンター | `docs/rollout/guide-site/`（詳しくは同フォルダの `README.md`） |
@@ -77,11 +77,19 @@ clasp clone 1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS
   - **admin の依頼カード**：実施者を完了の早い順に番号付きで表示（完了時刻・店舗依頼は完了者名も）。未実施者は「未実施者を表示」ボタンで開く。
   - **admin の分析サマリー**：月別推移を「依頼数」「実施率」の2グラフに分割。カーソルで計算式が出る。期限前の依頼を含む月は「＊」。比較欄を「投稿した側・チェックした側」、ランキングを「投稿数ランキング」「チェック数ランキング」に改称。
   - **配色をモノトーンに**（admin・チーム進捗ビュー）。アクセントカラー「ブラック」で白・グレー・黒のみになる。
-  - 案内メール下書き用の単独 GAS「To Do List ガイド案内メール」（docs/rollout/gas-rollout-email/GuideRenewalMail.gs、https://script.google.com/d/1tyy4IMiGwjAvBfSoMP0anGrzBEuY__mPH-ucLO60G-A56gXNep7ytnj8/edit）。未実行・未使用。
 - **10/1 追加分**（最新 **@146**、シート整備 v10）
   - 小田島海斗さん：本人申告で `k-odasima@` が正。`k-odajima@` の行を削除し、依頼・完了・各ログの記録を `k-odasima@` へ統合（`runEmailMergeOnce_`、バックアップ `_旧_20261001_1430`）。
   - 10月スタートの整理（`runOctoberStartOnce_`）：従業員データの移行時の色分け（緑・オレンジ）308セルを解除。進行中の店舗依頼2件から、店舗データに無い店舗（北浦和・FIT365戸田・田無・船橋）を外した（バックアップ `申請データ_旧_20261001_1449`）。
   - 健全性チェック（10/1）：従業員79名・店舗99店で、役職・チーム・エリアの空欄、重複、店舗名の不一致、担当者のいない店舗はなし。
+
+- **10/3 追加分**（最新 **@151**、シート整備 v12）
+  - **投稿者への DL 超過お知らせ**：期限の翌朝9時（トリガー `processPosterOverdueFollowupsBatch`、シート整備 v11 で自動登録）に、未完了の依頼を投稿者へメール（実施数・未実施の人/店舗・リマインドの案内）。依頼ごとに1回だけ（リマインド送信履歴に `poster_overdue`）。送信後、日下に「DL超過のお知らせ 送信完了」。トリガーが無いときは8時のバッチで代わりに送る。
+  - **admin「人で検索」**（右上の虫眼鏡）：個人ごとの期限内完了率・依頼別の結果。店舗依頼は今の担当店舗で判定。
+  - **admin の数字カード**を「投稿数・届け先・投稿した人・リストチェックした人」に統一し、計算式のツールチップを追加。
+  - **リマインド効果タブを作り直し**：分析データ（`getAdminAnalyticsData` に各依頼のリマインド送信時刻 `rw` を追加）から計算。1回目のリマインド時点で未実施だった分が、どの回の後に完了したかを表示。旧 `getAdminReminderEffectsData` は削除。
+  - **不要機能の削除**：定期配信の残り（`processScheduledTasksBatch` は残っているトリガーを自分で消すだけの関数）、新組織移行の仕組みと `?page=neworg`、完了済みの1回きり整理処理、古い `docs/gas/deployed/Code.gs`、案内メール下書き用 GuideRenewalMail.gs。
+  - 単独 GAS「To Do List ガイド案内メール」（https://script.google.com/d/1tyy4IMiGwjAvBfSoMP0anGrzBEuY__mPH-ucLO60G-A56gXNep7ytnj8/edit）は未使用。ゴミ箱へ入れてよい。
+  - スプレッドシートのリンク共有は 10/3 に元へ戻した（確認済み）。
 
 ## 5. 残っている課題・今後やること
 
@@ -95,7 +103,7 @@ clasp clone 1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS
 | 運用 | 管轄店舗を変えたい人は、本人がアプリで「ログアウト → メール入力 → ログイン情報を変更 → 変更を保存」。 |
 | 確認待ち | 起動時間の実測（`?perf=1` のスクリーンショット）。結果を見て、起動時の通信回数削減・申請データの読み込みまとめを行うか判断。 |
 | 確認待ち | 9月の実施率が低い理由：期限前の依頼を含むため。admin で「期限が過ぎた依頼だけで見た実施率」を確認。 |
-| 検討中 | admin 上部の数字カード（依頼数・対象（延べ）・対応した人）の表記を「投稿」「チェック」にそろえるか。To Do List 本体もモノトーンにするか。 |
+| 検討中 | To Do List 本体もモノトーンにするか。 |
 
 ## 6. 仕様メモ（よく聞かれること）
 

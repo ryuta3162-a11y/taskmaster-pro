@@ -4,7 +4,7 @@
  * - 入力ガード: 従業員データの管轄店舗・役職のプルダウン、店舗名の不一致を赤表示
  * - メニュー「To-Do管理」
  */
-var SHEET_SETUP_VERSION_ = '11';
+var SHEET_SETUP_VERSION_ = '12';
 var ANALYSIS_SHEETS_ = {
   tasks: '集計_依頼一覧',
   people: '集計_社員別',
@@ -69,7 +69,6 @@ function runSheetSetupJob() {
 /** 未実施のバージョンなら 1 回だけ整備する。失敗しても再試行ループにせず、システムログに残す */
 function autoRunSheetSetup_() {
   var props = PropertiesService.getScriptProperties();
-  if (!props.getProperty(NEW_ORG_DONE_PROP_)) return;
   if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
   var cache = CacheService.getScriptCache();
   if (cache.get('sheetSetupRunning')) return;
@@ -87,16 +86,12 @@ function autoRunSheetSetup_() {
   try {
     if (props.getProperty('SHEET_SETUP_VERSION') === SHEET_SETUP_VERSION_) return;
     cache.put('sheetSetupRunning', '1', 600);
-    step('データ整理', runDataCleanupOnce_);
-    step('アドレス統合', runEmailMergeOnce_);
-    step('10月スタートの整理', runOctoberStartOnce_);
     step('エリア・テリトリー補正', healEmployeeAreaTerritory_);
     step('従業員データの並べ替え', sortEmployeeSheet_);
   } finally {
     lock.releaseLock();
   }
   step('投稿者フォローのトリガー', ensurePosterFollowupTrigger_);
-  step('不要シートの削除', deleteObsoleteSheetsOnce_);
   step('集計シート', refreshAnalysisSheets_);
   step('入力ガード', applyInputGuards_);
   step('シートの見た目', formatAdminSheets_);
@@ -618,4 +613,116 @@ function applyInputGuards_() {
   store.setConditionalFormatRules(sRules);
   store.getRange(1, 4).setNote('黄色＝店舗メール未登録（店舗への共有メールが送れません）。赤の店舗名＝重複。');
   emp.getRange(1, EMPLOYEE_STORE_COL_START + 1).setNote('管轄店舗は店舗データの店舗名から選択。赤いセル＝店舗データに無い名前（アプリで読み取れません）。');
+}
+
+/**
+ * 管理者が見るシートの見た目を整える（値は変えない・セルの背景色は残す・何度実行しても同じ結果）
+ */
+var SHEET_HEADER_BG_ = '#1f4e78';
+
+function styleHeaderAndFreeze_(sh, lastCol, freezeCols) {
+  var header = sh.getRange(1, 1, 1, lastCol);
+  header.setBackground(SHEET_HEADER_BG_).setFontColor('#ffffff').setFontWeight('bold')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+  sh.setRowHeight(1, 34);
+  sh.setFrozenRows(1);
+  sh.setFrozenColumns(freezeCols || 0);
+}
+
+function resetFilter_(sh, lastCol) {
+  var f = sh.getFilter();
+  if (f) f.remove();
+  var lastRow = Math.max(sh.getLastRow(), 2);
+  sh.getRange(1, 1, lastRow, lastCol).createFilter();
+}
+
+function setWidths_(sh, widths) {
+  widths.forEach(function (w, i) {
+    if (w) sh.setColumnWidth(i + 1, w);
+  });
+}
+
+function formatStoreSheet_(sh) {
+  if (!sh) return;
+  sh.getRange(1, 1, 1, 4).setValues([['エリア', 'テリトリー', '店舗名', '店舗メール']]);
+  styleHeaderAndFreeze_(sh, 4, 0);
+  setWidths_(sh, [110, 110, 220, 330]);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    var body = sh.getRange(2, 1, lastRow - 1, 4);
+    body.setFontSize(10).setVerticalAlignment('middle').setBorder(false, false, false, false, false, false);
+    var vals = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 1; i < vals.length; i++) {
+      if (String(vals[i][0]) !== String(vals[i - 1][0])) {
+        sh.getRange(i + 2, 1, 1, 4).setBorder(true, null, null, null, null, null, '#1f4e78', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      }
+    }
+  }
+  sh.getBandings().forEach(function (b) { b.remove(); });
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, 4).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+  }
+  resetFilter_(sh, 4);
+}
+
+function formatEmployeeSheet_(sh) {
+  if (!sh) return;
+  var lastCol = Math.max(sh.getLastColumn(), 7 + EMPLOYEE_STORE_COL_MAX);
+  var heads = [['名前', 'メールアドレス', 'チーム名', 'ブランド', 'エリア', 'テリトリー', '役職']];
+  sh.getRange(1, 1, 1, 7).setValues(heads);
+  var storeHeads = [];
+  for (var k = 1; k <= lastCol - 7; k++) storeHeads.push('管轄店舗' + k);
+  sh.getRange(1, 8, 1, lastCol - 7).setValues([storeHeads]);
+  styleHeaderAndFreeze_(sh, lastCol, 2);
+  setWidths_(sh, [120, 250, 90, 80, 150, 230, 70]);
+  sh.setColumnWidths(8, lastCol - 7, 115);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, lastCol).setFontSize(10).setVerticalAlignment('middle').setWrap(false);
+    sh.getRange(2, 1, lastRow - 1, 1).setFontWeight('bold');
+    sh.getRange(2, 7, lastRow - 1, 1).setHorizontalAlignment('center');
+  }
+  resetFilter_(sh, lastCol);
+}
+
+function formatRequestSheet_(sh) {
+  if (!sh) return;
+  var lastCol = Math.max(TASK_STORE_SNAPSHOT_COL_, 16);
+  styleHeaderAndFreeze_(sh, lastCol, 1);
+  setWidths_(sh, [130, 140, 90, 95, 110, 360, 120, 120, 120, 100, 100, 100, 220, 180, 180, 80, 180]);
+  var lastRow = sh.getLastRow();
+  if (lastRow >= 2) {
+    sh.getRange(2, 1, lastRow - 1, lastCol).setFontSize(10).setVerticalAlignment('top')
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  }
+  resetFilter_(sh, lastCol);
+}
+
+function formatAdminSheets_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  formatEmployeeSheet_(ss.getSheetByName('従業員データ'));
+  formatStoreSheet_(ss.getSheetByName('店舗データ'));
+  formatRequestSheet_(ss.getSheetByName('申請データ'));
+
+  ['リマインド送信履歴', '店舗共有ログ', '訂正履歴', '新組織移行ログ'].forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastColumn() < 1) return;
+    styleHeaderAndFreeze_(sh, sh.getLastColumn(), 0);
+  });
+
+  var order = ['申請データ', '従業員データ', '店舗データ', '集計_依頼一覧', '集計_社員別', '集計_店舗別', '集計_月別',
+    '新組織移行ログ', '訂正履歴', '店舗共有ログ', 'リマインド送信履歴'];
+  var pos = 1;
+  order.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) return;
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(pos++);
+  });
+  var first = ss.getSheetByName('申請データ') || ss.getSheets()[0];
+  ss.setActiveSheet(first);
+  ss.getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    if (name === 'リマインド送信履歴' || name.indexOf('_旧_') >= 0) sh.hideSheet();
+  });
 }

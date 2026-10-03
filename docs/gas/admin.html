@@ -736,6 +736,29 @@
     .an-note { font-size: .7rem; color: #94a3b8; margin-top: .6rem; line-height: 1.6; }
     .an-empty { padding: 1.5rem; text-align: center; color: #94a3b8; font-weight: 700; font-size: .85rem; }
 
+    /* --- リマインド効果 --- */
+    .re-bar { display: flex; height: .7rem; border-radius: 999px; overflow: hidden; background: #f8fafc; border: 1px solid #e2e8f0; margin: .5rem 0 .4rem; }
+    .re-bar.big { height: 1.6rem; border-radius: .5rem; }
+    .re-bar > span { display: flex; align-items: center; justify-content: center; height: 100%; font-size: .72rem; font-weight: 800; color: #fff; min-width: 2px; }
+    .re-bar > span[style*="#e2e8f0"], .re-bar > span[style*="#94a3b8"], .re-bar > span[style*="repeating"], .re-bar > span[style*="#fff"] { color: #0f172a; }
+    .re-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-top: .9rem; }
+    .re-step { border: 1px solid #eef2f7; border-radius: .8rem; padding: .6rem .8rem; display: flex; flex-direction: column; background: #f8fafc; }
+    .re-step .k { font-size: .72rem; font-weight: 700; color: #64748b; }
+    .re-step .v { font-size: 1.4rem; font-weight: 900; color: #0f172a; font-variant-numeric: tabular-nums; }
+    .re-step .v small { font-size: .75rem; margin-left: .15rem; opacity: .7; }
+    .re-step .s { font-size: .7rem; color: #94a3b8; font-weight: 600; }
+    @media (max-width: 639px) { .re-steps { grid-template-columns: 1fr; } }
+    .re-task { border-top: 1px solid #f1f5f9; padding: .85rem 0; }
+    .re-task:first-of-type { border-top: none; }
+    .re-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
+    .re-title { font-weight: 800; color: #0f172a; font-size: .88rem; line-height: 1.5; }
+    .re-meta { font-size: .72rem; color: #94a3b8; font-weight: 600; margin-top: .15rem; }
+    .re-nums { font-size: .76rem; color: #475569; }
+    .re-nums strong { color: #0f172a; }
+    .re-open { margin-top: .35rem; font-size: .76rem; color: #334155; }
+    .re-open summary { cursor: pointer; font-weight: 700; color: var(--acc-700); }
+    .re-open div { margin-top: .3rem; line-height: 1.7; }
+
     /* --- 人で検索 --- */
     .ps-open {
       display: inline-flex; align-items: center; gap: .4rem; height: 2.25rem; padding: 0 .85rem; margin-right: .6rem;
@@ -920,45 +943,6 @@
       var selected = {};
       var introOverrides = {};
       var pendingAutoOpen = true;
-      var personFilterRoles = {};
-      var personFilterTeams = {};
-      var reminderEffectsLoaded = false;
-      var reminderEffectsLoading = false;
-
-      function emptyReminderEffectsPack() {
-        return { tasks: [], summary: {}, overduePeople: [], personStats: [] };
-      }
-
-      function ensureReminderEffects(done) {
-        if (reminderEffectsLoaded && lastData && lastData.reminderEffects) {
-          if (done) done();
-          return;
-        }
-        if (reminderEffectsLoading) return;
-        reminderEffectsLoading = true;
-        if (mode === 'reminderEffect') {
-          document.getElementById('root').innerHTML = '<div class="loading">リマインド効果を読み込み中…</div>';
-        }
-        google.script.run
-          .withSuccessHandler(function (data) {
-            reminderEffectsLoading = false;
-            if (!data.ok) {
-              showError(data.message || 'リマインド効果の読み込みに失敗しました');
-              return;
-            }
-            if (!lastData) lastData = {};
-            lastData.reminderEffects = data.reminderEffects || emptyReminderEffectsPack();
-            reminderEffectsLoaded = true;
-            if (done) done();
-            else renderAll();
-          })
-          .withFailureHandler(function (e) {
-            reminderEffectsLoading = false;
-            showError(e && e.message ? e.message : String(e));
-          })
-          .getAdminReminderEffectsData();
-      }
-
       function adminIncompleteExcludeRoles() {
         if (lastData && Array.isArray(lastData.incompleteExcludeRoles) && lastData.incompleteExcludeRoles.length) {
           return lastData.incompleteExcludeRoles;
@@ -1035,224 +1019,147 @@
         /* 展開UI廃止：常時ワンボックス表示 */
       }
 
-      function formatLift(n) {
-        if (n == null || isNaN(n)) return '—';
-        var v = Math.round(n);
-        if (v > 0) return '+' + v + 'pt';
-        if (v < 0) return v + 'pt';
-        return '±0pt';
+      /* ================= リマインド効果 ================= */
+      var RE = { range: '90', show: 'all' };
+      var RE_SEG = [
+        ['pre', 'リマインド前に完了', '#e2e8f0'],
+        ['a2', '2日前の後に完了', '#0f172a'],
+        ['a1', '前日の後に完了', '#475569'],
+        ['a0', '当日の後に完了', '#94a3b8'],
+        ['late', '期限後に完了', 'repeating-linear-gradient(135deg,#cbd5e1 0 4px,#f1f5f9 4px 8px)'],
+        ['open', '未実施のまま', '#fff']
+      ];
+
+      function reInRange(t) {
+        if (RE.range === 'all') return true;
+        if (RE.range === '90') return t.c >= Date.now() - 90 * 864e5;
+        return anKeyOf('half', new Date(t.c)) === anKeyOf('half', new Date());
       }
 
-      function liftClass(n) {
-        if (n == null || isNaN(n) || n === 0) return 'flat';
-        return n > 0 ? '' : 'down';
-      }
-
-      function formatWaveStage(snap, unitLabel) {
-        if (!snap || !snap.available || snap.pct == null) {
-          return { pctText: '—', sub: '未送信', na: true };
-        }
-        return {
-          pctText: snap.pct + '%',
-          sub: snap.done + ' / ' + snap.total + (unitLabel || ''),
-          na: false
-        };
-      }
-
-      function renderFourStages(at2d, at1d, at0d, overdueNow, unitLabel) {
-        var s2 = formatWaveStage(at2d, unitLabel);
-        var s1 = formatWaveStage(at1d, unitLabel);
-        var s0 = formatWaveStage(at0d, unitLabel);
-        var oc = overdueNow && overdueNow.count != null ? overdueNow.count : 0;
-        var ol = (overdueNow && overdueNow.unitLabel) || unitLabel || '';
-        var h = '<div class="effect-stages">';
-        h += '<div class="effect-stage' + (s2.na ? ' is-na' : '') + '"><span class="lbl">2日前進捗</span><span class="pct">' + s2.pctText + '</span><span class="sub">' + esc(s2.sub) + '</span></div>';
-        h += '<div class="effect-stage' + (s1.na ? ' is-na' : '') + '"><span class="lbl">前日進捗</span><span class="pct">' + s1.pctText + '</span><span class="sub">' + esc(s1.sub) + '</span></div>';
-        h += '<div class="effect-stage' + (s0.na ? ' is-na' : '') + '"><span class="lbl">当日進捗</span><span class="pct">' + s0.pctText + '</span><span class="sub">' + esc(s0.sub) + '</span></div>';
-        h += '<div class="effect-stage is-overdue"><span class="lbl">超過現在</span><span class="pct">' + oc + '</span><span class="sub">未実施 ' + oc + esc(ol) + '</span></div>';
-        h += '</div>';
-        return h;
-      }
-
-      function renderOverduePeopleList(people, title) {
-        var list = people || [];
-        var h = '<div class="effect-section">';
-        h += '<h4>' + esc(title || '超過・未実施者') + '（' + list.length + '名）</h4>';
-        if (!list.length) {
-          h += '<p class="effect-lead">該当者はいません</p></div>';
-          return h;
-        }
-        h += '<ul class="overdue-list">';
-        list.forEach(function (p) {
-          h += '<li><span class="nm">' + esc(p.name || '—') + '</span><span class="em">' + esc(p.email || '') + '</span></li>';
-        });
-        h += '</ul></div>';
-        return h;
-      }
-
-      function renderPersonStats(stats, filterRoles, filterTeams) {
-        var list = stats || [];
-        var roles = filterRoles || [];
-        var teams = filterTeams || [];
-        var selectedRoleKeys = Object.keys(personFilterRoles).filter(function (k) { return personFilterRoles[k]; });
-        var selectedTeamKeys = Object.keys(personFilterTeams).filter(function (k) { return personFilterTeams[k]; });
-
-        var filtered = list.filter(function (p) {
-          if (selectedRoleKeys.length) {
-            if (selectedRoleKeys.indexOf(String(p.role || '')) < 0) return false;
+      /** 1依頼ぶん：各対象がどの回のリマインドの後に完了したか */
+      function reTask(ti) {
+        var t = AN.data.tasks[ti], rw = t.rw;
+        var first = Math.min.apply(null, [rw[0], rw[1], rw[2]].filter(function (x) { return x > 0; }));
+        var dlEnd = t.d ? new Date(t.d + 'T23:59:59').getTime() : Infinity;
+        var todayStr = (function () { var d = new Date(); return d.getFullYear() + '-' + anPad(d.getMonth() + 1) + '-' + anPad(d.getDate()); })();
+        var c = { pre: 0, a2: 0, a1: 0, a0: 0, late: 0, open: 0 }, openNames = [];
+        anUnitsByTask()[ti].forEach(function (u) {
+          if (!anUnitOk(u, t)) return;
+          if (!u[3]) {
+            c.open++;
+            var p = AN.data.people[u[1]];
+            openNames.push(t.k === 'store' ? u[2] : (p ? p.n : '—'));
+            return;
           }
-          if (selectedTeamKeys.length) {
-            var pTeams = (p.teams && p.teams.length)
-              ? p.teams
-              : String(p.team || '').split(/[,、\/／|｜]/).map(function (t) { return t.trim(); }).filter(Boolean);
-            if (!pTeams.length) return false;
-            var hit = false;
-            for (var i = 0; i < pTeams.length; i++) {
-              if (selectedTeamKeys.indexOf(pTeams[i]) >= 0) { hit = true; break; }
-            }
-            if (!hit) return false;
-          }
-          return true;
+          var at = u[5] != null ? t.c + u[5] * 36e5 : null;
+          if (at == null || at < first) c.pre++;
+          else if (at > dlEnd) c.late++;
+          else if (rw[2] && at >= rw[2]) c.a0++;
+          else if (rw[1] && at >= rw[1]) c.a1++;
+          else c.a2++;
         });
-
-        var h = '<div class="effect-section" id="personStatsSection">';
-        h += '<h4>個人別（期限内 / 超過）</h4>';
-        h += '<p class="effect-lead">リマインド対象依頼における、各人の期限内完了と超過の件数です。役職・TFチームで絞り込めます。</p>';
-
-        if (roles.length) {
-          h += '<div class="filter-block"><span class="filter-label">役職</span><div class="filter-checks">';
-          roles.forEach(function (r) {
-            var on = !!personFilterRoles[r];
-            h += '<label class="filter-check' + (on ? ' on' : '') + '">';
-            h += '<input type="checkbox" data-person-filter="role" value="' + esc(r) + '"' + (on ? ' checked' : '') + ' />';
-            h += esc(r) + '</label>';
-          });
-          h += '</div></div>';
-        }
-        if (teams.length) {
-          h += '<div class="filter-block"><span class="filter-label">TFチーム</span><div class="filter-checks">';
-          teams.forEach(function (t) {
-            var on = !!personFilterTeams[t];
-            h += '<label class="filter-check' + (on ? ' on' : '') + '">';
-            h += '<input type="checkbox" data-person-filter="team" value="' + esc(t) + '"' + (on ? ' checked' : '') + ' />';
-            h += esc(t) + '</label>';
-          });
-          h += '</div></div>';
-        }
-        if (roles.length || teams.length) {
-          h += '<div class="filter-actions">';
-          h += '<button type="button" class="btn-link" data-person-filter-clear>絞り込みをクリア</button>';
-          h += '<span class="effect-lead" style="margin:0">表示 ' + filtered.length + ' / ' + list.length + ' 名</span>';
-          h += '</div>';
-        }
-
-        if (!list.length) {
-          h += '<p class="effect-lead">データがありません</p></div>';
-          return h;
-        }
-        if (!filtered.length) {
-          h += '<p class="effect-lead">条件に一致する人がいません</p></div>';
-          return h;
-        }
-
-        h += '<div style="overflow:auto"><table class="person-table"><thead><tr>';
-        h += '<th>名前</th><th>役職</th><th>TF</th><th>メール</th><th>期限内</th><th>超過</th>';
-        h += '</tr></thead><tbody>';
-        filtered.forEach(function (p) {
-          var teamLabel = (p.teams && p.teams.length) ? p.teams.join('、') : (p.team || '—');
-          h += '<tr>';
-          h += '<td class="name">' + esc(p.name || '—') + '</td>';
-          h += '<td class="meta">' + esc(p.role || '—') + '</td>';
-          h += '<td class="meta">' + esc(teamLabel) + '</td>';
-          h += '<td class="mail">' + esc(p.email || '') + '</td>';
-          h += '<td class="num ok">' + (p.onTimeCount || 0) + '件</td>';
-          h += '<td class="num over">' + (p.overdueCount || 0) + '件</td>';
-          h += '</tr>';
-        });
-        h += '</tbody></table></div></div>';
-        return h;
+        var total = c.pre + c.a2 + c.a1 + c.a0 + c.late + c.open;
+        var pending = total - c.pre;
+        var recovered = c.a2 + c.a1 + c.a0;
+        return { ti: ti, t: t, c: c, total: total, pending: pending, recovered: recovered, openNames: openNames,
+          pastDue: !!(t.d && t.d < todayStr), sends: rw[3] || 0 };
       }
 
-      function bindPersonFilterEvents() {
-        document.querySelectorAll('input[data-person-filter]').forEach(function (cb) {
-          cb.addEventListener('change', function () {
-            var kind = cb.getAttribute('data-person-filter');
-            var val = cb.value;
-            if (kind === 'role') {
-              if (cb.checked) personFilterRoles[val] = true;
-              else delete personFilterRoles[val];
-            } else if (kind === 'team') {
-              if (cb.checked) personFilterTeams[val] = true;
-              else delete personFilterTeams[val];
-            }
-            renderRoot();
-            var sec = document.getElementById('personStatsSection');
-            if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        });
-        var clearBtn = document.querySelector('[data-person-filter-clear]');
-        if (clearBtn) {
-          clearBtn.addEventListener('click', function () {
-            personFilterRoles = {};
-            personFilterTeams = {};
-            renderRoot();
-            var sec = document.getElementById('personStatsSection');
-            if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        }
+      function reBar(c, total, big) {
+        if (!total) return '';
+        return '<div class="re-bar' + (big ? ' big' : '') + '">' + RE_SEG.map(function (s) {
+          var v = c[s[0]];
+          if (!v) return '';
+          return '<span style="width:' + (v / total * 100) + '%;background:' + s[2] + '" data-tip="' + esc(s[1] + '：' + v + '（' + Math.round(v / total * 100) + '%）') + '">' +
+            (big && v / total >= .07 ? v : '') + '</span>';
+        }).join('') + '</div>';
+      }
+
+      function reLegend() {
+        return '<div class="an-legend">' + RE_SEG.map(function (s) {
+          return '<span><i style="background:' + s[2] + ';' + (s[0] === 'open' ? 'border:1px solid #94a3b8;' : '') + '"></i>' + s[1] + '</span>';
+        }).join('') + '</div>';
       }
 
       function renderReminderEffects() {
-        var pack = (lastData && lastData.reminderEffects) || { tasks: [], summary: {}, overduePeople: [], personStats: [] };
-        var s = pack.summary || {};
-        var tasks = pack.tasks || [];
-        if (!tasks.length) {
-          return '<div class="empty">自動リマインド送信履歴がある依頼がまだありません</div>';
+        if (!AN.data) return '<div class="loading">リマインド効果を集計中…</div>';
+        var list = [];
+        AN.data.tasks.forEach(function (t, ti) {
+          if (t.rw && reInRange(t)) list.push(reTask(ti));
+        });
+        var S = { pre: 0, a2: 0, a1: 0, a0: 0, late: 0, open: 0 }, sends = 0, openDue = 0, openWait = 0;
+        list.forEach(function (r) {
+          Object.keys(S).forEach(function (k) { S[k] += r.c[k]; });
+          sends += r.sends;
+          if (r.pastDue) openDue += r.c.open; else openWait += r.c.open;
+        });
+        var total = S.pre + S.a2 + S.a1 + S.a0 + S.late + S.open;
+        var pending = total - S.pre, recovered = S.a2 + S.a1 + S.a0;
+
+        var h = '<div class="an">';
+        h += '<div class="an-card an-toolbar"><div class="an-row"><span class="an-label">期間（投稿日）</span><div class="an-seg">' +
+          [['90', '直近90日'], ['half', '今の半期'], ['all', '全期間']].map(function (o) {
+            return '<button type="button" data-re-range="' + o[0] + '" class="' + (RE.range === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
+          }).join('') + '</div>' +
+          '<label class="an-toggle"><input type="checkbox" id="anExcl"' + (AN.excl ? ' checked' : '') + '/>' +
+          esc((AN.data.excludeRoles || []).join('・')) + ' を集計から除く</label></div></div>';
+
+        if (!list.length) {
+          return h + '<div class="an-card"><div class="an-empty">この期間に自動リマインドを送った依頼はありません</div></div></div>';
         }
-        var h = '<div class="effect-summary">';
-        h += '<h3>リマインド効果（全体）</h3>';
-        h += '<p class="effect-lead">2日前→前日→当日の各リマインド時点の進捗と、いまの未実施数です。未送信の回は「—」です。SMG以上（GMG・A-SMG・SMG）は未実施集計から除外しています。</p>';
-        h += renderFourStages(s.at2d, s.at1d, s.at0d, { count: s.overdueNowCount || 0, unitLabel: '' }, '');
-        h += '<div class="effect-meta-row">';
-        h += '<span>対象依頼 <strong>' + (s.taskCount || 0) + '</strong> 件</span>';
-        h += '<span>送信通数 <strong>' + (s.totalSends || 0) + '</strong></span>';
-        h += '<span>未実施者（名寄せ） <strong>' + (s.overduePeopleCount || 0) + '</strong> 名</span>';
-        var wc = s.waveTaskCounts || {};
-        h += '<span>2日前送信 <strong>' + (wc['2d'] || 0) + '</strong></span>';
-        h += '<span>前日送信 <strong>' + (wc['1d'] || 0) + '</strong></span>';
-        h += '<span>当日送信 <strong>' + (wc['0d'] || 0) + '</strong></span>';
-        h += '</div></div>';
 
-        h += renderPersonStats(pack.personStats, pack.filterRoles, pack.filterTeams);
+        h += '<div class="an-card"><h3>リマインドを送った後、どれだけ完了したか</h3>' +
+          '<p class="an-lead">期限の2日前・前日・当日の朝に、未実施の人へ自動でリマインドを送っています。1回目のリマインドの時点で未実施だった対象（人・店舗）が、その後いつ完了したかをまとめました。</p>';
+        h += '<div class="an-kpis">';
+        h += anKpi('期限までに完了', anPctText(anPct(recovered, pending)), '', recovered + ' / ' + pending + ' 件', '', true,
+          'リマインドの後、期限の日までに完了 ' + recovered + ' ÷ 1回目のリマインド時点で未実施 ' + pending);
+        h += anKpi('リマインド時点で未実施', pending, '件', '全 ' + total + ' 件のうち', '', false,
+          '1回目のリマインドを送った時点で、まだ完了していなかった対象の数');
+        h += anKpi('期限後に完了', S.late, '件', '遅れて完了', '', false, '期限の日を過ぎてから完了した数');
+        h += anKpi('いまも未実施', S.open, '件', openWait ? 'うち期限前 ' + openWait + '件' : '期限が過ぎても未完了', '', false,
+          'まだ完了していない数（期限が過ぎたもの ' + openDue + '件・期限前 ' + openWait + '件）');
+        h += anKpi('リマインドを送った依頼', list.length, '件', '送信 ' + sends + ' 通', '', false, 'この期間に投稿され、自動リマインドを1回以上送った依頼の数と、送ったメールの通数');
+        h += '</div>';
+        h += '<div style="margin-top:1rem">' + reBar(S, total, true) + reLegend() + '</div>';
+        h += '<div class="re-steps">' + [['a2', '2日前のリマインドの後'], ['a1', '前日のリマインドの後'], ['a0', '当日のリマインドの後']].map(function (s) {
+          return '<div class="re-step" data-tip="' + esc(s[1] + '、次のリマインドまで（当日は期限の日の終わりまで）に完了した数') + '"><span class="k">' + s[1] + '</span><span class="v">' + S[s[0]] + '<small>件</small></span>' +
+            '<span class="s">未実施だった分の ' + anPctText(anPct(S[s[0]], pending)) + '</span></div>';
+        }).join('') + '</div>';
+        h += '</div>';
 
-        tasks.forEach(function (t) {
-          var st = t.complete ? 'badge-ok' : t.overdue ? 'badge-late' : 'badge-run';
-          var kindClass = t.requestKind === 'store' ? 'badge-kind-s' : (t.requestKind === 'tf' ? 'badge-run' : 'badge-kind-e');
-          var kindLabel = t.requestKind === 'store' ? '店舗' : (t.requestKind === 'tf' ? 'TF' : '社員');
-          var unit = t.unitLabel === '店舗' ? '店舗' : '名';
-          h += '<div class="effect-card">';
-          h += '<div class="badges">';
-          h += '<span class="badge ' + st + '">' + esc(t.statusLabel) + '</span>';
-          h += '<span class="badge ' + kindClass + '">' + kindLabel + '</span>';
-          var typeLabel = String(t.type || '').trim() || '新規投稿';
-          h += '<span class="badge ' + postTypeBadgeClass(typeLabel) + '">' + esc(typeLabel) + '</span>';
-          h += '</div>';
-          h += '<p class="effect-title">' + esc(t.contentFull || t.contentPreview || '') + '</p>';
-          h += '<div class="effect-meta">期限 ' + esc(t.deadline || '—') + ' · ' + esc(t.sender) + ' · 送信 ' + (t.sendCount || 0) + ' 通</div>';
-          h += renderFourStages(t.at2d, t.at1d, t.at0d, t.overdueNow, unit);
-          if (t.waves && t.waves.length) {
-            h += '<ul class="effect-wave-list">';
-            t.waves.forEach(function (w) {
-              h += '<li>' + esc(w.label) + ' ' + esc(w.sentAt) + '</li>';
-            });
-            h += '</ul>';
+        var counts = { all: list.length, open: 0, done: 0 };
+        list.forEach(function (r) { if (r.c.open) counts.open++; else counts.done++; });
+        var rows = list.filter(function (r) {
+          if (RE.show === 'open') return r.c.open > 0;
+          if (RE.show === 'done') return !r.c.open;
+          return true;
+        }).sort(function (a, b) { return String(b.t.d).localeCompare(String(a.t.d)) || b.t.c - a.t.c; });
+
+        h += '<div class="an-card"><h3>依頼ごとの結果 <span class="tag">期限の新しい順</span></h3>' +
+          '<p class="an-lead">帯にカーソルを合わせると件数が出ます。未実施が残っている依頼は「未実施を表示」から名前（店舗名）を確認できます。</p>' +
+          '<div class="an-seg" style="margin-bottom:.8rem">' +
+          [['all', 'すべて'], ['open', '未実施が残っている'], ['done', 'すべて完了']].map(function (o) {
+            return '<button type="button" data-re-show="' + o[0] + '" class="' + (RE.show === o[0] ? 'on' : '') + '">' + o[1] + '（' + counts[o[0]] + '）</button>';
+          }).join('') + '</div>';
+        if (!rows.length) h += '<div class="an-empty">該当する依頼はありません</div>';
+        rows.forEach(function (r) {
+          var t = r.t, unit = t.k === 'store' ? '店舗' : '名';
+          var sent = [['2日前', t.rw[0]], ['前日', t.rw[1]], ['当日', t.rw[2]]].filter(function (x) { return x[1]; }).map(function (x) { return x[0]; }).join('・');
+          h += '<div class="re-task">';
+          h += '<div class="re-head"><div class="re-title">[' + esc((AN_KIND[t.k] || {}).label || t.k) + '] ' + esc(t.ct || '（本文なし）') + '</div>' +
+            '<div class="re-rate" data-tip="' + esc('期限までに完了 ' + r.recovered + ' ÷ リマインド時点で未実施 ' + r.pending) + '">' + anPill(anPct(r.recovered, r.pending)) + '</div></div>';
+          h += '<div class="re-meta">投稿 ' + esc(t.s) + '・DL ' + esc(t.d ? Number(t.d.slice(5, 7)) + '/' + Number(t.d.slice(8, 10)) : '—') + '・送信 ' + esc(sent) + '（' + r.sends + '通）</div>';
+          h += reBar(r.c, r.total, false);
+          h += '<div class="re-nums">リマインド時点で未実施 <strong>' + r.pending + unit + '</strong> → 期限までに完了 <strong>' + r.recovered + unit + '</strong>' +
+            (r.c.late ? '・期限後に完了 <strong>' + r.c.late + unit + '</strong>' : '') +
+            (r.c.open ? '・未実施 <strong>' + r.c.open + unit + '</strong>' + (r.pastDue ? '' : '（期限前）') : '') + '</div>';
+          if (r.openNames.length) {
+            h += '<details class="re-open"><summary>未実施を表示（' + r.openNames.length + unit + '）</summary><div>' +
+              r.openNames.map(esc).join('、') + '</div></details>';
           }
-          h += renderOverduePeopleList(
-            (t.overdueNow && t.overdueNow.people) || [],
-            'この依頼の未実施者'
-          );
           h += '</div>';
         });
+        h += '</div></div>';
         return h;
       }
 
@@ -1424,18 +1331,9 @@
 
       function renderStats() {
         var bar = document.getElementById('statsBar');
-        bar.style.display = mode === 'analytics' ? 'none' : '';
-        if (mode === 'analytics') return;
-        if (mode === 'reminderEffect') {
-          var s = (lastData.reminderEffects && lastData.reminderEffects.summary) || {};
-          bar.innerHTML =
-            '対象依頼 <strong>' + (s.taskCount || 0) + '</strong><span style="font-weight:700;color:#64748b"> 件</span>' +
-            '<span class="sep">/</span>' +
-            '<span class="accent">未実施 <strong>' + (s.overduePeopleCount || 0) + '</strong><span style="font-weight:700;color:#64748b"> 名</span></span>' +
-            '<span class="sep">/</span>' +
-            '当日進捗 <strong>' + (s.at0d && s.at0d.available ? s.at0d.pct + '%' : '—') + '</strong>';
-          return;
-        }
+        var hideBar = mode === 'analytics' || mode === 'reminderEffect';
+        bar.style.display = hideBar ? 'none' : '';
+        if (hideBar) return;
         var list = filterTasks(getTasksForMode());
         var taskLabel = filter === 'late' ? '期限超過依頼' : '全体依頼';
         var rateLabel = filter === 'late' ? '超過タスク実施率' : '全体実施率';
@@ -1661,17 +1559,17 @@
       function ensureAnalytics() {
         if (AN.data || AN.loading) return;
         AN.loading = true;
-        if (mode === 'analytics') document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
+        if (mode === 'analytics' || mode === 'reminderEffect') document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
         google.script.run
           .withSuccessHandler(function (d) {
             AN.loading = false;
-            if (!d || !d.ok) { if (mode === 'analytics') showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
+            if (!d || !d.ok) { if (mode === 'analytics' || mode === 'reminderEffect') showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
             AN.data = d;
-            if (mode === 'analytics') renderAll();
+            if (mode === 'analytics' || mode === 'reminderEffect') renderAll();
           })
           .withFailureHandler(function (e) {
             AN.loading = false;
-            if (mode === 'analytics') showError(e && e.message ? e.message : String(e));
+            if (mode === 'analytics' || mode === 'reminderEffect') showError(e && e.message ? e.message : String(e));
           })
           .getAdminAnalyticsData();
       }
@@ -2531,6 +2429,17 @@
         });
       }
 
+      function bindReminderEffectEvents(root) {
+        root.querySelectorAll('[data-re-range]').forEach(function (el) {
+          el.addEventListener('click', function () { RE.range = el.getAttribute('data-re-range'); renderRoot(); });
+        });
+        root.querySelectorAll('[data-re-show]').forEach(function (el) {
+          el.addEventListener('click', function () { RE.show = el.getAttribute('data-re-show'); renderRoot(); });
+        });
+        var ex = document.getElementById('anExcl');
+        if (ex) ex.addEventListener('change', function () { AN.excl = ex.checked; renderRoot(); });
+      }
+
       function onAnalyticsRootClick(e) {
           if (mode !== 'analytics' || !e.target.closest) return;
           var th = e.target.closest('[data-an-sort]');
@@ -2554,7 +2463,7 @@
           renderAnalytics(root);
         } else if (mode === 'reminderEffect') {
           root.innerHTML = renderReminderEffects();
-          bindPersonFilterEvents();
+          bindReminderEffectEvents(root);
         } else {
           root.innerHTML = renderTaskList();
           bindTaskEvents();
@@ -2575,11 +2484,7 @@
           c.classList.toggle('on', on);
           c.setAttribute('aria-selected', on ? 'true' : 'false');
         });
-        if (mode === 'reminderEffect' && !reminderEffectsLoaded) {
-          ensureReminderEffects(function () { renderAll(); });
-          return;
-        }
-        if (mode === 'analytics' && !AN.data) {
+        if ((mode === 'analytics' || mode === 'reminderEffect') && !AN.data) {
           document.getElementById('statsBar').style.display = 'none';
           renderFilters();
           ensureAnalytics();
@@ -2607,8 +2512,6 @@
           return;
         }
         lastData = data;
-        reminderEffectsLoaded = false;
-        if (!data.reminderEffects) lastData.reminderEffects = emptyReminderEffectsPack();
         pendingAutoOpen = true;
         var email = data.viewerEmail || '';
         document.getElementById('metaLine').textContent =
@@ -2631,14 +2534,13 @@
       }
 
       function load() {
-        reminderEffectsLoaded = false;
         AN.data = null;
         document.getElementById('root').innerHTML = '<div class="loading">読み込み中…</div>';
         if (typeof google === 'undefined' || !google.script || !google.script.run) {
           showError('Google Apps Script の Web アプリとして開いてください。');
           return;
         }
-        if (mode === 'analytics') ensureAnalytics();
+        if (mode === 'analytics' || mode === 'reminderEffect') ensureAnalytics();
         google.script.run.withSuccessHandler(applyData).withFailureHandler(function (e) {
           showError(e && e.message ? e.message : String(e));
         }).getAdminDashboardData();

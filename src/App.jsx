@@ -108,7 +108,7 @@ const api = {
   fetchAppDataForUser: (email, senderName) => new Promise((res, rej) => {
     if (!isGAS) {
       return setTimeout(
-        () => res({ tasks: [], sentTasks: [], scheduledTasks: [] }),
+        () => res({ tasks: [], sentTasks: [] }),
         800
       );
     }

@@ -88,6 +88,12 @@ function buildAdminAnalytics_(requestRows, employees, allStores, now) {
     }
   });
 
+  var waves = loadReminderWavesForAnalytics_();
+  tasks.forEach(function (t) {
+    var w = waves[t.id];
+    if (w) t.rw = [w['2d'] || 0, w['1d'] || 0, w['0d'] || 0, w.n];
+  });
+
   var storeMeta = {};
   getFieldStores_(allStores).forEach(function (s) { storeMeta[s.storeName] = [s.area, s.territory]; });
 
@@ -100,6 +106,24 @@ function buildAdminAnalytics_(requestRows, employees, allStores, now) {
     storeMeta: storeMeta,
     excludeRoles: getAdminIncompleteExcludeRoles_()
   };
+}
+
+/** リマインド送信履歴 → { taskId: { '2d': 最初の送信ms, '1d': ..., '0d': ..., n: 通数 } }（自動リマインドの3回分のみ） */
+function loadReminderWavesForAnalytics_() {
+  var out = {};
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(DEADLINE_REMINDER_LOG_SHEET_NAME_);
+  if (!sheet || sheet.getLastRow() < 2) return out;
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues().forEach(function (r) {
+    var id = String(r[0] || '').trim();
+    var type = String(r[2] || '').trim();
+    if (!id || (type !== '2d' && type !== '1d' && type !== '0d')) return;
+    var at = r[3] instanceof Date ? r[3] : new Date(r[3]);
+    if (isNaN(at.getTime())) return;
+    var w = out[id] || (out[id] = { n: 0 });
+    w.n++;
+    if (!w[type] || at.getTime() < w[type]) w[type] = at.getTime();
+  });
+  return out;
 }
 
 function getAdminAnalyticsData() {
