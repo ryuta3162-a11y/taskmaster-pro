@@ -2412,10 +2412,12 @@ function processDeadlineRemindersBatch() {
     });
   });
 
-  try {
-    processPosterOverdueFollowups_(values, today, allStores, areasList, employees, report);
-  } catch (followErr) {
-    report.errors.push('投稿者フォロー: ' + String(followErr));
+  if (!hasPosterFollowupTrigger_()) {
+    try {
+      processPosterOverdueFollowups_(values, today, allStores, areasList, employees, report);
+    } catch (followErr) {
+      report.errors.push('投稿者フォロー: ' + String(followErr));
+    }
   }
 
   if (report.sentCount > 0 || report.errors.length > 0 || report.tasksInWindow > 0 || report.posterFollowups.length > 0) {
@@ -2485,6 +2487,62 @@ function processPosterOverdueFollowups_(values, today, allStores, areasList, emp
       report.errors.push('投稿者フォロー: ' + taskId + ' / ' + posterEmail + ': ' + String(mailErr));
     }
   });
+}
+
+/** 毎朝9時に実行。期限翌日の未完了依頼を投稿者に知らせる（スタッフ向けリマインドの8時とは分ける） */
+function processPosterOverdueFollowupsBatch() {
+  var report = { runAt: new Date(), sentCount: 0, skippedAlreadySent: 0, tasksInWindow: 0, taskSummaries: [], sentEmails: [], posterFollowups: [], errors: [] };
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('申請データ');
+  if (!sheet) return;
+  var values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return;
+  values.shift();
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var allStores = getStoreData();
+  try {
+    processPosterOverdueFollowups_(values, today, allStores, getAreasListFromStores_(allStores), getEmployees(), report);
+  } catch (err) {
+    report.errors.push('投稿者フォロー: ' + String(err));
+  }
+  if (report.posterFollowups.length || report.errors.length) sendPosterFollowupReportEmail_(report);
+}
+
+function sendPosterFollowupReportEmail_(report) {
+  var lines = ['DL超過のお知らせ（投稿者あて）の自動送信が完了しました。', ''];
+  lines.push('実行日時: ' + Utilities.formatDate(report.runAt, 'JST', 'yyyy/MM/dd HH:mm:ss'));
+  lines.push('送信: ' + report.posterFollowups.length + ' 件');
+  report.posterFollowups.forEach(function (f) {
+    lines.push('  - ' + f.sender + ' / ' + f.taskId + ' / 未実施 ' + f.pending + ' / ' + f.total);
+  });
+  if (report.errors.length) {
+    lines.push('', 'エラー詳細:');
+    report.errors.forEach(function (e) { lines.push(e); });
+  }
+  getDeadlineReminderReportEmails_().forEach(function (to) {
+    try {
+      sendBrandedEmail_(to, 'DL超過のお知らせ 送信完了', lines.join('\n'), null, { name: 'To-Do List（自動お知らせ）' });
+    } catch (mailErr) {
+      Logger.log('投稿者フォローのレポート送信失敗: ' + to + ' / ' + mailErr);
+    }
+  });
+}
+
+function hasPosterFollowupTrigger_() {
+  return ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'processPosterOverdueFollowupsBatch';
+  });
+}
+
+/** 毎日9:00（JST）の投稿者フォロー用トリガーが無ければ登録する */
+function ensurePosterFollowupTrigger_() {
+  if (hasPosterFollowupTrigger_()) return;
+  ScriptApp.newTrigger('processPosterOverdueFollowupsBatch')
+    .timeBased()
+    .everyDays(1)
+    .atHour(9)
+    .inTimezone('Asia/Tokyo')
+    .create();
 }
 
 function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, isStore, appUrl) {

@@ -4,7 +4,7 @@
  * - 入力ガード: 従業員データの管轄店舗・役職のプルダウン、店舗名の不一致を赤表示
  * - メニュー「To-Do管理」
  */
-var SHEET_SETUP_VERSION_ = '10';
+var SHEET_SETUP_VERSION_ = '11';
 var ANALYSIS_SHEETS_ = {
   tasks: '集計_依頼一覧',
   people: '集計_社員別',
@@ -95,6 +95,7 @@ function autoRunSheetSetup_() {
   } finally {
     lock.releaseLock();
   }
+  step('投稿者フォローのトリガー', ensurePosterFollowupTrigger_);
   step('不要シートの削除', deleteObsoleteSheetsOnce_);
   step('集計シート', refreshAnalysisSheets_);
   step('入力ガード', applyInputGuards_);
