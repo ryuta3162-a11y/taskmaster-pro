@@ -156,15 +156,9 @@
     /* モード切替 */
     .mode-grid {
       display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: .5rem;
       width: 100%;
-    }
-    @media (max-width: 900px) {
-      .mode-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }
-    }
-    @media (max-width: 560px) {
-      .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
     }
     .mode-nav-tile {
       width: 100%;
@@ -183,9 +177,9 @@
       transition: transform .15s, border-color .15s, box-shadow .15s, background .15s;
       min-height: 4.75rem;
     }
-    @media (min-width: 900px) {
-      .mode-nav-tile { padding: 1rem .75rem; min-height: 5.25rem; border-radius: 1rem; gap: .55rem; }
-    }
+    .mode-grid .mode-nav-tile { flex-direction: row; min-height: 3.25rem; padding: .6rem .75rem; gap: .6rem; }
+    .mode-grid .mode-nav-icon { width: 2rem; height: 2rem; }
+    @media (max-width: 560px) { .mode-grid .mode-nav-tile { flex-direction: column; gap: .3rem; } }
     .mode-nav-tile:hover {
       border-color: color-mix(in oklch, var(--acc-300) 55%, transparent);
       box-shadow: 0 4px 16px -8px rgba(0,0,0,.12);
@@ -744,29 +738,6 @@
     .an-note { font-size: .7rem; color: #94a3b8; margin-top: .6rem; line-height: 1.6; }
     .an-empty { padding: 1.5rem; text-align: center; color: #94a3b8; font-weight: 700; font-size: .85rem; }
 
-    /* --- リマインド効果 --- */
-    .re-bar { display: flex; height: .7rem; border-radius: 999px; overflow: hidden; background: #f8fafc; border: 1px solid #e2e8f0; margin: .5rem 0 .4rem; }
-    .re-bar.big { height: 1.6rem; border-radius: .5rem; }
-    .re-bar > span { display: flex; align-items: center; justify-content: center; height: 100%; font-size: .72rem; font-weight: 800; color: #fff; min-width: 2px; }
-    .re-bar > span[style*="#e2e8f0"], .re-bar > span[style*="#94a3b8"], .re-bar > span[style*="repeating"], .re-bar > span[style*="#fff"] { color: #0f172a; }
-    .re-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-top: .9rem; }
-    .re-step { border: 1px solid #eef2f7; border-radius: .8rem; padding: .6rem .8rem; display: flex; flex-direction: column; background: #f8fafc; }
-    .re-step .k { font-size: .72rem; font-weight: 700; color: #64748b; }
-    .re-step .v { font-size: 1.4rem; font-weight: 900; color: #0f172a; font-variant-numeric: tabular-nums; }
-    .re-step .v small { font-size: .75rem; margin-left: .15rem; opacity: .7; }
-    .re-step .s { font-size: .7rem; color: #94a3b8; font-weight: 600; }
-    @media (max-width: 639px) { .re-steps { grid-template-columns: 1fr; } }
-    .re-task { border-top: 1px solid #f1f5f9; padding: .85rem 0; }
-    .re-task:first-of-type { border-top: none; }
-    .re-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
-    .re-title { font-weight: 800; color: #0f172a; font-size: .88rem; line-height: 1.5; }
-    .re-meta { font-size: .72rem; color: #94a3b8; font-weight: 600; margin-top: .15rem; }
-    .re-nums { font-size: .76rem; color: #475569; }
-    .re-nums strong { color: #0f172a; }
-    .re-open { margin-top: .35rem; font-size: .76rem; color: #334155; }
-    .re-open summary { cursor: pointer; font-weight: 700; color: var(--acc-700); }
-    .re-open div { margin-top: .3rem; line-height: 1.7; }
-
     /* --- 店舗依頼の分析 --- */
     .sa-bar { position: relative; overflow: visible; background: #f1f5f9; }
     .sa-bar > span { border-radius: 999px; }
@@ -873,43 +844,19 @@
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="5" width="3" height="13" rx="1"/></svg>
             </div>
-            <h4 class="mode-nav-label">分析サマリー</h4>
+            <h4 class="mode-nav-label">分析</h4>
+          </button>
+          <button type="button" class="mode-nav-tile" data-mode="combined" aria-selected="false">
+            <div class="mode-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            </div>
+            <h4 class="mode-nav-label">依頼一覧</h4>
           </button>
           <button type="button" class="mode-nav-tile" data-mode="storeAnalysis" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 17v-3"/><path d="M12 17v-6"/><path d="M16 17v-4"/></svg>
             </div>
             <h4 class="mode-nav-label">店舗依頼の分析</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="reminderEffect" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-            </div>
-            <h4 class="mode-nav-label">リマインド効果</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="combined" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-            </div>
-            <h4 class="mode-nav-label">社員+店舗</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="employee" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <h4 class="mode-nav-label">社員依頼</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="store" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            </div>
-            <h4 class="mode-nav-label">店舗依頼</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="tf" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 7 13 16 9 12 2 19"/><polyline points="16 7 22 7 22 13"/></svg>
-            </div>
-            <h4 class="mode-nav-label">TF依頼</h4>
           </button>
         </div>
 
@@ -1046,153 +993,14 @@
         /* 展開UI廃止：常時ワンボックス表示 */
       }
 
-      /* ================= リマインド効果 ================= */
-      var RE = { range: '90', show: 'all' };
-      var RE_SEG = [
-        ['pre', 'リマインド前に完了', '#e2e8f0'],
-        ['a2', '2日前の後に完了', '#0f172a'],
-        ['a1', '前日の後に完了', '#475569'],
-        ['a0', '当日の後に完了', '#94a3b8'],
-        ['late', '期限後に完了', 'repeating-linear-gradient(135deg,#cbd5e1 0 4px,#f1f5f9 4px 8px)'],
-        ['open', '未実施のまま', '#fff']
-      ];
-
-      function reInRange(t, range) {
-        range = range || RE.range;
-        if (range === 'all') return true;
-        if (range === '90') return t.c >= Date.now() - 90 * 864e5;
-        return anKeyOf('half', new Date(t.c)) === anKeyOf('half', new Date());
-      }
-
-      /** 1依頼ぶん：各対象がどの回のリマインドの後に完了したか */
-      function reTask(ti) {
-        var t = AN.data.tasks[ti], rw = t.rw;
-        var first = Math.min.apply(null, [rw[0], rw[1], rw[2]].filter(function (x) { return x > 0; }));
-        var dlEnd = t.d ? new Date(t.d + 'T23:59:59').getTime() : Infinity;
-        var todayStr = (function () { var d = new Date(); return d.getFullYear() + '-' + anPad(d.getMonth() + 1) + '-' + anPad(d.getDate()); })();
-        var c = { pre: 0, a2: 0, a1: 0, a0: 0, late: 0, open: 0 }, openNames = [];
-        anUnitsByTask()[ti].forEach(function (u) {
-          if (!anUnitOk(u, t)) return;
-          if (!u[3]) {
-            c.open++;
-            var p = AN.data.people[u[1]];
-            openNames.push(t.k === 'store' ? u[2] : (p ? p.n : '—'));
-            return;
-          }
-          var at = u[5] != null ? t.c + u[5] * 36e5 : null;
-          if (at == null || at < first) c.pre++;
-          else if (at > dlEnd) c.late++;
-          else if (rw[2] && at >= rw[2]) c.a0++;
-          else if (rw[1] && at >= rw[1]) c.a1++;
-          else c.a2++;
-        });
-        var total = c.pre + c.a2 + c.a1 + c.a0 + c.late + c.open;
-        var pending = total - c.pre;
-        var recovered = c.a2 + c.a1 + c.a0;
-        return { ti: ti, t: t, c: c, total: total, pending: pending, recovered: recovered, openNames: openNames,
-          pastDue: !!(t.d && t.d < todayStr), sends: rw[3] || 0 };
-      }
-
-      function reBar(c, total, big) {
-        if (!total) return '';
-        return '<div class="re-bar' + (big ? ' big' : '') + '">' + RE_SEG.map(function (s) {
-          var v = c[s[0]];
-          if (!v) return '';
-          return '<span style="width:' + (v / total * 100) + '%;background:' + s[2] + '" data-tip="' + esc(s[1] + '：' + v + '（' + Math.round(v / total * 100) + '%）') + '">' +
-            (big && v / total >= .07 ? v : '') + '</span>';
-        }).join('') + '</div>';
-      }
-
-      function reLegend() {
-        return '<div class="an-legend">' + RE_SEG.map(function (s) {
-          return '<span><i style="background:' + s[2] + ';' + (s[0] === 'open' ? 'border:1px solid #94a3b8;' : '') + '"></i>' + s[1] + '</span>';
-        }).join('') + '</div>';
-      }
-
-      function renderReminderEffects() {
-        if (!AN.data) return '<div class="loading">リマインド効果を集計中…</div>';
-        var list = [];
-        AN.data.tasks.forEach(function (t, ti) {
-          if (t.rw && reInRange(t)) list.push(reTask(ti));
-        });
-        var S = { pre: 0, a2: 0, a1: 0, a0: 0, late: 0, open: 0 }, sends = 0, openDue = 0, openWait = 0;
-        list.forEach(function (r) {
-          Object.keys(S).forEach(function (k) { S[k] += r.c[k]; });
-          sends += r.sends;
-          if (r.pastDue) openDue += r.c.open; else openWait += r.c.open;
-        });
-        var total = S.pre + S.a2 + S.a1 + S.a0 + S.late + S.open;
-        var pending = total - S.pre, recovered = S.a2 + S.a1 + S.a0;
-
-        var h = '<div class="an">';
-        h += '<div class="an-card an-toolbar"><div class="an-row"><span class="an-label">期間（投稿日）</span><div class="an-seg">' +
-          [['90', '直近90日'], ['half', '今の半期'], ['all', '全期間']].map(function (o) {
-            return '<button type="button" data-re-range="' + o[0] + '" class="' + (RE.range === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
-          }).join('') + '</div>' +
-          '<label class="an-toggle"><input type="checkbox" id="anExcl"' + (AN.excl ? ' checked' : '') + '/>' +
-          esc((AN.data.excludeRoles || []).join('・')) + ' を集計から除く</label></div></div>';
-
-        if (!list.length) {
-          return h + '<div class="an-card"><div class="an-empty">この期間に自動リマインドを送った依頼はありません</div></div></div>';
-        }
-
-        h += '<div class="an-card"><h3>リマインドを送った後、どれだけ完了したか</h3>' +
-          '<p class="an-lead">期限の2日前・前日・当日の朝に、未実施の人へ自動でリマインドを送っています。1回目のリマインドの時点で未実施だった対象（人・店舗）が、その後いつ完了したかをまとめました。</p>';
-        h += '<div class="an-kpis">';
-        h += anKpi('期限までに完了', anPctText(anPct(recovered, pending)), '', recovered + ' / ' + pending + ' 件', '', true,
-          'リマインドの後、期限の日までに完了 ' + recovered + ' ÷ 1回目のリマインド時点で未実施 ' + pending);
-        h += anKpi('リマインド時点で未実施', pending, '件', '全 ' + total + ' 件のうち', '', false,
-          '1回目のリマインドを送った時点で、まだ完了していなかった対象の数');
-        h += anKpi('期限後に完了', S.late, '件', '遅れて完了', '', false, '期限の日を過ぎてから完了した数');
-        h += anKpi('いまも未実施', S.open, '件', openWait ? 'うち期限前 ' + openWait + '件' : '期限が過ぎても未完了', '', false,
-          'まだ完了していない数（期限が過ぎたもの ' + openDue + '件・期限前 ' + openWait + '件）');
-        h += anKpi('リマインドを送った依頼', list.length, '件', '送信 ' + sends + ' 通', '', false, 'この期間に投稿され、自動リマインドを1回以上送った依頼の数と、送ったメールの通数');
-        h += '</div>';
-        h += '<div style="margin-top:1rem">' + reBar(S, total, true) + reLegend() + '</div>';
-        h += '<div class="re-steps">' + [['a2', '2日前のリマインドの後'], ['a1', '前日のリマインドの後'], ['a0', '当日のリマインドの後']].map(function (s) {
-          return '<div class="re-step" data-tip="' + esc(s[1] + '、次のリマインドまで（当日は期限の日の終わりまで）に完了した数') + '"><span class="k">' + s[1] + '</span><span class="v">' + S[s[0]] + '<small>件</small></span>' +
-            '<span class="s">未実施だった分の ' + anPctText(anPct(S[s[0]], pending)) + '</span></div>';
-        }).join('') + '</div>';
-        h += '</div>';
-
-        var counts = { all: list.length, open: 0, done: 0 };
-        list.forEach(function (r) { if (r.c.open) counts.open++; else counts.done++; });
-        var rows = list.filter(function (r) {
-          if (RE.show === 'open') return r.c.open > 0;
-          if (RE.show === 'done') return !r.c.open;
-          return true;
-        }).sort(function (a, b) { return String(b.t.d).localeCompare(String(a.t.d)) || b.t.c - a.t.c; });
-
-        h += '<div class="an-card"><h3>依頼ごとの結果 <span class="tag">期限の新しい順</span></h3>' +
-          '<p class="an-lead">帯にカーソルを合わせると件数が出ます。未実施が残っている依頼は「未実施を表示」から名前（店舗名）を確認できます。</p>' +
-          '<div class="an-seg" style="margin-bottom:.8rem">' +
-          [['all', 'すべて'], ['open', '未実施が残っている'], ['done', 'すべて完了']].map(function (o) {
-            return '<button type="button" data-re-show="' + o[0] + '" class="' + (RE.show === o[0] ? 'on' : '') + '">' + o[1] + '（' + counts[o[0]] + '）</button>';
-          }).join('') + '</div>';
-        if (!rows.length) h += '<div class="an-empty">該当する依頼はありません</div>';
-        rows.forEach(function (r) {
-          var t = r.t, unit = t.k === 'store' ? '店舗' : '名';
-          var sent = [['2日前', t.rw[0]], ['前日', t.rw[1]], ['当日', t.rw[2]]].filter(function (x) { return x[1]; }).map(function (x) { return x[0]; }).join('・');
-          h += '<div class="re-task">';
-          h += '<div class="re-head"><div class="re-title">[' + esc((AN_KIND[t.k] || {}).label || t.k) + '] ' + esc(t.ct || '（本文なし）') + '</div>' +
-            '<div class="re-rate" data-tip="' + esc('期限までに完了 ' + r.recovered + ' ÷ リマインド時点で未実施 ' + r.pending) + '">' + anPill(anPct(r.recovered, r.pending)) + '</div></div>';
-          h += '<div class="re-meta">投稿 ' + esc(t.s) + '・DL ' + esc(t.d ? Number(t.d.slice(5, 7)) + '/' + Number(t.d.slice(8, 10)) : '—') + '・送信 ' + esc(sent) + '（' + r.sends + '通）</div>';
-          h += reBar(r.c, r.total, false);
-          h += '<div class="re-nums">リマインド時点で未実施 <strong>' + r.pending + unit + '</strong> → 期限までに完了 <strong>' + r.recovered + unit + '</strong>' +
-            (r.c.late ? '・期限後に完了 <strong>' + r.c.late + unit + '</strong>' : '') +
-            (r.c.open ? '・未実施 <strong>' + r.c.open + unit + '</strong>' + (r.pastDue ? '' : '（期限前）') : '') + '</div>';
-          if (r.openNames.length) {
-            h += '<details class="re-open"><summary>未実施を表示（' + r.openNames.length + unit + '）</summary><div>' +
-              r.openNames.map(esc).join('、') + '</div></details>';
-          }
-          h += '</div>';
-        });
-        h += '</div></div>';
-        return h;
-      }
-
       /* ================= 店舗依頼の分析 ================= */
       var SA = { range: '90', incWait: false, areaView: 'territory', area: '', storeAll: false };
+
+      function saInRange(t) {
+        if (SA.range === 'all') return true;
+        if (SA.range === '90') return t.c >= Date.now() - 90 * 864e5;
+        return anKeyOf('half', new Date(t.c)) === anKeyOf('half', new Date());
+      }
 
       function saAgg() { return { n: 0, ok: 0, late: 0, ng: 0, wait: 0 }; }
       function saAdd(a, st) { a.n++; a[st]++; }
@@ -1211,7 +1019,7 @@
         });
         var R = { all: saAgg(), areas: {}, terrs: {}, stores: {}, tasks: [], aCnt: {}, load: {}, lead: {}, timing: { d3: 0, d2: 0, d1: 0, d0: 0, late: 0, ng: 0, wait: 0, unk: 0 }, assignees: assignees, taskCount: 0 };
         AN.data.tasks.forEach(function (t, ti) {
-          if (t.k !== 'store' || !reInRange(t, SA.range)) return;
+          if (t.k !== 'store' || !saInRange(t)) return;
           var due = !!(t.d && t.d < todayStr);
           if (!due && !SA.incWait) return;
           var dlEnd = t.d ? new Date(t.d + 'T23:59:59').getTime() : Infinity;
@@ -1580,75 +1388,49 @@
 
       function renderStats() {
         var bar = document.getElementById('statsBar');
-        var hideBar = mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis');
+        var hideBar = mode === 'analytics' || mode === 'storeAnalysis';
         bar.style.display = hideBar ? 'none' : '';
         if (hideBar) return;
         var list = filterTasks(getTasksForMode());
-        var taskLabel = filter === 'late' ? '期限超過依頼' : '全体依頼';
-        var rateLabel = filter === 'late' ? '超過タスク実施率' : '全体実施率';
-        var medianLabel = filter === 'late' ? '超過タスク中央値' : '依頼別中央値';
-
-        if (mode === 'combined') {
-          var empList = list.filter(function (t) { return t.requestKind !== 'store'; });
-          var storeList = list.filter(function (t) { return t.requestKind === 'store'; });
-          var empAgg = getAggregateTaskStats(empList);
-          var storeAgg = getAggregateTaskStats(storeList);
-          var allAgg = getAggregateTaskStats(list);
-          var ex = adminIncompleteExcludeRoles();
-          var excludeHint = ex.length ? ' <span class="hint-inline">（社員は ' + esc(ex.join('・')) + ' 除外）</span>' : '';
-          bar.innerHTML =
-            taskLabel + ' <strong>' + allAgg.taskCount + '</strong><span style="font-weight:700;color:#64748b"> 件</span>' +
-            '<span class="sep">/</span>' +
-            '社員 <strong>' + empAgg.taskCount + '</strong><span style="font-weight:700;color:#64748b"> 件・' + empAgg.overallRate + '%</span>' +
-            '<span class="sep">/</span>' +
-            '店舗 <strong>' + storeAgg.taskCount + '</strong><span style="font-weight:700;color:#64748b"> 件・' + storeAgg.overallRate + '%</span>' +
-            '<span class="sep">/</span>' +
-            rateLabel + ' <strong>' + allAgg.overallRate + '</strong><span style="font-weight:700;color:#64748b"> %</span>' +
-            excludeHint +
-            '<span class="sep">/</span>' +
-            medianLabel + ' <strong>' + allAgg.medianRate + '</strong><span style="font-weight:700;color:#64748b"> %</span>' +
-            '<span class="sep">/</span>' +
-            '対象 <strong>' + empAgg.targetSum + '</strong><span style="font-weight:700;color:#64748b"> 名</span>' +
-            ' + <strong>' + storeAgg.targetSum + '</strong><span style="font-weight:700;color:#64748b"> 店舗</span>';
-          return;
-        }
-
-        var unit = peopleUnitLabel();
+        var u = function (x) { return '<span style="font-weight:700;color:#64748b"> ' + x + '</span>'; };
+        var sep = '<span class="sep">/</span>';
         var agg = getAggregateTaskStats(list);
-        var excludeHint = '';
-        if (mode !== 'store') {
-          var ex2 = adminIncompleteExcludeRoles();
-          if (ex2.length) excludeHint = ' <span class="hint-inline">（' + esc(ex2.join('・')) + ' 除外）</span>';
+        var pendingHtml;
+        if (mode === 'combined') {
+          var empAgg = getAggregateTaskStats(list.filter(function (t) { return t.requestKind !== 'store'; }));
+          var storeAgg = getAggregateTaskStats(list.filter(function (t) { return t.requestKind === 'store'; }));
+          pendingHtml = '<strong>' + empAgg.pendingSum + '</strong>' + u('名') + ' ・ <strong>' + storeAgg.pendingSum + '</strong>' + u('店舗');
+        } else {
+          pendingHtml = '<strong>' + agg.pendingSum + '</strong>' + u(peopleUnitLabel());
         }
+        var ex = mode === 'store' ? [] : adminIncompleteExcludeRoles();
         bar.innerHTML =
-          taskLabel + ' <strong>' + agg.taskCount + '</strong><span style="font-weight:700;color:#64748b"> 件</span>' +
-          '<span class="sep">/</span>' +
-          '対象 <strong>' + agg.targetSum + '</strong><span style="font-weight:700;color:#64748b"> ' + unit + '</span>' +
-          excludeHint +
-          '<span class="sep">/</span>' +
-          '<span class="accent">未実施 <strong>' + agg.pendingSum + '</strong><span style="font-weight:700;color:#64748b"> ' + unit + '</span></span>' +
-          '<span class="sep">/</span>' +
-          rateLabel + ' <strong>' + agg.overallRate + '</strong><span style="font-weight:700;color:#64748b"> %</span>' +
-          '<span class="sep">/</span>' +
-          medianLabel + ' <strong>' + agg.medianRate + '</strong><span style="font-weight:700;color:#64748b"> %</span>';
+          '依頼 <strong>' + agg.taskCount + '</strong>' + u('件') + sep +
+          '<span class="accent">未実施 ' + pendingHtml + '</span>' + sep +
+          '実施率 <strong>' + agg.overallRate + '</strong>' + u('%') +
+          (ex.length ? ' <span class="hint-inline">（' + esc(ex.join('・')) + ' は集計から除外）</span>' : '');
+      }
+
+      function isListMode() {
+        return mode === 'combined' || mode === 'employee' || mode === 'store' || mode === 'tf';
       }
 
       function renderFilters() {
         var panel = document.getElementById('filtersPanel');
         var bar = document.getElementById('filtersBar');
-        if ((mode === 'reminderEffect' || mode === 'storeAnalysis') || mode === 'analytics') {
+        if (mode === 'storeAnalysis' || mode === 'analytics') {
           panel.style.display = 'none';
           return;
         }
         panel.style.display = '';
         bar.innerHTML =
           '<div class="filter-block">' +
-          '<span class="filter-label">投稿の種類</span>' +
+          '<span class="filter-label">依頼の種類</span>' +
           '<div class="chip-row">' +
-          '<button type="button" class="chip' + (typeFilter === 'all' ? ' on' : '') + '" data-tf="all">すべて</button>' +
-          '<button type="button" class="chip' + (typeFilter === 'new' ? ' on' : '') + '" data-tf="new">新規投稿</button>' +
-          '<button type="button" class="chip' + (typeFilter === 'repost' ? ' on' : '') + '" data-tf="repost">再投稿</button>' +
-          '<button type="button" class="chip' + (typeFilter === 'remind' ? ' on' : '') + '" data-tf="remind">リマインド</button>' +
+          '<button type="button" class="chip' + (mode === 'combined' ? ' on' : '') + '" data-lk="combined">すべて</button>' +
+          '<button type="button" class="chip' + (mode === 'employee' ? ' on' : '') + '" data-lk="employee">社員</button>' +
+          '<button type="button" class="chip' + (mode === 'store' ? ' on' : '') + '" data-lk="store">店舗</button>' +
+          '<button type="button" class="chip' + (mode === 'tf' ? ' on' : '') + '" data-lk="tf">TF</button>' +
           '</div></div>' +
           '<div class="filter-block">' +
           '<span class="filter-label">進捗</span>' +
@@ -1658,14 +1440,15 @@
           '<button type="button" class="chip' + (filter === 'late' ? ' on' : '') + '" data-f="late">期限超過のみ</button>' +
           '</div></div>' +
           '<div class="filter-block">' +
-          '<span class="filter-label">投稿日</span>' +
+          '<span class="filter-label">並び順</span>' +
           '<div class="chip-row">' +
-          '<button type="button" class="chip' + (sortOrder === 'desc' ? ' on' : '') + '" data-sort="desc">降順（新しい順）</button>' +
-          '<button type="button" class="chip' + (sortOrder === 'asc' ? ' on' : '') + '" data-sort="asc">昇順（古い順）</button>' +
+          '<button type="button" class="chip' + (sortOrder === 'desc' ? ' on' : '') + '" data-sort="desc">新しい順</button>' +
+          '<button type="button" class="chip' + (sortOrder === 'asc' ? ' on' : '') + '" data-sort="asc">古い順</button>' +
           '</div></div>';
-        bar.querySelectorAll('[data-tf]').forEach(function (el) {
+        bar.querySelectorAll('[data-lk]').forEach(function (el) {
           el.addEventListener('click', function () {
-            typeFilter = el.getAttribute('data-tf') || 'all';
+            mode = el.getAttribute('data-lk') || 'combined';
+            pendingAutoOpen = true;
             renderAll();
           });
         });
@@ -1802,17 +1585,17 @@
       function ensureAnalytics() {
         if (AN.data || AN.loading) return;
         AN.loading = true;
-        if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
+        if (mode === 'analytics' || mode === 'storeAnalysis') document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
         google.script.run
           .withSuccessHandler(function (d) {
             AN.loading = false;
-            if (!d || !d.ok) { if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
+            if (!d || !d.ok) { if (mode === 'analytics' || mode === 'storeAnalysis') showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
             AN.data = d;
-            if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) renderAll();
+            if (mode === 'analytics' || mode === 'storeAnalysis') renderAll();
           })
           .withFailureHandler(function (e) {
             AN.loading = false;
-            if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) showError(e && e.message ? e.message : String(e));
+            if (mode === 'analytics' || mode === 'storeAnalysis') showError(e && e.message ? e.message : String(e));
           })
           .getAdminAnalyticsData();
       }
@@ -2522,94 +2305,18 @@
         var cmpTip = prevLabel ? '\n右上の数字は' + prevLabel.replace(/比$/, '') + 'との差です。' : '';
         h += anKpi('実施率（' + periodLabel + '）', anPctText(A.rate), '', A.done + ' / ' + A.units + ' 件完了' + (prevLabel ? '・' + esc(prevLabel) : ''), P ? anDelta(A.rate, P.rate, 'pt') : '', true,
           '完了 ' + A.done + ' ÷ 届け先ののべ数 ' + A.units + '（人・店舗）' + '\nまだ期限前の依頼も含みます。' + cmpTip);
-        h += anKpi('投稿数', A.tasks, '件', '社員' + A.kinds.employee + ' / 店舗' + A.kinds.store + ' / TF' + A.kinds.tf, P ? anDelta(A.tasks, P.tasks, '件') : '', false,
-          'この期間に投稿された依頼の数（再投稿・リマインドも1件と数えます）' + cmpTip);
-        h += anKpi('届け先（のべ）', A.units, '件', '1投稿あたり ' + (A.tasks ? Math.round(A.units / A.tasks) : 0) + '件', P ? anDelta(A.units, P.units, '件') : '', false,
-          '各投稿の届け先（社員依頼は人、店舗依頼は店舗）を足した数\n1投稿あたり ＝ 届け先（のべ）' + A.units + ' ÷ 投稿数 ' + A.tasks + cmpTip);
         h += anKpi('期限内に完了', anPctText(A.onTimeRate), '', A.onTime + '件が期限内', P ? anDelta(A.onTimeRate, P.onTimeRate, 'pt') : '', false,
           '期限の日までに完了 ' + A.onTime + ' ÷ 届け先ののべ数 ' + A.units + cmpTip);
         h += anKpi('期限超過で未実施', A.overdueOpen, '件', '期限が過ぎても未完了', P ? anDelta(A.overdueOpen, P.overdueOpen, '件', true) : '', false,
           '期限が過ぎたのに、まだ完了していない届け先（人・店舗）の数' + cmpTip);
-        h += anKpi('完了までの時間', anHours(A.medianHours), '', '投稿から完了までの中央値', '', false,
-          '投稿されてから「完了」が押されるまでの時間を短い順に並べたときの、真ん中の値');
-        h += anKpi('投稿した人', A.requesterCount, '名', avgPerReq != null ? '1人あたり ' + avgPerReq + '件' : '', P ? anDelta(A.requesterCount, P.requesterCount, '名') : '', false,
-          'この期間に依頼を1件以上投稿した人の数\n1人あたり ＝ 投稿数 ' + A.tasks + ' ÷ 投稿した人 ' + A.requesterCount + cmpTip);
-        h += anKpi('リストチェックした人', A.executorCount, '名', (AN.kind === 'store' ? '店舗依頼で完了を押した人' : '依頼が届いた人 ' + A.targetPeopleCount + '名'), P ? anDelta(A.executorCount, P.executorCount, '名') : '', false,
-          '1件以上「完了」を押した人の数（店舗依頼で店舗分を完了にした人も含む）' + cmpTip);
+        h += anKpi('投稿数', A.tasks, '件', '社員' + A.kinds.employee + ' / 店舗' + A.kinds.store + ' / TF' + A.kinds.tf, P ? anDelta(A.tasks, P.tasks, '件') : '', false,
+          'この期間に投稿された依頼の数（再投稿・リマインドも1件と数えます）' + cmpTip);
         h += '</div>';
 
         // 推移
         h += '<div class="an-card an-chart"><h3>月別の推移 <span class="tag">直近12か月</span></h3>' +
           '<p class="an-lead">左は月ごとの依頼数、右はその月に出した依頼がどれだけ完了したかです。グラフにカーソルを合わせると、計算式と内訳が出ます。</p>' +
           anTrendSvg() + '</div>';
-
-        // 依頼者目線 vs 実施者目線
-        var execPersonal = execRows.filter(function (r) { return r.targets > 0; });
-        var execTargets = 0, execDone = 0;
-        execPersonal.forEach(function (r) { execTargets += r.targets; execDone += r.done; });
-        var fullDone = execPersonal.filter(function (r) { return r.done === r.targets; }).length;
-        var reqGood = reqRows.filter(function (r) { return r.rate != null && r.rate >= 90; }).length;
-        var reqByPi = {};
-        reqRows.forEach(function (r) { if (r.pi >= 0) reqByPi[r.pi] = r; });
-        var both = execRows.filter(function (r) { return reqByPi[r.pi]; }).length;
-        var perTaskUnits = A.tasks ? Math.round(A.units / A.tasks * 10) / 10 : null;
-        var perExec = execPersonal.length ? Math.round(execTargets / execPersonal.length * 10) / 10 : null;
-        var dtTip = function (label, tip) { return '<dt data-tip="' + esc(tip) + '">' + label + '</dt>'; };
-        h += '<div class="an-card"><h3>投稿した側・チェックした側の数字</h3>' +
-          '<p class="an-lead">同じ期間を、依頼を「投稿した側」と、届いた依頼を「チェックした側」から見た数字です。項目名にカーソルを合わせると計算方法が出ます。</p><div class="an-vs">';
-        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-700)"></span>投稿した側</h4><dl>' +
-          dtTip('投稿した人', 'この期間に依頼を1件以上投稿した人の数') + '<dd>' + A.requesterCount + '名</dd>' +
-          dtTip('投稿数', '社員依頼 ' + A.kinds.employee + '件 ＋ 店舗依頼 ' + A.kinds.store + '件 ＋ TF依頼 ' + A.kinds.tf + '件') + '<dd>' + A.tasks + '件</dd>' +
-          dtTip('1人あたりの投稿数', '投稿数 ' + A.tasks + '件 ÷ 投稿した人 ' + A.requesterCount + '名') + '<dd>' + (avgPerReq != null ? avgPerReq + '件' : '—') + '</dd>' +
-          dtTip('1投稿あたりの届け先', '届け先ののべ数 ' + A.units + '（人・店舗）÷ 投稿数 ' + A.tasks + '件') + '<dd>' + (perTaskUnits != null ? perTaskUnits : '—') + '</dd>' +
-          dtTip('投稿の完了率', '完了 ' + A.done + ' ÷ 届け先ののべ数 ' + A.units) + '<dd>' + anPill(A.rate) + '</dd>' +
-          dtTip('完了率90%以上の投稿者', '自分の投稿の完了率が90%以上の人 ' + reqGood + '名 ÷ 投稿した人 ' + reqRows.length + '名') + '<dd>' + reqGood + ' / ' + reqRows.length + '名</dd></dl></div>';
-        h += '<div class="an-side"><h4><span class="dot" style="background:var(--acc-300)"></span>チェックした側</h4><dl>' +
-          dtTip('依頼が届いた人', '社員依頼・TF依頼で、自分あてに依頼が届いた人の数（店舗依頼は含みません）') + '<dd>' + execPersonal.length + '名</dd>' +
-          dtTip('リストチェックした人', '1件以上「完了」を押した人の数（店舗依頼で店舗分を完了にした人も含む）') + '<dd>' + A.executorCount + '名</dd>' +
-          dtTip('1人あたりに届いた依頼', '自分あてに届いた依頼ののべ数 ' + execTargets + '件 ÷ 依頼が届いた人 ' + execPersonal.length + '名') + '<dd>' + (perExec != null ? perExec + '件' : '—') + '</dd>' +
-          dtTip('自分あての依頼の完了率', '完了 ' + execDone + '件 ÷ 自分あてに届いた依頼ののべ数 ' + execTargets + '件') + '<dd>' + anPill(anPct(execDone, execTargets)) + '</dd>' +
-          dtTip('すべて完了した人', '届いた依頼をすべて完了にした人 ' + fullDone + '名 ÷ 依頼が届いた人 ' + execPersonal.length + '名') + '<dd>' + fullDone + ' / ' + execPersonal.length + '名</dd>' +
-          dtTip('投稿もチェックもした人', '投稿した人のうち、リストチェックもした人の数') + '<dd>' + both + '名</dd></dl></div>';
-        h += '</div></div>';
-
-        // ランキング
-        h += '<div class="an-card"><h3>投稿数ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
-          '<p class="an-lead">誰がどれだけ投稿したか、その投稿がどれだけ完了したか。列名を押すと並び替えできます。</p>' +
-          '<div id="anReqWrap">' + anRequesterTable(reqRows) + '</div></div>';
-
-        var roles = {};
-        execRows.forEach(function (r) { if (r.role) roles[r.role] = 1; });
-        h += '<div class="an-card"><h3>チェック数ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
-          '<p class="an-lead">誰がどれだけリストチェックしたか。「チェック数」＝自分あての依頼で完了を押した数＋店舗依頼で自分が完了にした店舗数。完了率・期限内は自分あての依頼で計算しています。</p>' +
-          '<div class="an-row" style="margin-bottom:.6rem"><input type="search" class="an-search" id="anExecQ" placeholder="名前・エリアで検索" value="' + esc(AN.execQuery) + '"/>' +
-          '<select class="an-search" id="anExecRole" style="min-width:8rem"><option value="">役職：すべて</option>' +
-          Object.keys(roles).sort().map(function (r) { return '<option' + (AN.execRole === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>' +
-          '<div id="anExecWrap">' + anExecutorTable(execRows) + '</div></div>';
-
-        // チーム・エリア
-        var teamMap = {};
-        reqRows.forEach(function (r) {
-          (anSplit(r.team).length ? anSplit(r.team) : ['チーム未設定']).forEach(function (t) {
-            var x = teamMap[t] || (teamMap[t] = { name: t, v: 0, units: 0, done: 0 });
-            x.v += r.tasks; x.units += r.units; x.done += r.done;
-          });
-        });
-        var teamItems = Object.keys(teamMap).map(function (k) { var x = teamMap[k]; x.rate = anPct(x.done, x.units); x.text = x.v + '件 <span>' + anPctText(x.rate) + '</span>'; return x; })
-          .sort(function (a, b) { return b.v - a.v; });
-        var areaMap = {};
-        execPersonal.forEach(function (r) {
-          (anSplit(r.area).length ? anSplit(r.area) : ['エリア未設定']).forEach(function (a) {
-            var x = areaMap[a] || (areaMap[a] = { name: a, targets: 0, done: 0 });
-            x.targets += r.targets; x.done += r.done;
-          });
-        });
-        var areaItems = Object.keys(areaMap).map(function (k) { var x = areaMap[k]; x.rate = anPct(x.done, x.targets); x.v = x.rate || 0; x.text = anPctText(x.rate) + ' <span>' + x.done + '/' + x.targets + '</span>'; return x; })
-          .sort(function (a, b) { return b.v - a.v; });
-        h += '<div class="an-grid2">';
-        h += '<div class="an-card"><h3>TFチーム別の依頼数</h3><p class="an-lead">依頼者の所属チームごとの依頼数。右の%はその依頼の実施率です。</p>' + anHBars(teamItems, anRateColor) + '</div>';
-        h += '<div class="an-card"><h3>エリア別の実施率</h3><p class="an-lead">依頼を受けた人の現在のエリアごとの実施率（完了/依頼された数）。</p>' + anHBars(areaItems, anRateColor) + '</div>';
-        h += '</div>';
 
         // 実施率が低い依頼
         var low = A.perTask.filter(function (x) { return x.pastDue && x.total > 0 && x.done < x.total; })
@@ -2627,6 +2334,21 @@
           h += '</tbody></table></div>';
         }
         h += '</div>';
+
+
+        // ランキング
+        h += '<div class="an-card"><h3>投稿数ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
+          '<p class="an-lead">誰がどれだけ投稿したか、その投稿がどれだけ完了したか。列名を押すと並び替えできます。</p>' +
+          '<div id="anReqWrap">' + anRequesterTable(reqRows) + '</div></div>';
+
+        var roles = {};
+        execRows.forEach(function (r) { if (r.role) roles[r.role] = 1; });
+        h += '<div class="an-card"><h3>チェック数ランキング <span class="tag">' + esc(periodLabel) + '</span></h3>' +
+          '<p class="an-lead">誰がどれだけリストチェックしたか。「チェック数」＝自分あての依頼で完了を押した数＋店舗依頼で自分が完了にした店舗数。完了率・期限内は自分あての依頼で計算しています。</p>' +
+          '<div class="an-row" style="margin-bottom:.6rem"><input type="search" class="an-search" id="anExecQ" placeholder="名前・エリアで検索" value="' + esc(AN.execQuery) + '"/>' +
+          '<select class="an-search" id="anExecRole" style="min-width:8rem"><option value="">役職：すべて</option>' +
+          Object.keys(roles).sort().map(function (r) { return '<option' + (AN.execRole === r ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>' +
+          '<div id="anExecWrap">' + anExecutorTable(execRows) + '</div></div>';
 
         h += '<p class="an-note">※ 期間は「依頼の投稿日」で区切っています。上期＝4〜9月、下期＝10〜翌3月。期限前の依頼も含むため、直近の期間は実施率が低めに出ます。人の役職・チーム・エリアは現在の従業員データの値です。最終集計: ' +
           esc(new Date(AN.data.generatedAt).toLocaleString('ja-JP')) + '</p>';
@@ -2672,17 +2394,6 @@
         });
       }
 
-      function bindReminderEffectEvents(root) {
-        root.querySelectorAll('[data-re-range]').forEach(function (el) {
-          el.addEventListener('click', function () { RE.range = el.getAttribute('data-re-range'); renderRoot(); });
-        });
-        root.querySelectorAll('[data-re-show]').forEach(function (el) {
-          el.addEventListener('click', function () { RE.show = el.getAttribute('data-re-show'); renderRoot(); });
-        });
-        var ex = document.getElementById('anExcl');
-        if (ex) ex.addEventListener('change', function () { AN.excl = ex.checked; renderRoot(); });
-      }
-
       function onAnalyticsRootClick(e) {
           if (mode !== 'analytics' || !e.target.closest) return;
           var th = e.target.closest('[data-an-sort]');
@@ -2704,9 +2415,6 @@
         var root = document.getElementById('root');
         if (mode === 'analytics') {
           renderAnalytics(root);
-        } else if (mode === 'reminderEffect') {
-          root.innerHTML = renderReminderEffects();
-          bindReminderEffectEvents(root);
         } else if (mode === 'storeAnalysis') {
           root.innerHTML = renderStoreAnalysis();
           bindStoreAnalysisEvents(root);
@@ -2726,11 +2434,12 @@
 
       function renderAll() {
         document.querySelectorAll('.mode-nav-tile[data-mode]').forEach(function (c) {
-          var on = c.getAttribute('data-mode') === mode;
+          var tm = c.getAttribute('data-mode');
+          var on = tm === mode || (tm === 'combined' && isListMode());
           c.classList.toggle('on', on);
           c.setAttribute('aria-selected', on ? 'true' : 'false');
         });
-        if ((mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) && !AN.data) {
+        if ((mode === 'analytics' || mode === 'storeAnalysis') && !AN.data) {
           document.getElementById('statsBar').style.display = 'none';
           renderFilters();
           ensureAnalytics();
@@ -2786,7 +2495,7 @@
           showError('Google Apps Script の Web アプリとして開いてください。');
           return;
         }
-        if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) ensureAnalytics();
+        if (mode === 'analytics' || mode === 'storeAnalysis') ensureAnalytics();
         google.script.run.withSuccessHandler(applyData).withFailureHandler(function (e) {
           showError(e && e.message ? e.message : String(e));
         }).getAdminDashboardData();
