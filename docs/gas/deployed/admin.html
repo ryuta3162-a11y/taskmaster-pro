@@ -136,7 +136,7 @@
     /* --- main --- */
     .main { flex: 1; overflow: auto; padding: 1rem .25rem 6rem; background: #f2f2f7; }
     @media (min-width: 768px) { .main { padding: 1.5rem 1rem 6rem; } }
-    .main-inner { max-width: 120rem; margin: 0 auto; width: 100%; padding: 0 .25rem; }
+    .main-inner { max-width: 92rem; margin: 0 auto; width: 100%; padding: 0 .25rem; }
     @media (min-width: 768px) { .main-inner { padding: 0 1rem; } }
     .stack { display: flex; flex-direction: column; gap: 1rem; margin-top: .25rem; width: 100%; }
 
@@ -260,6 +260,14 @@
     .chip-row {
       display: flex; flex-wrap: wrap; gap: .5rem;
     }
+    #filtersPanel { border: none; box-shadow: 0 1px 3px rgba(0,0,0,.08); background: #fff; }
+    #filtersPanel::before, #filtersPanel::after { display: none; }
+    #filtersPanel .panel-inner { padding: .85rem 1rem; }
+    #filtersPanel .chip-arena { border: none; background: none; box-shadow: none; padding: 0; gap: .5rem; }
+    #filtersPanel .filter-block { display: flex; align-items: center; gap: .75rem; }
+    #filtersPanel .filter-block + .filter-block { border-top: none; padding-top: 0; }
+    #filtersPanel .filter-block .filter-label { margin: 0; min-width: 4.5rem; }
+    @media (max-width: 639px) { #filtersPanel .filter-block { flex-direction: column; align-items: flex-start; gap: .35rem; } }
     .chip {
       display: inline-flex; align-items: center; justify-content: center;
       min-height: 2.5rem; padding: .5rem .85rem; border-radius: .75rem;
@@ -680,7 +688,7 @@
     .an-kpi.hero .an-delta { background: rgba(255,255,255,.2); color: #fff; }
     .an-grid2 { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     @media (min-width: 1100px) { .an-grid2 { grid-template-columns: 1fr 1fr; } }
-    .an-chart svg { width: 100%; height: auto; display: block; }
+    .an-chart svg { width: 100%; height: auto; max-height: 17rem; display: block; margin: 0 auto; }
     .an-tip {
       position: fixed; z-index: 1000; pointer-events: none; max-width: 22rem;
       background: #0f172a; color: #fff; border-radius: .6rem; padding: .6rem .8rem;
@@ -860,14 +868,24 @@
 
     <main class="main">
       <div class="main-inner stack">
-        <div id="statsBar" class="status-strip">読み込み中…</div>
-
         <div class="mode-grid" role="tablist" id="modeGrid">
           <button type="button" class="mode-nav-tile on" data-mode="analytics" aria-selected="true">
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="5" width="3" height="13" rx="1"/></svg>
             </div>
             <h4 class="mode-nav-label">分析サマリー</h4>
+          </button>
+          <button type="button" class="mode-nav-tile" data-mode="storeAnalysis" aria-selected="false">
+            <div class="mode-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 17v-3"/><path d="M12 17v-6"/><path d="M16 17v-4"/></svg>
+            </div>
+            <h4 class="mode-nav-label">店舗依頼の分析</h4>
+          </button>
+          <button type="button" class="mode-nav-tile" data-mode="reminderEffect" aria-selected="false">
+            <div class="mode-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <h4 class="mode-nav-label">リマインド効果</h4>
           </button>
           <button type="button" class="mode-nav-tile" data-mode="combined" aria-selected="false">
             <div class="mode-nav-icon" aria-hidden="true">
@@ -891,21 +909,11 @@
             <div class="mode-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 7 13 16 9 12 2 19"/><polyline points="16 7 22 7 22 13"/></svg>
             </div>
-            <h4 class="mode-nav-label">タスクをTF依頼</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="reminderEffect" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-            </div>
-            <h4 class="mode-nav-label">リマインド効果</h4>
-          </button>
-          <button type="button" class="mode-nav-tile" data-mode="storeAnalysis" aria-selected="false">
-            <div class="mode-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 17v-3"/><path d="M12 17v-6"/><path d="M16 17v-4"/></svg>
-            </div>
-            <h4 class="mode-nav-label">店舗依頼の分析</h4>
+            <h4 class="mode-nav-label">TF依頼</h4>
           </button>
         </div>
+
+        <div id="statsBar" class="status-strip">読み込み中…</div>
 
         <div class="panel-frame" id="filtersPanel">
           <div class="panel-inner">
@@ -1732,32 +1740,6 @@
             if (ka !== kb) return ka - kb;
             return (a.doneOrder == null ? 0 : a.doneOrder) - (b.doneOrder == null ? 0 : b.doneOrder);
           });
-          var doneLabel = t.requestKind === 'store' ? '完了した店舗（早い順）' : '実施者（早い順）';
-
-          h += '<div class="detail-block">';
-          if (!recipients.length) {
-            h += '<span class="detail-label">' + doneLabel + '</span>';
-            h += '<p class="hint">対象データがありません</p>';
-          } else {
-            h += '<span class="detail-label">' + doneLabel + ' ' + doneList.length + unit + excludedNote + '</span>';
-            if (!doneList.length) {
-              h += '<p class="hint">まだ実施者はいません</p>';
-            } else {
-              h += '<div class="done-rank-grid">';
-              doneList.forEach(function (r, i) {
-                var name = r.label || r.name || r.storeName || '—';
-                var sub = r.doneAtLabel || '';
-                if (r.itemType === 'store' && r.doneByName) sub = (sub ? sub + ' · ' : '') + r.doneByName;
-                h += '<div class="done-rank"><span class="done-rank-no">' + (i + 1) + '</span>';
-                h += '<span class="done-rank-body"><span class="done-rank-name">' + esc(name) + '</span>';
-                if (sub) h += '<span class="done-rank-time">' + esc(sub) + '</span>';
-                h += '</span></div>';
-              });
-              h += '</div>';
-            }
-          }
-          h += '</div>';
-
           if (recipients.length) {
             h += '<div class="detail-block">';
             if (!pending.length) {
@@ -1766,14 +1748,34 @@
               pending.sort(function (a, b) {
                 return String(a.label || a.storeName || a.name).localeCompare(String(b.label || b.storeName || b.name), 'ja');
               });
-              h += '<details class="pending-toggle"><summary>' + pendingLabel + 'を表示（' + pending.length + unit + '）</summary>';
+              h += '<span class="detail-label">' + pendingLabel + ' ' + pending.length + unit + excludedNote + '</span>';
               h += '<div class="pending-name-grid">';
               pending.forEach(function (r) {
                 h += '<div class="pending-name">' + esc(r.label || r.name || r.storeName || '—') + '</div>';
               });
-              h += '</div></details>';
+              h += '</div>';
             }
             h += '</div>';
+          }
+
+          var doneLabel = t.requestKind === 'store' ? '完了した店舗（早い順）' : '実施者（早い順）';
+
+          if (recipients.length && doneList.length) {
+            h += '<div class="detail-block">';
+            h += '<details class="pending-toggle"><summary>' + doneLabel + 'を表示（' + doneList.length + unit + '）</summary>';
+            h += '<div class="done-rank-grid">';
+            doneList.forEach(function (r, i) {
+              var name = r.label || r.name || r.storeName || '—';
+              var sub = r.doneAtLabel || '';
+              if (r.itemType === 'store' && r.doneByName) sub = (sub ? sub + ' · ' : '') + r.doneByName;
+              h += '<div class="done-rank"><span class="done-rank-no">' + (i + 1) + '</span>';
+              h += '<span class="done-rank-body"><span class="done-rank-name">' + esc(name) + '</span>';
+              if (sub) h += '<span class="done-rank-time">' + esc(sub) + '</span>';
+              h += '</span></div>';
+            });
+            h += '</div></details></div>';
+          } else if (!recipients.length) {
+            h += '<div class="detail-block"><p class="hint">対象データがありません</p></div>';
           }
 
           h += '</article>';
@@ -2605,7 +2607,7 @@
         var areaItems = Object.keys(areaMap).map(function (k) { var x = areaMap[k]; x.rate = anPct(x.done, x.targets); x.v = x.rate || 0; x.text = anPctText(x.rate) + ' <span>' + x.done + '/' + x.targets + '</span>'; return x; })
           .sort(function (a, b) { return b.v - a.v; });
         h += '<div class="an-grid2">';
-        h += '<div class="an-card"><h3>TFチーム別の依頼数</h3><p class="an-lead">依頼者の所属チームごとの依頼数。右の%はその依頼の実施率です（色：緑90%以上／黄70%以上／赤70%未満）。</p>' + anHBars(teamItems, anRateColor) + '</div>';
+        h += '<div class="an-card"><h3>TFチーム別の依頼数</h3><p class="an-lead">依頼者の所属チームごとの依頼数。右の%はその依頼の実施率です。</p>' + anHBars(teamItems, anRateColor) + '</div>';
         h += '<div class="an-card"><h3>エリア別の実施率</h3><p class="an-lead">依頼を受けた人の現在のエリアごとの実施率（完了/依頼された数）。</p>' + anHBars(areaItems, anRateColor) + '</div>';
         h += '</div>';
 
