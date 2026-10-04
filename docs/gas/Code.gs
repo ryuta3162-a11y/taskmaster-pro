@@ -2270,84 +2270,58 @@ function buildPosterOverdueBodies_(posterName, taskItem, recipients, pending, is
   var total = recipients.length;
   var doneCount = total - pending.length;
   var rate = total ? Math.round((doneCount / total) * 100) : 0;
-  var kindLabel = String(taskItem.requestKindLabel || '');
-  var preview = String(taskItem.contentPreview || '').replace(/\n/g, ' ');
-  var deadline = String(taskItem.deadline || '—');
-  var pendingTitle = isStore ? '未実施の店舗（' + pending.length + '店舗）' : '未実施の方（' + pending.length + '名）';
-
-  var pendingLabels = pending.map(function (r) {
-    if (isStore) {
-      var names = (r.assignees || []).map(function (a) { return a.name; }).filter(Boolean);
-      return r.storeName + (names.length ? '（担当：' + names.join('、') + '）' : '（担当者未登録）');
-    }
-    return r.name + (r.role ? '（' + r.role + '）' : '');
-  });
-
-  var lead = posterName + 'さんが投稿したTo-DoのDL（' + deadline + '）が過ぎましたので、実施状況をお知らせします。';
-  var statusLine = '実施済み：' + doneCount + ' / ' + total + unit + '（' + rate + '%）';
-  var howTo = [
-    '未実施の方だけに送れる「リマインド」がおすすめです。',
-    'To-Do List のホーム →「リマインド」→ 該当の依頼の「この内容でリマインド」から送信できます。'
-  ];
-
-  var lines = [];
-  lines.push('お元気様です。');
-  lines.push(lead);
-  lines.push('');
-  lines.push('▼ 対象の依頼');
-  lines.push('[' + kindLabel + '] ' + preview);
-  lines.push('DL：' + deadline);
-  lines.push('');
-  lines.push('▼ 実施状況');
-  lines.push(statusLine);
-  lines.push('');
-  lines.push('▼ ' + pendingTitle);
-  pendingLabels.forEach(function (s) { lines.push('・' + s); });
-  lines.push('');
-  lines.push('▼ 再度お願いする場合');
-  howTo.forEach(function (s) { lines.push(s); });
-  if (appUrl) {
-    lines.push('');
-    lines.push(String(appUrl));
-  }
-  lines.push('');
-  lines.push('※ このメールは自動送信です。');
-
-  var sectionTitle = function (t) {
-    return '<p style="margin:16px 0 6px;font-size:12px;font-weight:700;color:#0f172a;">' + escapeHtmlEmail_(t) + '</p>';
+  var dl = String(taskItem.deadline || '');
+  var m = dl.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  var dlLabel = m ? Number(m[2]) + '/' + Number(m[3]) : (dl || '—');
+  var bodyLines = String(taskItem.contentFull || taskItem.contentPreview || '').split(/\r?\n/)
+    .map(function (l) { return l.trim(); })
+    .filter(Boolean);
+  var isGreeting = function (l) {
+    return /^(お元気様|お疲れ様|おつかれさま|いつもありがとう|日頃より|いつもお世話)/.test(l) ||
+      (l.length <= 30 && /(チーム|部|課)/.test(l) && /(です|でございます)。?$/.test(l));
   };
-  var listHtml = '<ul style="margin:0;padding-left:20px;">';
-  pendingLabels.forEach(function (s) {
-    listHtml += '<li style="margin:3px 0;font-size:14px;color:#0f172a;">' + escapeHtmlEmail_(s) + '</li>';
-  });
-  listHtml += '</ul>';
+  var firstLine = bodyLines.filter(function (l) { return !isGreeting(l); })[0] || bodyLines[0] || '';
+  if (firstLine.length > 40) firstLine = firstLine.substring(0, 40) + '…';
+  var pendingTitle = isStore ? '未実施の店舗（' + pending.length + '店舗）' : '未実施の方（' + pending.length + '名）';
+  var pendingLine = pending.map(function (r) { return isStore ? r.storeName : r.name; }).join('、');
+  var statusLine = doneCount + ' / ' + total + unit + ' 完了（' + rate + '%）';
+  var lead = '投稿いただいたTo-DoのDL（' + dlLabel + '）が過ぎました。';
+  var howTo = '再度お願いする場合は、To-Do List の「リマインド」から' + (isStore ? '未実施の店舗' : '未実施の方') + 'だけに送れます。';
 
-  var extraHtml =
-    sectionTitle('▼ 実施状況') +
-    '<p style="margin:0;font-size:15px;font-weight:700;color:#0f172a;">' + escapeHtmlEmail_(statusLine) + '</p>' +
-    sectionTitle('▼ ' + pendingTitle) +
-    listHtml +
-    sectionTitle('▼ 再度お願いする場合') +
-    '<p style="margin:0;font-size:14px;line-height:1.7;color:#475569;">' +
-    howTo.map(escapeHtmlEmail_).join('<br>') +
-    '</p>' +
-    '<p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">※ このメールは自動送信です。</p>';
+  var lines = [
+    'お元気様です。',
+    lead,
+    '',
+    '▼ 依頼',
+    firstLine,
+    '',
+    '▼ 実施状況',
+    statusLine,
+    '',
+    '▼ ' + pendingTitle,
+    pendingLine,
+    '',
+    howTo
+  ];
+  if (appUrl) lines.push('', String(appUrl));
+  lines.push('', '※ 自動送信です。');
 
+  var sec = function (title, body, strong) {
+    return '<p style="margin:16px 0 4px;font-size:12px;font-weight:700;color:#64748b;">' + escapeHtmlEmail_(title) + '</p>' +
+      '<p style="margin:0;font-size:14px;line-height:1.7;color:#0f172a;' + (strong ? 'font-weight:700;' : '') + '">' + escapeHtmlEmail_(body) + '</p>';
+  };
   var html = buildTodoEmailShellHtml_({
     intro: 'お元気様です。<br>' + escapeHtmlEmail_(lead),
-    taskItem: {
-      requestKindLabel: kindLabel,
-      contentPreview: preview,
-      contentFull: '[' + kindLabel + '] ' + String(taskItem.contentFull || preview),
-      deadline: deadline,
-      sender: String(taskItem.sender || ''),
-      overdue: true
-    },
-    extraHtml: extraHtml,
+    extraHtml:
+      sec('▼ 依頼', firstLine) +
+      sec('▼ 実施状況', statusLine, true) +
+      sec('▼ ' + pendingTitle, pendingLine) +
+      '<p style="margin:16px 0 0;font-size:14px;line-height:1.7;color:#475569;">' + escapeHtmlEmail_(howTo) + '</p>',
     ctaUrl: appUrl,
     ctaLabel: 'To-Do List を開く'
   });
-
+  html = html.replace('</td></tr></table></td></tr></table></body>',
+    '<p style="margin:16px 0 0;font-size:11px;color:#94a3b8;">※ 自動送信です。</p></td></tr></table></td></tr></table></body>');
   return { plain: lines.join('\n'), html: html };
 }
 
