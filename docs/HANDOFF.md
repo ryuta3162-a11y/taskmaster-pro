@@ -9,7 +9,7 @@
 | To Do List 本番（利用者用） | https://script.google.com/a/okamoto-group.co.jp/macros/s/AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw/exec |
 | リストチェック直リンク | 上のURL + `?page=checklist` |
 | 本番 GAS スクリプトID | `1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS`（https://script.google.com/d/1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS/edit） |
-| 本番デプロイID（固定・変更しない） | `AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw`（10/3 時点の最新バージョン **@151**） |
+| 本番デプロイID（固定・変更しない） | `AKfycbyUmHnVEEJbuntAayPBu5zEe_4iRVDjtq8LOHQ5pURXRgEQYpLX324-3SMxeX9_NllAuw`（10/4 時点の最新バージョン **@153**） |
 | To Do List データのスプレッドシート | https://docs.google.com/spreadsheets/d/1-ww_0rDYxmA6Mlrl1GUJtG_agE2z760cdvQ7oMIQqkc/edit |
 | ヘルプセンター（マニュアル） | https://todo-list-guide.vercel.app/ |
 | 理解度チェック | https://todo-list-guide.vercel.app/quiz |
@@ -88,6 +88,9 @@ clasp clone 1AALWbsGjHijGffBlvqLgTao5r6Z_ZOTI6Uf3BQq1ulfBKK_paFv7RgOS
   - **admin の数字カード**を「投稿数・届け先・投稿した人・リストチェックした人」に統一し、計算式のツールチップを追加。
   - **リマインド効果タブを作り直し**：分析データ（`getAdminAnalyticsData` に各依頼のリマインド送信時刻 `rw` を追加）から計算。1回目のリマインド時点で未実施だった分が、どの回の後に完了したかを表示。旧 `getAdminReminderEffectsData` は削除。
   - **不要機能の削除**：定期配信の残り（`processScheduledTasksBatch` は残っているトリガーを自分で消すだけの関数）、新組織移行の仕組みと `?page=neworg`、完了済みの1回きり整理処理、古い `docs/gas/deployed/Code.gs`、案内メール下書き用 GuideRenewalMail.gs。
+- **10/4 追加分**（**@152〜153**）
+  - 投稿者への DL 超過お知らせの文面を短く（担当者名なし・依頼の1行目・実施数・未実施の店舗/人だけ）。
+  - **admin「店舗依頼の分析」タブ**（店舗の期限内完了率を90%へ上げる方針を決めるための画面）：期限が過ぎた店舗依頼（依頼×店舗）で、期限内完了率・目標90%までの不足件数、エリア/テリトリー別、店舗別ワースト順（担当者・担当者なし表示）、原因の手がかり（担当者の人数別・担当者の持ち店舗数別・投稿から期限までの日数別・いつ完了しているか）、ワースト依頼10件。エリア・担当者は今の店舗/従業員データで判定。データは `getAdminAnalyticsData`。
   - 単独 GAS「To Do List ガイド案内メール」（https://script.google.com/d/1tyy4IMiGwjAvBfSoMP0anGrzBEuY__mPH-ucLO60G-A56gXNep7ytnj8/edit）は未使用。ゴミ箱へ入れてよい。
   - スプレッドシートのリンク共有は 10/3 に元へ戻した（確認済み）。
 

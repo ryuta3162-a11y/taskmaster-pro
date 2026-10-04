@@ -156,12 +156,12 @@
     /* モード切替 */
     .mode-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: .5rem;
       width: 100%;
     }
     @media (max-width: 900px) {
-      .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+      .mode-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }
     }
     @media (max-width: 560px) {
       .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
@@ -759,6 +759,19 @@
     .re-open summary { cursor: pointer; font-weight: 700; color: var(--acc-700); }
     .re-open div { margin-top: .3rem; line-height: 1.7; }
 
+    /* --- 店舗依頼の分析 --- */
+    .sa-bar { position: relative; overflow: visible; background: #f1f5f9; }
+    .sa-bar > span { border-radius: 999px; }
+    .sa-goal { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #0f172a; border-radius: 1px; }
+    .sa-hbar { grid-template-columns: 9rem 1fr 7.5rem; }
+    .sa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 760px) { .sa-grid { grid-template-columns: 1fr; } }
+    .sa-box { border: 1px solid #eef2f7; border-radius: .9rem; padding: .85rem .95rem; }
+    .sa-box h4 { margin: 0 0 .25rem; font-size: .85rem; font-weight: 800; color: #0f172a; }
+    .sa-box p { margin: 0 0 .7rem; font-size: .72rem; color: #64748b; line-height: 1.6; }
+    .sa-row { cursor: pointer; }
+    .sa-row.on td { background: var(--acc-50); }
+
     /* --- 人で検索 --- */
     .ps-open {
       display: inline-flex; align-items: center; gap: .4rem; height: 2.25rem; padding: 0 .85rem; margin-right: .6rem;
@@ -885,6 +898,12 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             </div>
             <h4 class="mode-nav-label">リマインド効果</h4>
+          </button>
+          <button type="button" class="mode-nav-tile" data-mode="storeAnalysis" aria-selected="false">
+            <div class="mode-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 17v-3"/><path d="M12 17v-6"/><path d="M16 17v-4"/></svg>
+            </div>
+            <h4 class="mode-nav-label">店舗依頼の分析</h4>
           </button>
         </div>
 
@@ -1030,9 +1049,10 @@
         ['open', '未実施のまま', '#fff']
       ];
 
-      function reInRange(t) {
-        if (RE.range === 'all') return true;
-        if (RE.range === '90') return t.c >= Date.now() - 90 * 864e5;
+      function reInRange(t, range) {
+        range = range || RE.range;
+        if (range === 'all') return true;
+        if (range === '90') return t.c >= Date.now() - 90 * 864e5;
         return anKeyOf('half', new Date(t.c)) === anKeyOf('half', new Date());
       }
 
@@ -1161,6 +1181,227 @@
         });
         h += '</div></div>';
         return h;
+      }
+
+      /* ================= 店舗依頼の分析 ================= */
+      var SA = { range: '90', incWait: false, areaView: 'territory', area: '', storeAll: false };
+
+      function saAgg() { return { n: 0, ok: 0, late: 0, ng: 0, wait: 0 }; }
+      function saAdd(a, st) { a.n++; a[st]++; }
+      function saOnTime(a) { return anPct(a.ok, a.n); }
+      function saDone(a) { return anPct(a.ok + a.late, a.n); }
+
+      function saCollect() {
+        var by = anUnitsByTask();
+        var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var todayStr = today.getFullYear() + '-' + anPad(today.getMonth() + 1) + '-' + anPad(today.getDate());
+        var meta = AN.data.storeMeta || {};
+        var assignees = {};
+        AN.data.people.forEach(function (p, pi) {
+          if (!p.reg) return;
+          (p.st || []).forEach(function (s) { (assignees[s] = assignees[s] || []).push(pi); });
+        });
+        var R = { all: saAgg(), areas: {}, terrs: {}, stores: {}, tasks: [], aCnt: {}, load: {}, lead: {}, timing: { d3: 0, d2: 0, d1: 0, d0: 0, late: 0, ng: 0, wait: 0, unk: 0 }, assignees: assignees, taskCount: 0 };
+        AN.data.tasks.forEach(function (t, ti) {
+          if (t.k !== 'store' || !reInRange(t, SA.range)) return;
+          var due = !!(t.d && t.d < todayStr);
+          if (!due && !SA.incWait) return;
+          var dlEnd = t.d ? new Date(t.d + 'T23:59:59').getTime() : Infinity;
+          var created = new Date(t.c); created.setHours(0, 0, 0, 0);
+          var leadDays = t.d ? Math.round((new Date(t.d + 'T00:00:00').getTime() - created.getTime()) / 864e5) : null;
+          var leadKey = leadDays == null ? 'なし' : leadDays <= 2 ? '〜2日' : leadDays <= 4 ? '3〜4日' : leadDays <= 7 ? '5〜7日' : '8日以上';
+          var ta = saAgg();
+          by[ti].forEach(function (u) {
+            var sn = u[2];
+            var m = meta[sn] || ['（店舗データにない）', '—'];
+            var st = u[3] ? (u[4] ? 'ok' : 'late') : (due ? 'ng' : 'wait');
+            saAdd(R.all, st); saAdd(ta, st);
+            saAdd(R.areas[m[0]] = R.areas[m[0]] || saAgg(), st);
+            var tk = m[0] + '｜' + m[1];
+            saAdd(R.terrs[tk] = R.terrs[tk] || saAgg(), st);
+            var sa = R.stores[sn] = R.stores[sn] || Object.assign(saAgg(), { area: m[0], terr: m[1] });
+            saAdd(sa, st);
+            var asg = assignees[sn] || [];
+            var ck = asg.length === 0 ? '0人（未登録）' : asg.length === 1 ? '1人' : asg.length === 2 ? '2人' : '3人以上';
+            saAdd(R.aCnt[ck] = R.aCnt[ck] || saAgg(), st);
+            asg.forEach(function (pi) {
+              var c = (AN.data.people[pi].st || []).length;
+              var lk = c <= 3 ? '1〜3店舗' : c <= 9 ? '4〜9店舗' : c <= 19 ? '10〜19店舗' : '20店舗以上';
+              var la = R.load[lk] = R.load[lk] || Object.assign(saAgg(), { people: {} });
+              saAdd(la, st); la.people[pi] = 1;
+            });
+            saAdd(R.lead[leadKey] = R.lead[leadKey] || Object.assign(saAgg(), { tasks: {} }), st);
+            R.lead[leadKey].tasks[ti] = 1;
+            if (!u[3]) R.timing[due ? 'ng' : 'wait']++;
+            else if (u[5] == null) R.timing.unk++;
+            else {
+              var at = t.c + u[5] * 36e5;
+              if (at > dlEnd) R.timing.late++;
+              else {
+                var dd = Math.floor((dlEnd - at) / 864e5);
+                R.timing[dd >= 3 ? 'd3' : dd === 2 ? 'd2' : dd === 1 ? 'd1' : 'd0']++;
+              }
+            }
+          });
+          if (ta.n) { R.tasks.push({ t: t, a: ta, leadDays: leadDays, due: due }); R.taskCount++; }
+        });
+        return R;
+      }
+
+      /** 0〜100% の絶対値で描く横棒（90% の目標線つき） */
+      function saBars(items) {
+        if (!items.length) return '<div class="an-empty">データがありません</div>';
+        return '<div class="an-hbars">' + items.map(function (x) {
+          var v = x.rate == null ? 0 : x.rate;
+          return '<div class="an-hbar sa-hbar"' + (x.tip ? ' data-tip="' + esc(x.tip) + '"' : '') + '><span class="nm">' + esc(x.name) + '</span>' +
+            '<div class="an-bar sa-bar"><span style="width:' + Math.max(1, v) + '%;background:' + (x.color || 'var(--acc-600)') + '"></span><i class="sa-goal" style="left:90%"></i></div>' +
+            '<span class="val">' + (x.rate == null ? '—' : Math.round(x.rate) + '%') + ' <span>' + esc(x.sub || '') + '</span></span></div>';
+        }).join('') + '</div>';
+      }
+
+      function saAreaSort(a, b) {
+        var na = parseInt(String(a).replace(/[^0-9]/g, ''), 10), nb = parseInt(String(b).replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+        return String(a).localeCompare(String(b), 'ja');
+      }
+
+      function renderStoreAnalysis() {
+        if (!AN.data) return '<div class="loading">店舗依頼を集計中…</div>';
+        var R = saCollect(), A = R.all;
+        var h = '<div class="an">';
+        h += '<div class="an-card an-toolbar"><div class="an-row"><span class="an-label">期間（投稿日）</span><div class="an-seg">' +
+          [['90', '直近90日'], ['half', '今の半期'], ['all', '全期間']].map(function (o) {
+            return '<button type="button" data-sa-range="' + o[0] + '" class="' + (SA.range === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
+          }).join('') + '</div>' +
+          '<label class="an-toggle"><input type="checkbox" id="saWait"' + (SA.incWait ? ' checked' : '') + '/>期限前の依頼も含める</label></div>' +
+          '<p class="an-lead" style="margin:0">ふだんは<strong>期限が過ぎた店舗依頼だけ</strong>で計算します（期限前の未実施を「遅れ」と数えないため）。店舗のエリア・テリトリー・担当者は、いまの店舗データ・従業員データで判定しています。</p></div>';
+
+        if (!A.n) return h + '<div class="an-card"><div class="an-empty">この期間に期限が過ぎた店舗依頼はありません</div></div></div>';
+
+        var need = Math.max(0, Math.ceil(A.n * 0.9) - A.ok);
+        h += '<div class="an-card"><h3>店舗依頼の実施状況</h3><p class="an-lead">「対象」は 依頼 × 店舗 の数です（98店舗あての依頼1件なら98件）。目標は期限内完了90%です。</p><div class="an-kpis">';
+        h += anKpi('期限内に完了', anPctText(saOnTime(A)), '', A.ok + ' / ' + A.n + ' 件', '', true, '期限の日までに完了 ' + A.ok + ' ÷ 対象 ' + A.n + '（依頼×店舗）');
+        h += anKpi('完了率', anPctText(saDone(A)), '', '期限後の完了も含む', '', false, '完了 ' + (A.ok + A.late) + ' ÷ 対象 ' + A.n);
+        h += anKpi('期限超過で未実施', A.ng, '件', '期限が過ぎても未完了', '', false, '期限が過ぎたのに、まだ完了していない 依頼×店舗 の数');
+        h += anKpi('期限後に完了', A.late, '件', '遅れて完了', '', false, '期限の日を過ぎてから完了した数');
+        h += anKpi('目標90%まで', need, '件', need ? 'あと' + need + '件が期限内なら達成' : '達成しています', '', false, '対象 ' + A.n + ' × 90% ＝ ' + Math.ceil(A.n * 0.9) + '件 − いまの期限内完了 ' + A.ok + '件');
+        h += anKpi('店舗依頼', R.taskCount, '件', Object.keys(R.stores).length + '店舗が対象', '', false, 'この期間の店舗依頼の数と、対象になった店舗の数');
+        h += '</div></div>';
+
+        // エリア・テリトリー別
+        var groups = SA.areaView === 'area' ? R.areas : R.terrs;
+        var storeCount = {};
+        Object.keys(R.stores).forEach(function (sn) {
+          var s = R.stores[sn], k = SA.areaView === 'area' ? s.area : s.area + '｜' + s.terr;
+          storeCount[k] = (storeCount[k] || 0) + 1;
+        });
+        var gkeys = Object.keys(groups).sort(saAreaSort);
+        h += '<div class="an-card"><h3>エリア・テリトリー別</h3><p class="an-lead">行を押すと、下の「店舗別」がそのエリアに絞り込まれます。黒い縦線が目標の90%です。</p>' +
+          '<div class="an-seg" style="margin-bottom:.7rem">' + [['territory', 'テリトリー別'], ['area', 'エリア別']].map(function (o) {
+            return '<button type="button" data-sa-view="' + o[0] + '" class="' + (SA.areaView === o[0] ? 'on' : '') + '">' + o[1] + '</button>';
+          }).join('') + '</div>';
+        h += '<div class="an-tablewrap"><table class="an-table"><thead><tr><th>' + (SA.areaView === 'area' ? 'エリア' : 'エリア・テリトリー') + '</th><th class="num">店舗</th><th class="num">対象</th><th>期限内に完了</th><th class="num">完了率</th><th class="num">期限超過で未実施</th></tr></thead><tbody>';
+        gkeys.forEach(function (k) {
+          var g = groups[k], area = k.split('｜')[0];
+          var r = saOnTime(g);
+          h += '<tr class="sa-row' + (SA.area === area ? ' on' : '') + '" data-sa-area="' + esc(area) + '"><td class="nm">' + esc(k.replace('｜', '・')) + '</td>' +
+            '<td class="num">' + (storeCount[k] || 0) + '</td><td class="num">' + g.n + '</td>' +
+            '<td><div class="an-barcell"><div class="an-bar sa-bar"><span style="width:' + Math.max(1, r || 0) + '%"></span><i class="sa-goal" style="left:90%"></i></div><strong>' + anPctText(r) + '</strong></div></td>' +
+            '<td class="num">' + anPill(saDone(g)) + '</td><td class="num">' + (g.ng ? '<strong>' + g.ng + '</strong>' : '0') + '</td></tr>';
+        });
+        h += '</tbody></table></div></div>';
+
+        // 店舗別
+        var areaOpts = Object.keys(R.areas).sort(saAreaSort);
+        var stores = Object.keys(R.stores).map(function (sn) {
+          var s = R.stores[sn];
+          return { sn: sn, s: s, rate: saOnTime(s), asg: (R.assignees[sn] || []).map(function (pi) { return AN.data.people[pi].n; }) };
+        }).filter(function (x) { return !SA.area || x.s.area === SA.area; })
+          .sort(function (a, b) { return (a.rate == null ? 999 : a.rate) - (b.rate == null ? 999 : b.rate) || b.s.ng - a.s.ng || a.sn.localeCompare(b.sn, 'ja'); });
+        var shown = SA.storeAll ? stores : stores.slice(0, 20);
+        h += '<div class="an-card"><h3>店舗別 <span class="tag">期限内完了率の低い順</span></h3>' +
+          '<div class="an-row" style="margin:.4rem 0 .7rem"><span class="an-label">エリア</span><select id="saArea" class="an-search" style="min-width:8rem"><option value="">すべて</option>' +
+          areaOpts.map(function (a) { return '<option value="' + esc(a) + '"' + (SA.area === a ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select></div>';
+        h += '<div class="an-tablewrap"><table class="an-table"><thead><tr><th class="rk">#</th><th>店舗</th><th>担当者</th><th class="num">対象</th><th>期限内に完了</th><th class="num">完了率</th><th class="num">期限超過で未実施</th></tr></thead><tbody>';
+        shown.forEach(function (x, i) {
+          h += '<tr><td class="rk">' + (i + 1) + '</td><td><div class="nm">' + esc(x.sn) + '</div><div class="sub">' + esc(x.s.area + '・' + x.s.terr) + '</div></td>' +
+            '<td>' + (x.asg.length ? '<div class="sub" style="color:#334155;font-size:.74rem">' + esc(x.asg.join('、')) + '</div>' : '<span class="ps-st ng">担当者なし</span>') + '</td>' +
+            '<td class="num">' + x.s.n + '</td>' +
+            '<td><div class="an-barcell"><div class="an-bar sa-bar"><span style="width:' + Math.max(1, x.rate || 0) + '%"></span><i class="sa-goal" style="left:90%"></i></div><strong>' + anPctText(x.rate) + '</strong></div></td>' +
+            '<td class="num">' + anPill(saDone(x.s)) + '</td><td class="num">' + (x.s.ng ? '<strong>' + x.s.ng + '</strong>' : '0') + '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+        if (stores.length > 20) h += '<button type="button" class="an-more" data-sa-more="1">' + (SA.storeAll ? '20店舗に戻す' : 'すべて表示（' + stores.length + '店舗）') + '</button>';
+        h += '</div>';
+
+        // 原因の手がかり
+        var order = function (obj, keys, subFn, tipFn) {
+          return keys.filter(function (k) { return obj[k]; }).map(function (k) {
+            var g = obj[k];
+            return { name: k, rate: saOnTime(g), sub: subFn(g, k), tip: tipFn ? tipFn(g, k) : '' };
+          });
+        };
+        var aCntStores = {};
+        Object.keys(R.stores).forEach(function (sn) {
+          var c = (R.assignees[sn] || []).length;
+          var k = c === 0 ? '0人（未登録）' : c === 1 ? '1人' : c === 2 ? '2人' : '3人以上';
+          aCntStores[k] = (aCntStores[k] || 0) + 1;
+        });
+        var T = R.timing, tTotal = T.d3 + T.d2 + T.d1 + T.d0 + T.late + T.ng + T.wait + T.unk;
+        var timingItems = [['d3', '期限の3日以上前'], ['d2', '期限の2日前'], ['d1', '期限の前日'], ['d0', '期限の当日'], ['late', '期限後'], ['ng', '未実施（期限超過）'], ['wait', '未実施（期限前）'], ['unk', '完了（時刻不明）']]
+          .filter(function (x) { return T[x[0]]; })
+          .map(function (x) { return { name: x[1], rate: anPct(T[x[0]], tTotal), sub: T[x[0]] + '件', color: x[0] === 'ng' ? '#0f172a' : x[0] === 'late' ? '#94a3b8' : 'var(--acc-600)' }; });
+
+        h += '<div class="an-card"><h3>完了率が上がらない原因の手がかり</h3><p class="an-lead">条件ごとに「期限内に完了」の割合を比べています。差が大きい条件ほど、手を打つ効果が大きいところです。棒にカーソルを合わせると内訳が出ます。</p><div class="sa-grid">';
+        h += '<div class="sa-box"><h4>店舗の担当者の人数別</h4><p>担当者が多い店舗ほど低いなら「誰かがやるだろう」が起きています（主担当を決める）。0人の店舗にはリマインドが届きません。</p>' +
+          saBars(order(R.aCnt, ['0人（未登録）', '1人', '2人', '3人以上'], function (g, k) { return (aCntStores[k] || 0) + '店舗・' + g.n + '件'; },
+            function (g) { return '期限内 ' + g.ok + ' ／ 期限後 ' + g.late + ' ／ 未実施 ' + g.ng + '（対象 ' + g.n + '）'; })) + '</div>';
+        h += '<div class="sa-box"><h4>担当者が持っている店舗の数別</h4><p>たくさんの店舗を持つ人ほど低いなら、1人あたりの負担が重すぎます（担当の見直し・まとめメール）。</p>' +
+          saBars(order(R.load, ['1〜3店舗', '4〜9店舗', '10〜19店舗', '20店舗以上'], function (g) { return Object.keys(g.people).length + '名'; },
+            function (g) { return 'その人たちの担当店舗の対象 ' + g.n + '件のうち、期限内 ' + g.ok + '件（1店舗に複数の担当者がいる場合は、それぞれに数えます）'; })) + '</div>';
+        h += '<div class="sa-box"><h4>投稿から期限までの日数別</h4><p>期限が短い依頼ほど低いなら、投稿する人に「期限は5日以上あける」をお願いすると効きます。</p>' +
+          saBars(order(R.lead, ['〜2日', '3〜4日', '5〜7日', '8日以上', 'なし'], function (g) { return Object.keys(g.tasks).length + '依頼'; },
+            function (g) { return '期限内 ' + g.ok + ' ／ 期限後 ' + g.late + ' ／ 未実施 ' + g.ng + '（対象 ' + g.n + '）'; })) + '</div>';
+        h += '<div class="sa-box"><h4>いつ完了しているか</h4><p>期限の直前や期限後に集中しているなら、リマインドの時期・回数を見直す余地があります（割合は全体に対する比率）。</p>' +
+          saBars(timingItems) + '</div>';
+        h += '</div></div>';
+
+        // 依頼別
+        var tasks = R.tasks.slice().sort(function (a, b) { return (saOnTime(a.a) || 0) - (saOnTime(b.a) || 0) || b.a.ng - a.a.ng; }).slice(0, 10);
+        h += '<div class="an-card"><h3>期限内完了率の低い店舗依頼 <span class="tag">ワースト10</span></h3><div class="an-tablewrap"><table class="an-table"><thead><tr><th>依頼</th><th class="num">期限までの日数</th><th class="num">対象店舗</th><th>期限内に完了</th><th class="num">期限超過で未実施</th></tr></thead><tbody>';
+        tasks.forEach(function (x) {
+          var t = x.t, r = saOnTime(x.a);
+          h += '<tr><td class="ct" style="max-width:24rem"><div class="nm" style="white-space:normal">' + esc(t.ct || '（本文なし）') + '</div><div class="sub">投稿 ' + esc(t.s) + '・DL ' + esc(t.d ? Number(t.d.slice(5, 7)) + '/' + Number(t.d.slice(8, 10)) : '—') + (t.rw ? '・自動リマインド ' + t.rw[3] + '通' : '') + '</div></td>' +
+            '<td class="num">' + (x.leadDays == null ? '—' : x.leadDays + '日') + '</td><td class="num">' + x.a.n + '</td>' +
+            '<td><div class="an-barcell"><div class="an-bar sa-bar"><span style="width:' + Math.max(1, r || 0) + '%"></span><i class="sa-goal" style="left:90%"></i></div><strong>' + anPctText(r) + '</strong></div></td>' +
+            '<td class="num">' + (x.a.ng ? '<strong>' + x.a.ng + '</strong>' : '0') + '</td></tr>';
+        });
+        h += '</tbody></table></div></div>';
+        h += '</div>';
+        return h;
+      }
+
+      function bindStoreAnalysisEvents(root) {
+        root.querySelectorAll('[data-sa-range]').forEach(function (el) {
+          el.addEventListener('click', function () { SA.range = el.getAttribute('data-sa-range'); renderRoot(); });
+        });
+        root.querySelectorAll('[data-sa-view]').forEach(function (el) {
+          el.addEventListener('click', function () { SA.areaView = el.getAttribute('data-sa-view'); renderRoot(); });
+        });
+        root.querySelectorAll('[data-sa-area]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var a = el.getAttribute('data-sa-area');
+            SA.area = SA.area === a ? '' : a;
+            SA.storeAll = false;
+            renderRoot();
+          });
+        });
+        var more = root.querySelector('[data-sa-more]');
+        if (more) more.addEventListener('click', function () { SA.storeAll = !SA.storeAll; renderRoot(); });
+        var w = document.getElementById('saWait');
+        if (w) w.addEventListener('change', function () { SA.incWait = w.checked; renderRoot(); });
+        var sel = document.getElementById('saArea');
+        if (sel) sel.addEventListener('change', function () { SA.area = sel.value; SA.storeAll = false; renderRoot(); });
       }
 
       function renderAttachBanner(task) {
@@ -1331,7 +1572,7 @@
 
       function renderStats() {
         var bar = document.getElementById('statsBar');
-        var hideBar = mode === 'analytics' || mode === 'reminderEffect';
+        var hideBar = mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis');
         bar.style.display = hideBar ? 'none' : '';
         if (hideBar) return;
         var list = filterTasks(getTasksForMode());
@@ -1387,7 +1628,7 @@
       function renderFilters() {
         var panel = document.getElementById('filtersPanel');
         var bar = document.getElementById('filtersBar');
-        if (mode === 'reminderEffect' || mode === 'analytics') {
+        if ((mode === 'reminderEffect' || mode === 'storeAnalysis') || mode === 'analytics') {
           panel.style.display = 'none';
           return;
         }
@@ -1559,17 +1800,17 @@
       function ensureAnalytics() {
         if (AN.data || AN.loading) return;
         AN.loading = true;
-        if (mode === 'analytics' || mode === 'reminderEffect') document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
+        if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) document.getElementById('root').innerHTML = '<div class="loading">分析データを集計中…</div>';
         google.script.run
           .withSuccessHandler(function (d) {
             AN.loading = false;
-            if (!d || !d.ok) { if (mode === 'analytics' || mode === 'reminderEffect') showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
+            if (!d || !d.ok) { if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) showError((d && d.message) || '分析データの読み込みに失敗しました'); return; }
             AN.data = d;
-            if (mode === 'analytics' || mode === 'reminderEffect') renderAll();
+            if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) renderAll();
           })
           .withFailureHandler(function (e) {
             AN.loading = false;
-            if (mode === 'analytics' || mode === 'reminderEffect') showError(e && e.message ? e.message : String(e));
+            if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) showError(e && e.message ? e.message : String(e));
           })
           .getAdminAnalyticsData();
       }
@@ -2464,6 +2705,9 @@
         } else if (mode === 'reminderEffect') {
           root.innerHTML = renderReminderEffects();
           bindReminderEffectEvents(root);
+        } else if (mode === 'storeAnalysis') {
+          root.innerHTML = renderStoreAnalysis();
+          bindStoreAnalysisEvents(root);
         } else {
           root.innerHTML = renderTaskList();
           bindTaskEvents();
@@ -2484,7 +2728,7 @@
           c.classList.toggle('on', on);
           c.setAttribute('aria-selected', on ? 'true' : 'false');
         });
-        if ((mode === 'analytics' || mode === 'reminderEffect') && !AN.data) {
+        if ((mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) && !AN.data) {
           document.getElementById('statsBar').style.display = 'none';
           renderFilters();
           ensureAnalytics();
@@ -2540,7 +2784,7 @@
           showError('Google Apps Script の Web アプリとして開いてください。');
           return;
         }
-        if (mode === 'analytics' || mode === 'reminderEffect') ensureAnalytics();
+        if (mode === 'analytics' || (mode === 'reminderEffect' || mode === 'storeAnalysis')) ensureAnalytics();
         google.script.run.withSuccessHandler(applyData).withFailureHandler(function (e) {
           showError(e && e.message ? e.message : String(e));
         }).getAdminDashboardData();
