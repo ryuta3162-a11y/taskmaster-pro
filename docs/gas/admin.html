@@ -782,6 +782,13 @@
     .ps-sugg button:hover, .ps-sugg button.on { background: var(--acc-50); }
     .ps-sugg .nm { font-weight: 800; color: #0f172a; font-size: .9rem; }
     .ps-sugg .sub { font-size: .72rem; color: #94a3b8; font-weight: 600; }
+    .ps-sugg-h { font-size: .68rem; font-weight: 800; color: #64748b; letter-spacing: .06em; padding: .55rem .7rem .2rem; }
+    .ps-sugg button.ps-task { flex-direction: column; align-items: flex-start; gap: .15rem; }
+    .ps-sugg .ct { font-size: .82rem; font-weight: 700; color: #0f172a; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .ps-sugg mark, .detail-body mark { background: color-mix(in oklch, var(--acc-200) 70%, #fff); color: inherit; border-radius: .2rem; padding: 0 .1rem; }
+    .lq-field { display: flex; align-items: center; gap: .45rem; flex: 1; max-width: 26rem; border: 1px solid #e2e8f0; border-radius: .7rem; padding: .4rem .7rem; background: #fff; }
+    .lq-field svg { width: 1rem; height: 1rem; color: #94a3b8; flex: none; }
+    .lq-field input { border: none; outline: none; font: inherit; font-size: .85rem; width: 100%; background: transparent; }
     .ps-body { padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
     .ps-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; }
     .ps-who .nm { font-size: 1.25rem; font-weight: 900; color: #0f172a; }
@@ -810,9 +817,9 @@
         <h1 class="sm-only" style="margin:0;font-size:.95rem;font-weight:700;">To-Do List</h1>
         <span class="page-title">管理</span>
       </div>
-      <button type="button" class="ps-open" id="btnPersonSearch" aria-label="人で検索" title="人で検索">
+      <button type="button" class="ps-open" id="btnPersonSearch" aria-label="検索" title="人・依頼を検索">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <span>人で検索</span>
+        <span>検索</span>
       </button>
       <div class="account-wrap">
         <button type="button" class="account-btn" id="btnAccount" aria-label="メニュー">管</button>
@@ -874,18 +881,18 @@
   </div>
 
   <div class="ps-overlay" id="psOverlay">
-    <div class="ps-panel" role="dialog" aria-label="人で検索">
+    <div class="ps-panel" role="dialog" aria-label="検索">
       <div class="ps-head">
         <div class="ps-bar">
           <label class="ps-field">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input type="search" id="psInput" placeholder="名前・メール・チーム・店舗名で検索" autocomplete="off" />
+            <input type="search" id="psInput" placeholder="人の名前・店舗名、または依頼の内容・投稿者で検索" autocomplete="off" />
           </label>
           <button type="button" class="ps-close" id="psClose" aria-label="閉じる">×</button>
         </div>
         <div class="ps-sugg" id="psSugg"></div>
       </div>
-      <div class="ps-body" id="psBody"><div class="an-empty">名前を入力すると、その人あての依頼をどれだけ期限どおりに完了しているかを確認できます。</div></div>
+      <div class="ps-body" id="psBody"><div class="an-empty">人の名前を選ぶと、その人の期限内の完了状況を確認できます。依頼を選ぶと、依頼一覧でその依頼を開きます。</div></div>
     </div>
   </div>
 
@@ -1322,8 +1329,34 @@
         return isNaN(dl) ? 0 : dl;
       }
 
+      var LQ = { q: '', id: '' };
+
+      function taskSearchText(t) {
+        return psNorm([t.contentFull || t.contentPreview, t.sender, t.targetTags, t.deadline, t.type, t.requestKindLabel].join(' '));
+      }
+      function taskMatchesQuery(t, q) {
+        var words = String(q || '').split(/[\s\u3000]+/).map(psNorm).filter(Boolean);
+        if (!words.length) return true;
+        var text = taskSearchText(t);
+        return words.every(function (w) { return text.indexOf(w) >= 0; });
+      }
+      function allDashboardTasks() {
+        if (!lastData) return [];
+        return [].concat(lastData.employeeTasks || [], lastData.storeTasks || [], lastData.tfTasks || []);
+      }
+      function highlightQuery(text, q) {
+        var html = esc(text);
+        String(q || '').split(/[\s\u3000]+/).filter(Boolean).forEach(function (w) {
+          var re = new RegExp(esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          html = html.replace(re, function (m) { return '<mark>' + m + '</mark>'; });
+        });
+        return html;
+      }
+
       function filterTasks(list) {
         var filtered = (list || []).filter(function (t) {
+          if (LQ.id) return t.id === LQ.id;
+          if (LQ.q && !taskMatchesQuery(t, LQ.q)) return false;
           if (typeFilter !== 'all' && normalizePostType(t.type) !== typeFilter) return false;
           if (filter === 'open') return !t.complete;
           if (filter === 'late') return !t.complete && t.overdue;
@@ -1423,7 +1456,15 @@
           return;
         }
         panel.style.display = '';
+        var focused = document.activeElement && document.activeElement.id === 'listQ';
         bar.innerHTML =
+          '<div class="filter-block">' +
+          '<span class="filter-label">検索</span>' +
+          (LQ.id
+            ? '<div class="chip-row"><button type="button" class="chip on" data-lq-clear="1">1件の依頼を表示中 ×</button></div>'
+            : '<label class="lq-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
+              '<input type="search" id="listQ" placeholder="依頼の内容・投稿者・期限で検索" autocomplete="off" value="' + esc(LQ.q) + '"/></label>') +
+          '</div>' +
           '<div class="filter-block">' +
           '<span class="filter-label">依頼の種類</span>' +
           '<div class="chip-row">' +
@@ -1445,6 +1486,17 @@
           '<button type="button" class="chip' + (sortOrder === 'desc' ? ' on' : '') + '" data-sort="desc">新しい順</button>' +
           '<button type="button" class="chip' + (sortOrder === 'asc' ? ' on' : '') + '" data-sort="asc">古い順</button>' +
           '</div></div>';
+        var lq = document.getElementById('listQ');
+        if (lq) {
+          lq.addEventListener('input', function () {
+            LQ.q = lq.value;
+            renderStats();
+            renderRoot();
+          });
+          if (focused) { lq.focus(); lq.setSelectionRange(lq.value.length, lq.value.length); }
+        }
+        var lqc = bar.querySelector('[data-lq-clear]');
+        if (lqc) lqc.addEventListener('click', function () { LQ.id = ''; renderAll(); });
         bar.querySelectorAll('[data-lk]').forEach(function (el) {
           el.addEventListener('click', function () {
             mode = el.getAttribute('data-lk') || 'combined';
@@ -1505,7 +1557,7 @@
 
           h += '<div class="detail-block">';
           h += '<span class="detail-label">依頼内容</span>';
-          h += '<div class="detail-body">' + esc(t.contentFull || t.contentPreview || '（内容なし）') + '</div>';
+          h += '<div class="detail-body">' + (LQ.q && !LQ.id ? highlightQuery(t.contentFull || t.contentPreview || '（内容なし）', LQ.q) : esc(t.contentFull || t.contentPreview || '（内容なし）')) + '</div>';
           h += '</div>';
 
           var attach = renderAttachBanner(t);
@@ -1868,12 +1920,41 @@
         var input = document.getElementById('psInput');
         setTimeout(function () { input.focus(); input.select(); }, 0);
         psEnsureData(function () {
-          if (PS.pi == null) document.getElementById('psBody').innerHTML = '<div class="an-empty">名前を入力すると、その人あての依頼をどれだけ期限どおりに完了しているかを確認できます。</div>';
+          if (PS.pi == null) document.getElementById('psBody').innerHTML = '<div class="an-empty">人の名前を選ぶと、その人の期限内の完了状況を確認できます。依頼を選ぶと、依頼一覧でその依頼を開きます。</div>';
           psRenderSugg();
           if (PS.pi != null) psRenderPerson();
         });
       }
       function psClose() { document.getElementById('psOverlay').classList.remove('open'); }
+
+      function psTaskMatches() {
+        var q = document.getElementById('psInput').value.trim();
+        if (!q) return [];
+        return allDashboardTasks().filter(function (t) { return taskMatchesQuery(t, q); })
+          .sort(function (a, b) { return taskCreatedSortKey(b) - taskCreatedSortKey(a); });
+      }
+      function psItems() {
+        var items = psMatches().slice(0, 30).map(function (pi) { return { p: pi }; });
+        return items.concat(psTaskMatches().slice(0, 30).map(function (t) { return { t: t.id }; }));
+      }
+      function psSnippet(text, q) {
+        var flat = String(text || '').replace(/\s+/g, ' ').trim();
+        var w = String(q || '').split(/[\s\u3000]+/).filter(Boolean)[0] || '';
+        var i = w ? flat.toLowerCase().indexOf(w.toLowerCase()) : -1;
+        if (i > 30) flat = '…' + flat.slice(i - 20);
+        return highlightQuery(flat.slice(0, 120), q);
+      }
+      function psOpenTask(id) {
+        psClose();
+        document.getElementById('psInput').value = '';
+        mode = 'combined';
+        filter = 'all';
+        typeFilter = 'all';
+        LQ.id = id;
+        LQ.q = '';
+        renderAll();
+        window.scrollTo(0, 0);
+      }
 
       function psMatches() {
         if (!AN.data) return [];
@@ -1892,16 +1973,32 @@
         var box = document.getElementById('psSugg');
         var q = document.getElementById('psInput').value.trim();
         if (PS.pi != null && !q) { box.innerHTML = ''; return; }
-        var list = psMatches();
-        PS.cursor = Math.min(PS.cursor, Math.max(0, list.length - 1));
-        if (!list.length) { box.innerHTML = '<div class="an-empty" style="padding:.8rem">該当する人がいません</div>'; return; }
-        box.innerHTML = list.slice(0, 40).map(function (pi, i) {
-          var p = AN.data.people[pi];
-          var sub = [p.t && p.t + 'チーム', p.r, p.a].filter(Boolean).join('・');
-          return '<button type="button" data-ps-pi="' + pi + '" class="' + (i === PS.cursor ? 'on' : '') + '">' +
-            '<span><span class="nm">' + esc(p.n) + '</span> <span class="sub">' + esc(sub) + '</span></span>' +
-            '<span class="sub">' + esc(p.e) + '</span></button>';
-        }).join('');
+        var people = psMatches().slice(0, 30), tasks = psTaskMatches();
+        var total = people.length + Math.min(tasks.length, 30);
+        PS.cursor = Math.min(PS.cursor, Math.max(0, total - 1));
+        if (!total) { box.innerHTML = '<div class="an-empty" style="padding:.8rem">該当する人・依頼がありません</div>'; return; }
+        var h = '', idx = 0;
+        if (people.length) {
+          if (q) h += '<div class="ps-sugg-h">人（' + people.length + (people.length >= 30 ? '+' : '') + '）</div>';
+          h += people.map(function (pi) {
+            var p = AN.data.people[pi];
+            var sub = [p.t && p.t + 'チーム', p.r, p.a].filter(Boolean).join('・');
+            return '<button type="button" data-ps-pi="' + pi + '" class="' + (idx++ === PS.cursor ? 'on' : '') + '">' +
+              '<span><span class="nm">' + esc(p.n) + '</span> <span class="sub">' + esc(sub) + '</span></span>' +
+              '<span class="sub">' + esc(p.e) + '</span></button>';
+          }).join('');
+        }
+        if (tasks.length) {
+          h += '<div class="ps-sugg-h">依頼（' + tasks.length + '件）</div>';
+          h += tasks.slice(0, 30).map(function (t) {
+            var st = getTaskPeopleStats(t);
+            var sub = [t.requestKindLabel || '', '投稿 ' + (t.sender || '—'), 'DL ' + psFmtDl(t.deadline), '実施率 ' + st.rate + '%'].filter(Boolean).join('・');
+            return '<button type="button" data-ps-task="' + esc(t.id) + '" class="ps-task' + (idx++ === PS.cursor ? ' on' : '') + '">' +
+              '<span class="ct">' + psSnippet(t.contentFull || t.contentPreview, q) + '</span>' +
+              '<span class="sub">' + esc(sub) + '</span></button>';
+          }).join('');
+        }
+        box.innerHTML = h;
       }
 
       function psSelect(pi) {
@@ -2061,6 +2158,8 @@
           if (e.target.id === 'psOverlay') { psClose(); return; }
           var b = e.target.closest('[data-ps-pi]');
           if (b) { psSelect(Number(b.getAttribute('data-ps-pi'))); return; }
+          var tk = e.target.closest('[data-ps-task]');
+          if (tk) { psOpenTask(tk.getAttribute('data-ps-task')); return; }
           var r = e.target.closest('[data-ps-range]');
           if (r) { PS.range = r.getAttribute('data-ps-range'); psRenderPerson(); return; }
           var f = e.target.closest('[data-ps-filter]');
@@ -2069,10 +2168,15 @@
         input.addEventListener('input', function () { PS.cursor = 0; psRenderSugg(); });
         input.addEventListener('focus', psRenderSugg);
         input.addEventListener('keydown', function (e) {
-          var list = psMatches();
+          var list = psItems();
           if (e.key === 'ArrowDown') { e.preventDefault(); PS.cursor = Math.min(PS.cursor + 1, list.length - 1); psRenderSugg(); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); PS.cursor = Math.max(PS.cursor - 1, 0); psRenderSugg(); }
-          else if (e.key === 'Enter') { e.preventDefault(); if (list[PS.cursor] != null) psSelect(list[PS.cursor]); }
+          else if (e.key === 'Enter') {
+            e.preventDefault();
+            var it = list[PS.cursor];
+            if (it && it.p != null) psSelect(it.p);
+            else if (it && it.t) psOpenTask(it.t);
+          }
         });
         document.addEventListener('keydown', function (e) {
           if (e.key === 'Escape' && document.getElementById('psOverlay').classList.contains('open')) psClose();
@@ -2505,6 +2609,7 @@
         tab.addEventListener('click', function () {
           mode = tab.getAttribute('data-mode') || 'analytics';
           pendingAutoOpen = true;
+          LQ.id = '';
           filter = 'all';
           typeFilter = 'all';
           sortOrder = 'desc';
