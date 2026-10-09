@@ -1,6 +1,6 @@
 var QUIZ2_CONFIG = {
   spreadsheetId: '1NvJrgfanwN8XMu9YQh5tFbrqDHxU7fuJYJteLzfKqbI',
-  rosterSheetName: 'テスト',
+  rosterSheetName: 'deta',
   resultSheetName: 'テストVol.2',
   /** 問題の順番どおり。選択肢の id は quiz2.js と同じ */
   correctAnswers: ['b', 'a', 'c', 'a', 'b', 'a', 'c', 'b', 'c', 'a'],
@@ -19,7 +19,7 @@ function handleQuiz2Request_(e) {
   var callback = String(params.callback || '');
   var action = String(params.action || 'submit').toLowerCase();
   try {
-    if (action === 'ping') return quiz2Output_({ ok: true, message: 'ready' }, callback);
+    if (action === 'ping') return quiz2Output_({ ok: true, message: 'ready', rosterCount: countQuiz2Roster_() }, callback);
     if (action === 'verify') return quiz2Output_(verifyQuiz2Email_(params), callback);
     return quiz2Output_(saveQuiz2Result_(params), callback);
   } catch (err) {
@@ -98,6 +98,13 @@ function findQuiz2Roster_(email) {
     }
   }
   return null;
+}
+
+function countQuiz2Roster_() {
+  var sheet = quiz2Spreadsheet_().getSheetByName(QUIZ2_CONFIG.rosterSheetName);
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  return sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues()
+    .filter(function (r) { return normalizeQuiz2Email_(r[0]); }).length;
 }
 
 function getQuiz2ResultSheet_() {
