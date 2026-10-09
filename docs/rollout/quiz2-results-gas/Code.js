@@ -30,16 +30,16 @@ function handleQuiz2Request_(e) {
 function verifyQuiz2Email_(params) {
   var email = normalizeQuiz2Email_(params.email);
   if (!email) throw new Error('メールアドレスを入力してください。');
-  var person = findQuiz2Roster_(email);
-  if (!person) return { ok: false, message: 'このメールアドレスは集計表に登録されていません。' };
+  var person = resolveQuiz2Person_(email);
+  if (!person) return { ok: false, message: '社内メールアドレス（@okamoto-group.co.jp）を入力してください。' };
   return { ok: true, name: person.name, message: '確認できました。' };
 }
 
 function saveQuiz2Result_(params) {
   var email = normalizeQuiz2Email_(params.email);
   if (!email) throw new Error('メールアドレスを入力してください。');
-  var person = findQuiz2Roster_(email);
-  if (!person) throw new Error('このメールアドレスは集計表に登録されていません。');
+  var person = resolveQuiz2Person_(email);
+  if (!person) throw new Error('社内メールアドレス（@okamoto-group.co.jp）を入力してください。');
 
   var answers;
   try {
@@ -98,6 +98,14 @@ function findQuiz2Roster_(email) {
     }
   }
   return null;
+}
+
+/** 名簿にいれば名簿の名前、いなければ社内ドメインのアドレスなら名前空欄で受け付ける */
+function resolveQuiz2Person_(email) {
+  var person = findQuiz2Roster_(email);
+  if (person) return person;
+  if (!/@okamoto-group\.co\.jp$/.test(email)) return null;
+  return { name: '', email: email };
 }
 
 function countQuiz2Roster_() {

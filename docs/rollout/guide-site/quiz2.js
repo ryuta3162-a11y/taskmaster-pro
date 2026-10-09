@@ -204,8 +204,7 @@
   var verifiedEmail = '';
 
   function notListedMessage() {
-    return 'このメールアドレスは理解度チェックの対象者名簿にありません。社内メールアドレス（名前@okamoto-group.co.jp）に間違いがないか確認してください。対象のはずの場合は、チャットで ' +
-      (cfg.contactLabel || 'DXチーム') + ' までメッセージを送ってください。';
+    return '社内メールアドレス（名前@okamoto-group.co.jp）を入力してください。';
   }
 
   function lockQuestions(locked) {
@@ -228,7 +227,7 @@
 
     btn.disabled = true;
     btn.textContent = '確認中…';
-    setMsg(emailMsg, '名簿を確認しています…');
+    setMsg(emailMsg, 'メールアドレスを確認しています…');
     return send({ action: 'verify', email: email }).then(function (res) {
       if (!res || !res.ok) {
         verifiedEmail = '';
