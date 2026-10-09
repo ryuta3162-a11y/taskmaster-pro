@@ -2633,7 +2633,7 @@ export default function App() {
                     <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black tracking-wider">NEW</span>
                     <span className="flex-1 min-w-0 text-sm md:text-base font-bold leading-snug">
                       理解度チェック Vol.2
-                      <span className="ml-2 text-xs md:text-sm font-semibold text-white/80 max-sm:block max-sm:ml-0">実際の依頼で10問・約4分</span>
+                      <span className="ml-2 text-xs md:text-sm font-semibold text-white/80 max-sm:block max-sm:ml-0">実際の依頼データで考える10問・約5分</span>
                     </span>
                     <span className="shrink-0 rounded-full bg-white text-indigo-700 px-3 py-1 text-xs md:text-sm font-bold">受ける</span>
                   </a>

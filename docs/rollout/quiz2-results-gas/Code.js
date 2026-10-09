@@ -3,7 +3,7 @@ var QUIZ2_CONFIG = {
   rosterSheetName: 'Vol.2',
   resultSheetName: 'Vol.2',
   /** 問題の順番どおり。選択肢の id は quiz2.js と同じ */
-  correctAnswers: ['b', 'a', 'c', 'a', 'b', 'a', 'c', 'b', 'c', 'a'],
+  correctAnswers: ['b', 'a', 'c', 'b', 'a', 'c', 'a', 'b', 'c', 'c'],
 };
 
 function doGet(e) {
