@@ -1,7 +1,7 @@
 var QUIZ2_CONFIG = {
   spreadsheetId: '1NvJrgfanwN8XMu9YQh5tFbrqDHxU7fuJYJteLzfKqbI',
-  rosterSheetName: 'deta',
-  resultSheetName: 'テストVol.2',
+  rosterSheetName: 'Vol.2',
+  resultSheetName: 'Vol.2',
   /** 問題の順番どおり。選択肢の id は quiz2.js と同じ */
   correctAnswers: ['b', 'a', 'c', 'a', 'b', 'a', 'c', 'b', 'c', 'a'],
 };
@@ -63,11 +63,11 @@ function saveQuiz2Result_(params) {
   try {
     var sheet = getQuiz2ResultSheet_();
     var row = findQuiz2ResultRow_(sheet, email);
-    var values = [person.name, person.email].concat(marks, [passed ? '合格' : '不合格', new Date()]);
+    var result = marks.concat([passed ? '合格' : '不合格', new Date()]);
     if (row) {
-      sheet.getRange(row, 1, 1, values.length).setValues([values]);
+      sheet.getRange(row, 3, 1, result.length).setValues([result]);
     } else {
-      sheet.appendRow(values);
+      sheet.appendRow([person.name, person.email].concat(result));
     }
   } finally {
     lock.releaseLock();
@@ -120,11 +120,16 @@ function getQuiz2ResultSheet_() {
   var sheet = ss.getSheetByName(QUIZ2_CONFIG.resultSheetName);
   if (!sheet) {
     sheet = ss.insertSheet(QUIZ2_CONFIG.resultSheetName);
-    var headers = ['名前', 'メールアドレス'];
+    sheet.getRange(1, 1, 1, 2).setValues([['名前', 'メールアドレス']]).setFontWeight('bold').setBackground('#f1f5f9');
+    sheet.setFrozenRows(1);
+  }
+  if (!String(sheet.getRange(1, 3).getValue() || '').trim()) {
+    var headers = [];
     for (var i = 1; i <= QUIZ2_CONFIG.correctAnswers.length; i++) headers.push(i + '問目');
     headers.push('合格/不合格', '最終回答日時');
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#f1f5f9');
-    sheet.setFrozenRows(1);
+    var range = sheet.getRange(1, 3, 1, headers.length);
+    sheet.getRange(1, 2).copyTo(range, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    range.setValues([headers]);
   }
   return sheet;
 }
