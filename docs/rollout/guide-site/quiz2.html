@@ -4,91 +4,175 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="To Do List 理解度チェック Vol.2（全10問・約8分）" />
-  <meta name="theme-color" content="#1e1b4b" />
+  <meta name="theme-color" content="#ffffff" />
   <title>理解度チェック Vol.2 | To Do List</title>
-  <link rel="stylesheet" href="styles.css?v=20260930d" />
   <style>
-    .quiz-page .hero-inner { padding-top: 28px; padding-bottom: 28px; }
-    .quiz-page .hero h1 { margin-bottom: 6px; }
-    .q2-title { margin: 28px 0 12px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-    .q2-title span { font-size: 13px; font-weight: 600; color: var(--ink-3); }
-    #questions.is-locked { opacity: 1; }
-    #questions.is-locked .opt { background: #f8fafc; color: var(--ink-2); }
-    .q { padding: 20px 20px 16px; }
-    .q legend { margin-bottom: 14px; }
-    .q legend { width: 100%; }
-    .q-body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .q-tag { align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 2px 9px; }
-    .q-scene { font-size: 15px; font-weight: 600; color: var(--ink-2); line-height: 1.7; }
-    .q-ask { font-size: 16.5px; font-weight: 800; color: var(--ink); }
-    .opt { padding: 12px 14px; }
-    .q-scene { font-weight: 500; }
-    .result.celebrate { position: relative; overflow: hidden; text-align: center; padding: 32px 20px 28px; animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
-    .result.celebrate h2 { font-size: 22px; margin: 4px 0 10px; }
-    .result.celebrate p { line-height: 1.8; }
-    .celebrate-badge { display: inline-block; margin: 0; padding: 4px 14px; border-radius: 999px; background: #059669; color: #fff; font-weight: 800; font-size: 13px; letter-spacing: .08em; }
+    :root {
+      --ink: #37352f; --ink-2: #57534e; --ink-3: #9b9a97; --line: #e9e9e7; --line-2: #dcdcd9;
+      --bg: #ffffff; --bg-soft: #f7f7f5; --hover: #f1f1ef;
+      --accent: #2383e2; --accent-soft: #e7f1fb;
+      --ok: #0f7b6c; --ok-soft: #dbeddb; --ng: #d44c47; --ng-soft: #fbe4e4; --tag: #f1eafc; --tag-ink: #6940a5;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+      font-size: 15px; line-height: 1.7; -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; color: inherit; }
+    .wrap { max-width: 1440px; margin: 0 auto; padding: 0 56px; }
+
+    .topnav { height: 46px; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); border-bottom: 1px solid var(--line); }
+    .topnav .crumb-sep { color: var(--ink-3); }
+    .topnav .logo { width: 20px; height: 20px; border-radius: 5px; background: var(--ink); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+
+    .cover { height: 132px; background: linear-gradient(120deg, #e8eefc 0%, #efe8fb 50%, #fbeef3 100%); }
+    .page-head { position: relative; padding-top: 0; }
+    .page-icon { width: 76px; height: 76px; margin-top: -40px; border-radius: 16px; background: #fff; border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(15,15,15,.08); display: flex; align-items: center; justify-content: center; }
+    .page-icon svg { color: #6940a5; }
+    h1 { font-size: 40px; font-weight: 700; letter-spacing: -.01em; margin: 18px 0 14px; line-height: 1.2; }
+
+    .props { display: grid; grid-template-columns: 140px 1fr; row-gap: 6px; font-size: 14px; margin-bottom: 8px; max-width: 900px; }
+    .props dt { color: var(--ink-3); display: flex; align-items: center; gap: 6px; padding: 5px 0; }
+    .props dd { margin: 0; padding: 5px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 4px; background: var(--bg-soft); font-size: 13px; }
+    .pill.purple { background: var(--tag); color: var(--tag-ink); }
+    .email-row { display: flex; gap: 8px; align-items: center; }
+    #email { width: 360px; height: 34px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 6px; background: #fff; outline: none; }
+    #email:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .btn { height: 34px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line-2); background: #fff; cursor: pointer; font-weight: 600; font-size: 14px; }
+    .btn:hover { background: var(--hover); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #1a6fc4; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { margin: 0; font-size: 13px; color: var(--ink-3); min-height: 1.2em; }
+    .msg.is-error { color: var(--ng); font-weight: 600; }
+    .msg.is-ok { color: var(--ok); font-weight: 600; }
+    hr.divider { border: 0; border-top: 1px solid var(--line); margin: 22px 0 8px; }
+
+    .callout { display: flex; gap: 12px; background: var(--bg-soft); border-radius: 6px; padding: 14px 16px; margin: 18px 0 8px; font-size: 14.5px; color: var(--ink-2); }
+
+    /* 問題 */
+    #questions { padding-bottom: 24px; }
+    .q { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; padding: 32px 0; border-bottom: 1px solid var(--line); }
+    .q:last-child { border-bottom: 0; }
+    .q-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .q-num { font-weight: 700; font-size: 13px; color: var(--ink-3); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+    .q-tag { font-size: 12.5px; padding: 1px 8px; border-radius: 4px; background: var(--tag); color: var(--tag-ink); font-weight: 600; }
+    .case { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+    .case-name { font-weight: 600; font-size: 14.5px; padding: 10px 14px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
+    .case-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .case-table th { width: 32%; text-align: left; font-weight: 500; color: var(--ink-3); padding: 8px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .case-table td { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+    .case-table tr:last-child th, .case-table tr:last-child td { border-bottom: 0; }
+    .case-table td.is-low { color: var(--ng); font-weight: 700; }
+    .q-scene { margin: 0; font-size: 15px; color: var(--ink-2); line-height: 1.9; }
+
+    .q-main { border: 0; margin: 0; padding: 0; min-width: 0; }
+    .q-ask { padding: 0; font-size: 19px; font-weight: 700; line-height: 1.6; margin: 26px 0 14px; }
+    .opts { display: grid; gap: 8px; }
+    .opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: #fff; transition: background .12s, border-color .12s, box-shadow .12s; }
+    .opt:hover { background: var(--hover); }
+    .opt input { position: absolute; opacity: 0; pointer-events: none; }
+    .opt-key { flex: none; width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; color: var(--ink-3); background: #fff; margin-top: 1px; }
+    .opt-text { font-size: 15px; line-height: 1.65; }
+    .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .opt:has(input:checked) .opt-key { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .opt:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--accent-soft); }
+    #questions.is-locked .opt { cursor: not-allowed; background: #fff; }
+    #questions.is-locked .opt:hover { background: #fff; }
+    .q.is-wrong .q-ask { color: var(--ng); }
+    .q.is-right .q-ask::after { content: '  ✓'; color: var(--ok); }
+    .explain { margin: 12px 0 0; font-size: 14px; border-radius: 6px; padding: 10px 14px; line-height: 1.8; }
+    .explain.ok { background: var(--ok-soft); color: var(--ok); }
+    .explain.ng { background: var(--ng-soft); color: #9f2f2b; }
+    .explain a { color: inherit; font-weight: 600; }
+
+    /* 送信バー */
+    .submit-bar { position: sticky; bottom: 0; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); border-top: 1px solid var(--line); z-index: 5; }
+    .submit-inner { display: flex; align-items: center; gap: 16px; height: 64px; }
+    .progress-track { width: 240px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+    #progress-bar { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+    .progress-text { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    #submit { margin-left: auto; height: 38px; padding: 0 22px; }
+    #submit-msg { max-width: 520px; }
+
+    /* 結果 */
+    .result { margin: 22px 0 0; border-radius: 8px; padding: 20px 22px; }
+    .result h2 { margin: 0 0 6px; font-size: 20px; }
+    .result p { margin: 0; color: var(--ink-2); }
+    .result.fail { background: var(--ng-soft); }
+    .result.fail h2 { color: #9f2f2b; }
+    .result.pass { background: var(--ok-soft); }
+    .result.celebrate { position: relative; overflow: hidden; text-align: center; padding: 40px 24px 36px; animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
+    .result.celebrate h2 { font-size: 28px; margin: 10px 0 12px; color: var(--ink); }
+    .result.celebrate p { line-height: 1.9; }
+    .celebrate-badge { display: inline-block; margin: 0; padding: 3px 14px; border-radius: 999px; background: var(--ok); color: #fff !important; font-weight: 700; font-size: 13px; letter-spacing: .08em; }
     .confetti { position: absolute; inset: 0; pointer-events: none; }
     .confetti i { position: absolute; top: -12px; width: 8px; height: 12px; border-radius: 2px; opacity: 0; animation-name: fall; animation-timing-function: ease-in; animation-fill-mode: forwards; }
-    @keyframes fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(260px) rotate(540deg); opacity: 0; } }
-    @keyframes pop { 0% { transform: scale(.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(300px) rotate(540deg); opacity: 0; } }
+    @keyframes pop { 0% { transform: scale(.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { .confetti { display: none; } .result.celebrate { animation: none; } }
-    .case { display: block; margin: 6px 0 4px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; padding: 12px 14px; }
-    .case-name { display: block; font-size: 14.5px; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
-    .case-row { display: flex; gap: 12px; font-size: 13.5px; line-height: 1.7; }
-    .case-k { flex: none; width: 7.5em; color: var(--ink-3); font-weight: 600; }
-    .case-v { color: var(--ink-2); font-weight: 700; }
-    .case-v.is-low { color: #dc2626; font-weight: 800; }
-    @media (max-width: 520px) { .case-row { flex-direction: column; gap: 0; margin-bottom: 4px; } }
+
+    @media (max-width: 900px) {
+      .wrap { padding: 0 20px; }
+      .q { grid-template-columns: 1fr; gap: 0; }
+      h1 { font-size: 30px; }
+      #email { width: 100%; }
+      .props { grid-template-columns: 1fr; }
+      .progress-track { width: 100px; }
+    }
   </style>
 </head>
-<body class="quiz-page">
-  <header class="topbar">
-    <div class="topbar-inner">
-      <span class="brand">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </span>
-        <span class="brand-text">To Do List</span>
-      </span>
-    </div>
-  </header>
+<body>
+  <div class="wrap topnav">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+    <span>To Do List</span><span class="crumb-sep">/</span><span>理解度チェック Vol.2</span>
+  </div>
+  <div class="cover" aria-hidden="true"></div>
 
-  <section class="hero">
-    <div class="hero-inner">
-      <p class="hero-eyebrow">To Do List</p>
-      <h1>理解度チェック Vol.2</h1>
-    </div>
-  </section>
-
-  <main class="quiz-wrap">
-    <div id="result" class="result" hidden aria-live="polite"></div>
-
-    <form id="quiz-form" novalidate>
-      <section class="panel">
-        <h2>メールアドレス</h2>
-        <div class="field-row">
-          <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="name@okamoto-group.co.jp" required aria-describedby="email-msg" />
-          <button type="button" class="btn btn-primary" id="verify">確認</button>
-        </div>
-        <p class="msg" id="email-msg">入力して「確認」を押すと回答できます。</p>
-      </section>
-
-      <h2 class="block-title q2-title">問題<span>状況を読んで、いちばん合うものを1つ選んでください</span></h2>
-      <div id="questions" class="is-locked"></div>
-
-      <div class="submit-bar">
-        <button type="submit" class="btn btn-primary" id="submit">結果を送信</button>
-        <span class="progress-text" id="progress">0 / 10 問回答</span>
-        <p class="msg" id="submit-msg" aria-live="polite" style="margin:0;flex-basis:100%"></p>
+  <form id="quiz-form" novalidate>
+    <div class="wrap page-head">
+      <div class="page-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       </div>
-    </form>
-  </main>
+      <h1>理解度チェック Vol.2</h1>
 
-  <footer class="footer">
-    <p>To Do List</p>
-  </footer>
+      <dl class="props">
+        <dt>問題数</dt><dd><span class="pill">10問</span><span class="pill">約8分</span><span class="pill purple">全問正解で合格</span></dd>
+        <dt>メールアドレス</dt>
+        <dd>
+          <span class="email-row">
+            <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="name@okamoto-group.co.jp" required aria-describedby="email-msg" />
+            <button type="button" class="btn btn-primary" id="verify">確認</button>
+          </span>
+          <p class="msg" id="email-msg">入力して「確認」を押すと回答できます。</p>
+        </dd>
+      </dl>
+
+      <div id="result" class="result" hidden aria-live="polite"></div>
+
+      <div class="callout">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#cb912f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+        <span>左の状況を読んで、右の問いにいちばん合うものを1つ選んでください。全問回答したら、下の「結果を送信」を押します。</span>
+      </div>
+      <hr class="divider" />
+
+      <div id="questions" class="is-locked"></div>
+    </div>
+
+    <div class="submit-bar">
+      <div class="wrap submit-inner">
+        <span class="progress-track"><span id="progress-bar"></span></span>
+        <span class="progress-text" id="progress">0 / 10 問回答</span>
+        <p class="msg" id="submit-msg" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary" id="submit">結果を送信</button>
+      </div>
+    </div>
+  </form>
 
   <script src="guide-config.js?v=20261009a"></script>
-  <script src="quiz2.js?v=20261009g"></script>
+  <script src="quiz2.js?v=20261009h"></script>
 </body>
 </html>

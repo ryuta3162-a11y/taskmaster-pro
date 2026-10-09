@@ -114,11 +114,10 @@
   }
 
   function caseHtml(c) {
-    return '<span class="case"><span class="case-name">' + esc(c.name) + '</span>' +
+    return '<div class="case"><div class="case-name">' + esc(c.name) + '</div><table class="case-table">' +
       c.rows.map(function (r) {
-        return '<span class="case-row"><span class="case-k">' + esc(r[0]) + '</span><span class="case-v' +
-          (r[0] === '期限内に完了' ? ' is-low' : '') + '">' + esc(r[1]) + '</span></span>';
-      }).join('') + '</span>';
+        return '<tr><th>' + esc(r[0]) + '</th><td' + (r[0] === '期限内に完了' ? ' class="is-low"' : '') + '>' + esc(r[1]) + '</td></tr>';
+      }).join('') + '</table></div>';
   }
 
   function render() {
@@ -127,16 +126,19 @@
         var id = 'q' + qi + '_' + oi;
         return '<label class="opt" for="' + id + '">' +
           '<input type="radio" id="' + id + '" name="q' + qi + '" value="' + oi + '">' +
-          '<span>' + esc(o[1]) + '</span></label>';
+          '<span class="opt-key">' + 'ABC'.charAt(oi) + '</span>' +
+          '<span class="opt-text">' + esc(o[1]) + '</span></label>';
       }).join('');
-      return '<div class="q" id="q' + qi + '"><fieldset>' +
-        '<legend><span class="q-num">' + (qi + 1) + '</span><span class="q-body">' +
-        '<span class="q-tag">' + esc(q.tag) + '</span>' +
+      var num = (qi + 1 < 10 ? '0' : '') + (qi + 1);
+      return '<section class="q" id="q' + qi + '">' +
+        '<div class="q-ctx">' +
+        '<div class="q-head"><span class="q-num">Q' + num + '</span><span class="q-tag">' + esc(q.tag) + '</span></div>' +
         (q.kase ? caseHtml(q.kase) : '') +
-        (q.text ? '<span class="q-scene">' + esc(q.text) + '</span>' : '') +
-        '<span class="q-ask">' + esc(q.ask) + '</span></span></legend>' +
-        '<div class="opts">' + opts + '</div></fieldset>' +
-        '<p class="explain" hidden></p></div>';
+        (q.text ? '<p class="q-scene">' + esc(q.text) + '</p>' : '') +
+        '</div>' +
+        '<fieldset class="q-main"><legend class="q-ask">' + esc(q.ask) + '</legend>' +
+        '<div class="opts">' + opts + '</div>' +
+        '<p class="explain" hidden></p></fieldset></section>';
     }).join('');
     $('#questions').innerHTML = html;
 
@@ -158,6 +160,8 @@
 
   function updateProgress() {
     $('#progress').textContent = answeredCount() + ' / ' + QUESTIONS.length + ' 問回答';
+    var bar = $('#progress-bar');
+    if (bar) bar.style.width = (answeredCount() / QUESTIONS.length * 100) + '%';
   }
 
   // ---------- 送信（GAS は JSONP を優先） ----------
