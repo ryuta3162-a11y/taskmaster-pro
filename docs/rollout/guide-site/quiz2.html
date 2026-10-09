@@ -7,6 +7,21 @@
   <meta name="theme-color" content="#1e1b4b" />
   <title>理解度チェック Vol.2 | To Do List ヘルプセンター</title>
   <link rel="stylesheet" href="styles.css?v=20260930d" />
+  <style>
+    .quiz-page .hero-inner { padding-top: 28px; padding-bottom: 28px; }
+    .quiz-page .hero h1 { margin-bottom: 6px; }
+    .q2-title { margin: 28px 0 12px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .q2-title span { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+    #questions.is-locked { opacity: 1; }
+    #questions.is-locked .opt { background: #f8fafc; color: var(--ink-2); }
+    .q { padding: 20px 20px 16px; }
+    .q legend { margin-bottom: 14px; }
+    .q-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .q-tag { align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--brand); background: var(--brand-soft); border-radius: 999px; padding: 2px 9px; }
+    .q-scene { font-size: 15px; font-weight: 600; color: var(--ink-2); line-height: 1.7; }
+    .q-ask { font-size: 16.5px; font-weight: 800; color: var(--ink); }
+    .opt { padding: 12px 14px; }
+  </style>
 </head>
 <body class="quiz-page">
   <header class="topbar">
@@ -25,9 +40,9 @@
 
   <section class="hero">
     <div class="hero-inner">
-      <p class="hero-eyebrow">理解度チェック Vol.2</p>
-      <h1>実際の依頼で考えてみましょう</h1>
-      <p class="quiz-lead">全10問・約4分。7月〜10月に実際に出された依頼をもとにした問題です。いちばん合うものを1つ選んでください。</p>
+      <p class="hero-eyebrow">To Do List</p>
+      <h1>理解度チェック Vol.2</h1>
+      <p class="quiz-lead">全10問・約4分｜実際の依頼から出題</p>
     </div>
   </section>
 
@@ -36,15 +51,15 @@
 
     <form id="quiz-form" novalidate>
       <section class="panel">
-        <h2>1. メールアドレス</h2>
+        <h2>メールアドレス</h2>
         <div class="field-row">
           <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="name@okamoto-group.co.jp" required aria-describedby="email-msg" />
           <button type="button" class="btn btn-primary" id="verify">確認</button>
         </div>
-        <p class="msg" id="email-msg">社内メールアドレスを入力して「確認」を押すと、問題に回答できます。</p>
+        <p class="msg" id="email-msg">入力して「確認」を押すと回答できます。</p>
       </section>
 
-      <h2 class="block-title" style="margin-top:24px">2. 問題</h2>
+      <h2 class="block-title q2-title">問題<span>いちばん合うものを1つ選んでください</span></h2>
       <div id="questions" class="is-locked"></div>
 
       <div class="submit-bar">
@@ -60,6 +75,6 @@
   </footer>
 
   <script src="guide-config.js?v=20261009a"></script>
-  <script src="quiz2.js?v=20261009b"></script>
+  <script src="quiz2.js?v=20261009c"></script>
 </body>
 </html>
