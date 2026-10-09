@@ -2624,6 +2624,19 @@ export default function App() {
               {/* === HOME === */}
               {!checklistOnlyMode && activeTab === 'home' && (
                 <div className="space-y-5 mt-1 w-full max-w-5xl mx-auto">
+                  <a
+                    href={`${GUIDE_SITE_URL}quiz2`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 md:px-5 md:py-3 text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)] hover:opacity-95 transition-opacity"
+                  >
+                    <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black tracking-wider">NEW</span>
+                    <span className="flex-1 min-w-0 text-sm md:text-base font-bold leading-snug">
+                      理解度チェック Vol.2
+                      <span className="ml-2 text-xs md:text-sm font-semibold text-white/80 max-sm:block max-sm:ml-0">実際の依頼で10問・約4分</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-white text-indigo-700 px-3 py-1 text-xs md:text-sm font-bold">受ける</span>
+                  </a>
                   <div className="bg-white rounded-2xl px-5 py-4 md:px-6 md:py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] border border-black/[0.04]">
                     <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-sm md:text-base text-slate-600">
                       <span>
