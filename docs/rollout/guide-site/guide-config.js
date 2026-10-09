@@ -11,6 +11,9 @@ window.GUIDE_CONFIG = {
   /** 理解度チェックの採点・記録（別GAS。正解は GAS 側 correctAnswers で判定） */
   quizResultEndpoint: 'https://script.google.com/macros/s/AKfycbwiKoOOlJKon_2LRP7ppUVahIFfrzuhQt0aJ_1rIt7kBzbDcgBCtb5yqi56Ov0jtzieSA/exec',
 
+  /** 理解度チェック Vol.2 の採点・記録（quiz2-results-gas。正解は GAS の correctAnswers） */
+  quiz2ResultEndpoint: 'https://script.google.com/macros/s/AKfycbwMrT4gtAl7snuPExS-2KNwBrnB5NetHhIIy64E21Gl2UC03bOAcijr64HHAQevh8M-4A/exec',
+
   contactLabel: 'DXチーム（日下）',
   senderEmail: 'r-kusaka@okamoto-group.co.jp',
 };

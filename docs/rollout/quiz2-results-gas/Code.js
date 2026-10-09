@@ -1,0 +1,138 @@
+var QUIZ2_CONFIG = {
+  spreadsheetId: '1NvJrgfanwN8XMu9YQh5tFbrqDHxU7fuJYJteLzfKqbI',
+  rosterSheetName: 'テスト',
+  resultSheetName: 'テストVol.2',
+  /** 問題の順番どおり。選択肢の id は quiz2.js と同じ */
+  correctAnswers: ['b', 'a', 'c', 'a', 'b', 'a', 'c', 'b', 'c', 'a'],
+};
+
+function doGet(e) {
+  return handleQuiz2Request_(e);
+}
+
+function doPost(e) {
+  return handleQuiz2Request_(e);
+}
+
+function handleQuiz2Request_(e) {
+  var params = (e && e.parameter) || {};
+  var callback = String(params.callback || '');
+  var action = String(params.action || 'submit').toLowerCase();
+  try {
+    if (action === 'ping') return quiz2Output_({ ok: true, message: 'ready' }, callback);
+    if (action === 'verify') return quiz2Output_(verifyQuiz2Email_(params), callback);
+    return quiz2Output_(saveQuiz2Result_(params), callback);
+  } catch (err) {
+    return quiz2Output_({ ok: false, message: err && err.message ? err.message : '処理できませんでした。' }, callback);
+  }
+}
+
+function verifyQuiz2Email_(params) {
+  var email = normalizeQuiz2Email_(params.email);
+  if (!email) throw new Error('メールアドレスを入力してください。');
+  var person = findQuiz2Roster_(email);
+  if (!person) return { ok: false, message: 'このメールアドレスは集計表に登録されていません。' };
+  return { ok: true, name: person.name, message: '確認できました。' };
+}
+
+function saveQuiz2Result_(params) {
+  var email = normalizeQuiz2Email_(params.email);
+  if (!email) throw new Error('メールアドレスを入力してください。');
+  var person = findQuiz2Roster_(email);
+  if (!person) throw new Error('このメールアドレスは集計表に登録されていません。');
+
+  var answers;
+  try {
+    answers = JSON.parse(String(params.answers || '[]'));
+  } catch (err) {
+    throw new Error('回答データを読み取れませんでした。');
+  }
+  var count = QUIZ2_CONFIG.correctAnswers.length;
+  if (!Array.isArray(answers) || answers.length !== count) throw new Error(count + '問すべて回答してください。');
+
+  var score = 0;
+  var marks = answers.map(function (a, i) {
+    var ok = String(a || '') === QUIZ2_CONFIG.correctAnswers[i];
+    if (ok) score++;
+    return ok ? '○' : '×';
+  });
+  var passed = score === count;
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getQuiz2ResultSheet_();
+    var row = findQuiz2ResultRow_(sheet, email);
+    var values = [person.name, person.email].concat(marks, [passed ? '合格' : '不合格', new Date()]);
+    if (row) {
+      sheet.getRange(row, 1, 1, values.length).setValues([values]);
+    } else {
+      sheet.appendRow(values);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  return {
+    ok: true,
+    name: person.name,
+    score: score,
+    total: count,
+    passed: passed,
+    marks: marks,
+    message: passed ? '合格として記録しました。' : '結果を記録しました。×の問題を見直して、もう一度回答してください。',
+  };
+}
+
+function quiz2Spreadsheet_() {
+  return SpreadsheetApp.openById(QUIZ2_CONFIG.spreadsheetId);
+}
+
+function findQuiz2Roster_(email) {
+  var sheet = quiz2Spreadsheet_().getSheetByName(QUIZ2_CONFIG.rosterSheetName);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (normalizeQuiz2Email_(values[i][1]) === email) {
+      return { name: String(values[i][0] || ''), email: String(values[i][1] || '').trim() };
+    }
+  }
+  return null;
+}
+
+function getQuiz2ResultSheet_() {
+  var ss = quiz2Spreadsheet_();
+  var sheet = ss.getSheetByName(QUIZ2_CONFIG.resultSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(QUIZ2_CONFIG.resultSheetName);
+    var headers = ['名前', 'メールアドレス'];
+    for (var i = 1; i <= QUIZ2_CONFIG.correctAnswers.length; i++) headers.push(i + '問目');
+    headers.push('合格/不合格', '最終回答日時');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#f1f5f9');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function findQuiz2ResultRow_(sheet, email) {
+  if (sheet.getLastRow() < 2) return 0;
+  var values = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (normalizeQuiz2Email_(values[i][0]) === email) return i + 2;
+  }
+  return 0;
+}
+
+function normalizeQuiz2Email_(value) {
+  var text = String(value || '');
+  if (text.normalize) text = text.normalize('NFKC');
+  return text.replace(/[\s\u00A0\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+}
+
+function quiz2Output_(payload, callback) {
+  var json = JSON.stringify(payload);
+  if (callback && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)) {
+    return ContentService.createTextOutput(callback + '(' + json + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
