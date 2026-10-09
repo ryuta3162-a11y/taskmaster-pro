@@ -8,10 +8,10 @@
   <title>理解度チェック Vol.2 | To Do List</title>
   <style>
     :root {
-      --ink: #37352f; --ink-2: #57534e; --ink-3: #9b9a97; --line: #e9e9e7; --line-2: #dcdcd9;
-      --bg: #ffffff; --bg-soft: #f7f7f5; --hover: #f1f1ef;
-      --accent: #2383e2; --accent-soft: #e7f1fb;
-      --ok: #0f7b6c; --ok-soft: #dbeddb; --ng: #d44c47; --ng-soft: #fbe4e4; --tag: #f1eafc; --tag-ink: #6940a5;
+      --ink: #111111; --ink-2: #2b2b2b; --ink-3: #5c5c5c; --line: #d9d9d6; --line-2: #c4c4c0;
+      --bg: #ffffff; --bg-soft: #f2f2ef; --hover: #ecebe8;
+      --accent: #1a6fc4; --accent-soft: #e3eefa;
+      --ok: #0b6b5d; --ok-soft: #d6ebd6; --ng: #c0392b; --ng-soft: #fadede; --tag: #ebe2fa; --tag-ink: #5a2f9a;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; }
@@ -34,9 +34,9 @@
     h1 { font-size: 40px; font-weight: 700; letter-spacing: -.01em; margin: 18px 0 14px; line-height: 1.2; }
 
     .props { display: grid; grid-template-columns: 140px 1fr; row-gap: 6px; font-size: 14px; margin-bottom: 8px; max-width: 900px; }
-    .props dt { color: var(--ink-3); display: flex; align-items: center; gap: 6px; padding: 5px 0; }
+    .props dt { color: var(--ink-3); font-weight: 600; display: flex; align-items: center; gap: 6px; padding: 5px 0; }
     .props dd { margin: 0; padding: 5px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .pill { display: inline-block; padding: 1px 8px; border-radius: 4px; background: var(--bg-soft); font-size: 13px; }
+    .pill { display: inline-block; padding: 1px 9px; border-radius: 4px; background: var(--bg-soft); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink); }
     .pill.purple { background: var(--tag); color: var(--tag-ink); }
     .email-row { display: flex; gap: 8px; align-items: center; }
     #email { width: 360px; height: 34px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 6px; background: #fff; outline: none; }
@@ -46,37 +46,37 @@
     .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-primary:hover { background: #1a6fc4; }
     .btn:disabled { opacity: .6; cursor: default; }
-    .msg { margin: 0; font-size: 13px; color: var(--ink-3); min-height: 1.2em; }
+    .msg { margin: 0; font-size: 13.5px; color: var(--ink-3); font-weight: 500; min-height: 1.2em; }
     .msg.is-error { color: var(--ng); font-weight: 600; }
     .msg.is-ok { color: var(--ok); font-weight: 600; }
     hr.divider { border: 0; border-top: 1px solid var(--line); margin: 22px 0 8px; }
 
-    .callout { display: flex; gap: 12px; background: var(--bg-soft); border-radius: 6px; padding: 14px 16px; margin: 18px 0 8px; font-size: 14.5px; color: var(--ink-2); }
+    .callout { display: flex; gap: 12px; background: #fbf3db; border: 1px solid #ecd9a3; border-radius: 6px; padding: 14px 16px; margin: 18px 0 8px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
 
     /* 問題 */
     #questions { padding-bottom: 24px; }
     .q { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; padding: 32px 0; border-bottom: 1px solid var(--line); }
     .q:last-child { border-bottom: 0; }
     .q-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-    .q-num { font-weight: 700; font-size: 13px; color: var(--ink-3); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+    .q-num { font-weight: 800; font-size: 13.5px; color: var(--ink-2); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
     .q-tag { font-size: 12.5px; padding: 1px 8px; border-radius: 4px; background: var(--tag); color: var(--tag-ink); font-weight: 600; }
-    .case { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
-    .case-name { font-weight: 600; font-size: 14.5px; padding: 10px 14px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
+    .case { border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.05); }
+    .case-name { font-weight: 700; color: var(--ink); font-size: 14.5px; padding: 10px 14px; background: var(--bg-soft); border-bottom: 1px solid var(--line); }
     .case-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    .case-table th { width: 32%; text-align: left; font-weight: 500; color: var(--ink-3); padding: 8px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    .case-table td { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+    .case-table th { width: 32%; text-align: left; font-weight: 600; color: var(--ink-3); padding: 8px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .case-table td { font-weight: 600; color: var(--ink); padding: 8px 14px; border-bottom: 1px solid var(--line); }
     .case-table tr:last-child th, .case-table tr:last-child td { border-bottom: 0; }
     .case-table td.is-low { color: var(--ng); font-weight: 700; }
-    .q-scene { margin: 0; font-size: 15px; color: var(--ink-2); line-height: 1.9; }
+    .q-scene { margin: 0; font-size: 15.5px; color: var(--ink-2); line-height: 1.9; font-weight: 500; }
 
     .q-main { border: 0; margin: 0; padding: 0; min-width: 0; }
-    .q-ask { padding: 0; font-size: 19px; font-weight: 700; line-height: 1.6; margin: 26px 0 14px; }
+    .q-ask { padding: 0; font-size: 20px; font-weight: 800; color: var(--ink); line-height: 1.6; margin: 26px 0 14px; }
     .opts { display: grid; gap: 8px; }
-    .opt { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: #fff; transition: background .12s, border-color .12s, box-shadow .12s; }
+    .opt { display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border: 1px solid var(--line-2); border-radius: 8px; cursor: pointer; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.04); transition: background .12s, border-color .12s, box-shadow .12s; }
     .opt:hover { background: var(--hover); }
     .opt input { position: absolute; opacity: 0; pointer-events: none; }
-    .opt-key { flex: none; width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; color: var(--ink-3); background: #fff; margin-top: 1px; }
-    .opt-text { font-size: 15px; line-height: 1.65; }
+    .opt-key { flex: none; width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 800; color: var(--ink-2); background: #fff; margin-top: 1px; }
+    .opt-text { font-size: 15.5px; line-height: 1.65; font-weight: 600; color: var(--ink); }
     .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
     .opt:has(input:checked) .opt-key { background: var(--accent); border-color: var(--accent); color: #fff; }
     .opt:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -84,9 +84,9 @@
     #questions.is-locked .opt:hover { background: #fff; }
     .q.is-wrong .q-ask { color: var(--ng); }
     .q.is-right .q-ask::after { content: '  ✓'; color: var(--ok); }
-    .explain { margin: 12px 0 0; font-size: 14px; border-radius: 6px; padding: 10px 14px; line-height: 1.8; }
+    .explain { margin: 12px 0 0; font-size: 14.5px; font-weight: 600; border-radius: 6px; padding: 10px 14px; line-height: 1.8; }
     .explain.ok { background: var(--ok-soft); color: var(--ok); }
-    .explain.ng { background: var(--ng-soft); color: #9f2f2b; }
+    .explain.ng { background: var(--ng-soft); color: #8e1f15; }
     .explain a { color: inherit; font-weight: 600; }
 
     /* 送信バー */
@@ -94,7 +94,7 @@
     .submit-inner { display: flex; align-items: center; gap: 16px; height: 64px; }
     .progress-track { width: 240px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
     #progress-bar { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s; }
-    .progress-text { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .progress-text { font-size: 14px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
     #submit { margin-left: auto; height: 38px; padding: 0 22px; }
     #submit-msg { max-width: 520px; }
 
@@ -173,6 +173,6 @@
   </form>
 
   <script src="guide-config.js?v=20261009a"></script>
-  <script src="quiz2.js?v=20261009h"></script>
+  <script src="quiz2.js?v=20261009i"></script>
 </body>
 </html>

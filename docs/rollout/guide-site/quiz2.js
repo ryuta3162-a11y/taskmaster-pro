@@ -234,8 +234,7 @@
         q.classList.add('is-wrong');
         q.classList.remove('is-right');
         ex.className = 'explain ng';
-        ex.innerHTML = '不正解です。' + esc(QUESTIONS[qi].explain) +
-          ' <a href="' + QUESTIONS[qi].link + '" target="_blank" rel="noopener">解説を見る</a>';
+        ex.textContent = '不正解です。' + QUESTIONS[qi].explain;
       }
       ex.hidden = false;
     });
